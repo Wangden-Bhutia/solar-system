@@ -25,3 +25,12 @@ Definitions used:
 - Orbital period = sidereal orbit period; animation speeds use these too.
 - Day length = NSSDCA "Length of day" (solar day). Where that differs a lot from the spin (sidereal rotation), both are shown.
 - Moon counts: NSSDCA sheets list Jupiter 95 / Saturn 274, which are older than the NASA Science pages; the app uses the newer NASA Science counts.
+
+## Kid-mode facts
+- "Mars looks red because of rusty dust": https://science.nasa.gov/mars/facts/ (accessed 8 Nov 2026) — "iron minerals in the Martian dirt oxidize, or rust, causing the surface to look red".
+- "About 1,300 Earths could fit inside Jupiter": Jupiter fact sheet volume ratio 1,321.
+- "About 1.3 million Earths could fit inside the Sun": Sun fact sheet volume ratio 1,304,000.
+- "A day on Venus is longer than its year": length of day 2,802 h (≈117 d) vs orbit 224.7 d.
+- "Uranus spins on its side": obliquity 97.77°.
+- "Nearly 300 moons" (Saturn): 293, NASA Science, Aug 2026.
+- All other kid facts restate values in the table above.
