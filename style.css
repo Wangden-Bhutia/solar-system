@@ -1,0 +1,28 @@
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#000005;color:#dfe6ff;font:14px/1.4 system-ui,sans-serif;overflow:hidden;touch-action:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+#labels{position:fixed;inset:0;pointer-events:none}
+.lbl{position:absolute;left:0;top:0;pointer-events:auto;cursor:pointer;font-size:12px;letter-spacing:.04em;color:#cfd8ff;text-shadow:0 0 4px #000;padding:4px 6px;white-space:nowrap;transform:translate(-50%,-150%)}
+#labels.off .lbl{display:none}
+#title{position:fixed;top:calc(env(safe-area-inset-top) + 10px);left:14px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-size:13px;opacity:.85}
+#title span{display:block;font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;opacity:.6}
+#bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 12px);display:flex;gap:6px;align-items:center;background:rgba(12,16,34,.72);backdrop-filter:blur(8px);border:1px solid rgba(140,160,255,.18);border-radius:16px;padding:6px 8px;max-width:calc(100vw - 16px)}
+#bar button{background:none;border:1px solid rgba(140,160,255,.25);color:#dfe6ff;border-radius:10px;min-height:40px;min-width:40px;padding:0 10px;font:inherit;font-size:13px}
+#bar button.on{background:rgba(120,140,255,.22)}
+.speed{display:flex;flex-direction:column;align-items:center;font-size:10px;opacity:.9;min-width:96px}
+.speed input{width:110px;accent-color:#8fa2ff}
+#info{position:fixed;right:12px;top:calc(env(safe-area-inset-top) + 12px);width:250px;background:rgba(12,16,34,.82);backdrop-filter:blur(8px);border:1px solid rgba(140,160,255,.2);border-radius:14px;padding:12px 14px}
+#info h2{margin:0 0 4px;font-size:18px;letter-spacing:.06em}
+#info p{margin:0 0 8px;opacity:.75;font-size:12px}
+#info dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12px}
+#info dt{opacity:.6}#info dd{margin:0;text-align:right}
+#close{position:absolute;top:6px;right:8px;background:none;border:0;color:#dfe6ff;font-size:22px;width:36px;height:36px}
+@media (max-width:600px){
+  #info{left:10px;right:10px;width:auto;top:auto;bottom:calc(env(safe-area-inset-bottom) + 76px)}
+  #bar button{padding:0 8px;font-size:12px}
+  .speed input{width:80px}.speed{min-width:80px}
+}
+@media (max-height:500px){
+  #info{top:10px;bottom:auto;left:auto;right:10px;width:230px;max-height:calc(100vh - 80px);overflow:auto}
+  #title{font-size:11px}
+}
