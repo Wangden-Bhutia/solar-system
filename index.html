@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#000005">
+<title>Solar System</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="labels"></div>
+<header id="title">Solar System <span>sizes &amp; distances not to scale</span></header>
+<aside id="info" hidden>
+  <button id="close" aria-label="Close">×</button>
+  <h2 id="i-name"></h2>
+  <p id="i-blurb"></p>
+  <dl id="i-facts"></dl>
+</aside>
+<nav id="bar">
+  <button id="play" aria-label="Pause">❚❚</button>
+  <label class="speed"><span id="speedTxt">1 yr / 20 s</span>
+    <input id="speed" type="range" min="-2" max="2" step="0.01" value="0" aria-label="Simulation speed"></label>
+  <button id="trails" class="on" aria-pressed="true">Trails</button>
+  <button id="lbls" class="on" aria-pressed="true">Labels</button>
+  <button id="reset">Reset</button>
+  <button id="kidBtn" aria-label="Kid mode">Kids</button>
+</nav>
+<div id="kid-ui">
+  <div id="here" hidden><span>You are here</span></div>
+  <div id="intro"><button id="introStart" class="kbtn big" aria-label="Start">▶️</button></div>
+  <div id="grownup" aria-label="Grown-ups: press and hold"><span>⚙︎</span></div>
+  <button id="k-mute" class="kbtn small"></button>
+  <div id="bubble" hidden><div id="b-pic"></div><p id="b-text"></p></div>
+  <button id="nextGame" class="kbtn" hidden aria-label="Next">▶️</button>
+  <div id="sparkle"></div>
+  <div id="book" hidden><button id="book-close" class="kbtn small" aria-label="Close">✖️</button><div id="book-grid"></div></div>
+  <nav id="kbar">
+    <button id="k-listen" class="kbtn" aria-label="Listen">👂</button>
+    <button id="k-games" class="kbtn" aria-label="Games">🎮</button>
+    <button id="k-stickers" class="kbtn" aria-label="Stickers">⭐</button>
+    <button id="k-home" class="kbtn" aria-label="Home">🏠</button>
+  </nav>
+</div>
+<script type="module" src="kids.js"></script>
+</body>
+</html>
