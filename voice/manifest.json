@@ -1,0 +1,327 @@
+{
+ "intro_1": {
+  "hash": "bba3cff872e0",
+  "dur": 2.28,
+  "text": "This is Earth, our home!"
+ },
+ "intro_2": {
+  "hash": "933ba6d15129",
+  "dur": 2.03,
+  "text": "Earth goes around the Sun."
+ },
+ "intro_3": {
+  "hash": "739f710ecd4d",
+  "dur": 2.09,
+  "text": "Let's explore our neighbours!"
+ },
+ "tap_planet": {
+  "hash": "afb35f37e7a5",
+  "dur": 1.43,
+  "text": "Tap a planet!"
+ },
+ "f_Sun_0": {
+  "hash": "04b04ad6fbfd",
+  "dur": 5.8,
+  "text": "Sun. The Sun is a star! About 1.3 million Earths could fit inside it."
+ },
+ "f_Sun_1": {
+  "hash": "b24d0457fd6c",
+  "dur": 4.67,
+  "text": "Sun. The Sun spins around once in about 25 days."
+ },
+ "f_Mercury_0": {
+  "hash": "c75878057127",
+  "dur": 4.29,
+  "text": "Mercury. Mercury is the closest planet to the Sun."
+ },
+ "f_Mercury_1": {
+  "hash": "a77dca825462",
+  "dur": 5.46,
+  "text": "Mercury. Mercury goes all the way around the Sun in just 88 days."
+ },
+ "f_Mercury_2": {
+  "hash": "6959a5851c1e",
+  "dur": 3.2,
+  "text": "Mercury. Mercury has no moons."
+ },
+ "f_Venus_0": {
+  "hash": "83f5cfaff4e7",
+  "dur": 4.27,
+  "text": "Venus. A day on Venus is longer than its whole year!"
+ },
+ "f_Venus_1": {
+  "hash": "a18f321b8d1c",
+  "dur": 2.82,
+  "text": "Venus. Venus spins backwards."
+ },
+ "f_Venus_2": {
+  "hash": "22cdf168a67f",
+  "dur": 3.01,
+  "text": "Venus. Venus has no moons."
+ },
+ "f_Earth_0": {
+  "hash": "1c342602d2a3",
+  "dur": 2.13,
+  "text": "Earth. Earth is our home!"
+ },
+ "f_Earth_1": {
+  "hash": "d8e1e7206653",
+  "dur": 6.55,
+  "text": "Earth. Earth goes around the Sun once every year. That is 365 days."
+ },
+ "f_Earth_2": {
+  "hash": "7f6b9089d0c4",
+  "dur": 2.28,
+  "text": "Earth. Earth has one Moon."
+ },
+ "f_Mars_0": {
+  "hash": "d92108244154",
+  "dur": 3.69,
+  "text": "Mars. Mars looks red because of rusty dust."
+ },
+ "f_Mars_1": {
+  "hash": "570df68f62e2",
+  "dur": 2.82,
+  "text": "Mars. Mars has two small moons."
+ },
+ "f_Mars_2": {
+  "hash": "5454a1c95f3c",
+  "dur": 4.59,
+  "text": "Mars. A day on Mars is a little longer than a day on Earth."
+ },
+ "f_Jupiter_0": {
+  "hash": "cdcc3ebacfff",
+  "dur": 7.32,
+  "text": "Jupiter. Jupiter is the biggest planet. About 1,300 Earths could fit inside!"
+ },
+ "f_Jupiter_1": {
+  "hash": "0a39edfe4f0c",
+  "dur": 4.46,
+  "text": "Jupiter. A day on Jupiter is only about 10 hours."
+ },
+ "f_Saturn_0": {
+  "hash": "10a9bcfcbf69",
+  "dur": 3.2,
+  "text": "Saturn. Saturn has beautiful rings."
+ },
+ "f_Saturn_1": {
+  "hash": "98e07eb827a0",
+  "dur": 3.88,
+  "text": "Saturn. Saturn has nearly 300 moons!"
+ },
+ "f_Uranus_0": {
+  "hash": "c593ce3b4ecb",
+  "dur": 3.8,
+  "text": "Uranus. Uranus spins tipped over on its side."
+ },
+ "f_Uranus_1": {
+  "hash": "3e29f44441a7",
+  "dur": 4.8,
+  "text": "Uranus. Uranus takes 84 years to go around the Sun."
+ },
+ "f_Neptune_0": {
+  "hash": "379fdbcd18c5",
+  "dur": 4.25,
+  "text": "Neptune. Neptune is the farthest planet from the Sun."
+ },
+ "f_Neptune_1": {
+  "hash": "ffbe7da0d024",
+  "dur": 6.49,
+  "text": "Neptune. Neptune takes about 165 years to go around the Sun."
+ },
+ "f_Neptune_2": {
+  "hash": "7307861c2db4",
+  "dur": 3.14,
+  "text": "Neptune. Neptune has 16 moons."
+ },
+ "ask_red": {
+  "hash": "8d326cfe0a82",
+  "dur": 2.26,
+  "text": "Can you find the red planet?"
+ },
+ "ask_rings": {
+  "hash": "6c6e5691f4ef",
+  "dur": 3.35,
+  "text": "Can you find the planet with big, bright rings?"
+ },
+ "ask_big": {
+  "hash": "7ec2a9f3ebdb",
+  "dur": 2.33,
+  "text": "Can you find the biggest planet?"
+ },
+ "ask_home": {
+  "hash": "3994280b4bf4",
+  "dur": 2.47,
+  "text": "Can you find our home, Earth?"
+ },
+ "ask_sun": {
+  "hash": "afcfbb3f1391",
+  "dur": 1.83,
+  "text": "Can you find the Sun?"
+ },
+ "ask_close": {
+  "hash": "34314e9d1982",
+  "dur": 2.88,
+  "text": "Can you find the planet closest to the Sun?"
+ },
+ "ask_side": {
+  "hash": "19c54321ffd7",
+  "dur": 3.56,
+  "text": "Can you find the planet that spins on its side?"
+ },
+ "ask_far": {
+  "hash": "8a2ce2581567",
+  "dur": 2.97,
+  "text": "Can you find the planet farthest from the Sun?"
+ },
+ "that_Sun": {
+  "hash": "f811d6aab030",
+  "dur": 1.39,
+  "text": "That is Sun."
+ },
+ "yes_Sun": {
+  "hash": "ca9350bb8e14",
+  "dur": 1.75,
+  "text": "Yes! That is Sun!"
+ },
+ "that_Mercury": {
+  "hash": "db1e30085d2a",
+  "dur": 1.71,
+  "text": "That is Mercury."
+ },
+ "yes_Mercury": {
+  "hash": "d0ca00a441f4",
+  "dur": 2.09,
+  "text": "Yes! That is Mercury!"
+ },
+ "that_Venus": {
+  "hash": "7056942c8073",
+  "dur": 1.56,
+  "text": "That is Venus."
+ },
+ "yes_Venus": {
+  "hash": "1819562670ec",
+  "dur": 1.88,
+  "text": "Yes! That is Venus!"
+ },
+ "that_Earth": {
+  "hash": "7a15f7b2ce1c",
+  "dur": 1.49,
+  "text": "That is Earth."
+ },
+ "yes_Earth": {
+  "hash": "00b06de0299f",
+  "dur": 1.83,
+  "text": "Yes! That is Earth!"
+ },
+ "that_Mars": {
+  "hash": "209cdbf179e9",
+  "dur": 1.56,
+  "text": "That is Mars."
+ },
+ "yes_Mars": {
+  "hash": "fb16d35410c8",
+  "dur": 1.92,
+  "text": "Yes! That is Mars!"
+ },
+ "that_Jupiter": {
+  "hash": "38bb4e49f583",
+  "dur": 1.77,
+  "text": "That is Jupiter."
+ },
+ "yes_Jupiter": {
+  "hash": "c4482bcbc673",
+  "dur": 2.18,
+  "text": "Yes! That is Jupiter!"
+ },
+ "that_Saturn": {
+  "hash": "ad10e22b009a",
+  "dur": 1.69,
+  "text": "That is Saturn."
+ },
+ "yes_Saturn": {
+  "hash": "9402df7cb054",
+  "dur": 1.96,
+  "text": "Yes! That is Saturn!"
+ },
+ "that_Uranus": {
+  "hash": "61c4b14ce03f",
+  "dur": 1.71,
+  "text": "That is Uranus."
+ },
+ "yes_Uranus": {
+  "hash": "f69ea7f8482a",
+  "dur": 2.09,
+  "text": "Yes! That is Uranus!"
+ },
+ "that_Neptune": {
+  "hash": "51bfbde6804b",
+  "dur": 1.75,
+  "text": "That is Neptune."
+ },
+ "yes_Neptune": {
+  "hash": "87712d5b9a9d",
+  "dur": 2.05,
+  "text": "Yes! That is Neptune!"
+ },
+ "try_again": {
+  "hash": "032a1760c8e0",
+  "dur": 1.28,
+  "text": "Try again!"
+ },
+ "got_sticker": {
+  "hash": "2e90bdc72bb8",
+  "dur": 1.56,
+  "text": "You got a sticker!"
+ },
+ "well_done": {
+  "hash": "107158550d6e",
+  "dur": 1.15,
+  "text": "Well done!"
+ },
+ "stickers_1": {
+  "hash": "eb8b1bf5d4c0",
+  "dur": 1.86,
+  "text": "You have 1 sticker!"
+ },
+ "stickers_2": {
+  "hash": "4714c457f0d6",
+  "dur": 1.77,
+  "text": "You have 2 stickers!"
+ },
+ "stickers_3": {
+  "hash": "c6f3358b953a",
+  "dur": 1.83,
+  "text": "You have 3 stickers!"
+ },
+ "stickers_4": {
+  "hash": "80f5a390e9a6",
+  "dur": 1.81,
+  "text": "You have 4 stickers!"
+ },
+ "stickers_5": {
+  "hash": "2ee38e2c57da",
+  "dur": 1.77,
+  "text": "You have 5 stickers!"
+ },
+ "stickers_6": {
+  "hash": "45efa0f676d3",
+  "dur": 1.69,
+  "text": "You have 6 stickers!"
+ },
+ "stickers_7": {
+  "hash": "4819031be674",
+  "dur": 1.9,
+  "text": "You have 7 stickers!"
+ },
+ "stickers_8": {
+  "hash": "8c336378bef5",
+  "dur": 1.81,
+  "text": "You have 8 stickers!"
+ },
+ "stickers_0": {
+  "hash": "60640585edd1",
+  "dur": 2.2,
+  "text": "Play Find it to get stickers!"
+ }
+}

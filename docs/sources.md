@@ -46,3 +46,7 @@ Definitions used:
 - Real scale orbit radius = AU × 11,727 units (1 AU = 149,597,870.7 km at the same scale as the sizes) — sizes and distances both true.
 - Moon: true size; its distance is shrunk to 1.5 units by default (true would be 30.1 units, used in Real scale).
 - Kid mode doubles all planet sizes equally (ratios kept) and keeps the Sun at 1/5; small planets get glowing dot markers and a 60 px tap area.
+
+## Voice
+- Kokoro-82M v1.0 TTS model, voice `bm_george` — Apache-2.0 — https://huggingface.co/hexgrad/Kokoro-82M
+- kokoro-onnx runtime — MIT — https://github.com/thewh1teagle/kokoro-onnx
