@@ -14,7 +14,7 @@ const FACTS = {
 };
 const QUESTS = [
   { id: 'red', ask: 'Can you find the red planet?', pic: '🔴', answer: 'Mars', sticker: '🔴' },
-  { id: 'rings', ask: 'Can you find the planet with rings?', pic: '💍', answer: 'Saturn', sticker: '💍' },
+  { id: 'rings', ask: 'Can you find the planet with big, bright rings?', pic: '💍', answer: 'Saturn', sticker: '💍' },
   { id: 'big', ask: 'Can you find the biggest planet?', pic: '🐘', answer: 'Jupiter', sticker: '🐘' },
   { id: 'home', ask: 'Can you find our home, Earth?', pic: '🏠', answer: 'Earth', sticker: '🌍' },
   { id: 'sun', ask: 'Can you find the Sun?', pic: '☀️', answer: 'Sun', sticker: '☀️' },

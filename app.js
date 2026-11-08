@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { SUN, PLANETS, MOON } from './data.js';
+import { tex, rimShell, ringGeometry, saturnRingTex, uranusRingTex, SATURN_RING, URANUS_RING } from './textures.js';
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -29,6 +30,7 @@ controls.enableDamping = true; controls.minDistance = 2; controls.maxDistance = 
 }
 
 scene.add(new THREE.AmbientLight(0x404660, 0.6));
+scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x2a1a10, 0.35));
 scene.add(new THREE.PointLight(0xfff2dd, 3, 0, 0));
 
 function bandTex(hex) {
@@ -49,7 +51,8 @@ function addLabel(body) {
 }
 
 // Sun
-const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(SUN.size, 48, 32), new THREE.MeshBasicMaterial({ color: SUN.color }));
+const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(SUN.size, 48, 32), new THREE.MeshBasicMaterial({ map: tex('Sun') }));
+sunMesh.add(rimShell(SUN.size * 1.03, 0xffb347, 1.6, 1.2));
 scene.add(sunMesh);
 const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: (() => {
   const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d');
@@ -64,14 +67,21 @@ bodies.push(sunBody); addLabel(sunBody);
 const TRAIL_N = 160;
 for (const d of PLANETS) {
   const pivot = new THREE.Object3D(); scene.add(pivot);
-  const mat = new THREE.MeshStandardMaterial({ color: d.bands ? 0xffffff : d.color, map: d.bands ? bandTex(d.color) : null, roughness: 1 });
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(d.size, 40, 24), mat);
-  mesh.rotation.z = THREE.MathUtils.degToRad(d.tilt);
-  pivot.add(mesh);
+  const t = tex(d.name), tx = t.map ? t : { map: t };
+  const mat = new THREE.MeshStandardMaterial({ map: tx.map, bumpMap: tx.bump || null, bumpScale: tx.bump ? 2 : 0, roughness: 0.85, metalness: 0 });
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(d.size, 48, 32), mat);
+  // Real axial tilt: tilt group holds the spinning mesh (obliquity > 90° makes Venus/Uranus spin retrograde)
+  const tiltG = new THREE.Object3D(); tiltG.rotation.z = THREE.MathUtils.degToRad(d.tilt);
+  pivot.add(tiltG); tiltG.add(mesh);
+  mesh.add(rimShell(d.size * 1.035, d.rim || d.color, 2.6, d.name === 'Earth' ? 1.1 : 0.55, 32));
+  if (d.name === 'Earth') {
+    const cl = new THREE.Mesh(new THREE.SphereGeometry(d.size * 1.012, 48, 32), new THREE.MeshStandardMaterial({ map: tex('EarthClouds'), transparent: true, depthWrite: false, roughness: 1 }));
+    mesh.add(cl); mesh.userData.clouds = cl;
+  }
   if (d.rings) {
-    const rg = new THREE.RingGeometry(d.size * 1.3, d.size * 2.3, 64);
-    const ring = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xcdbb8e, side: THREE.DoubleSide, transparent: true, opacity: 0.55 }));
-    ring.rotation.x = Math.PI / 2; mesh.add(ring);
+    const R = d.name === 'Uranus' ? URANUS_RING : SATURN_RING;
+    const ring = new THREE.Mesh(ringGeometry(d.size * R.inner, d.size * R.outer), new THREE.MeshBasicMaterial({ map: d.name === 'Uranus' ? uranusRingTex() : saturnRingTex(), side: THREE.DoubleSide, transparent: true, depthWrite: false, color: 0xdddddd }));
+    ring.rotation.x = Math.PI / 2; tiltG.add(ring); mesh.userData.ring = ring;
   }
   // Static orbit line
   const op = []; for (let i = 0; i <= 128; i++) { const a = i / 128 * Math.PI * 2; op.push(Math.cos(a) * d.dist, 0, Math.sin(a) * d.dist); }
@@ -86,7 +96,7 @@ for (const d of PLANETS) {
   const body = { data: d, pivot, mesh, trail, radius: d.size, angle: Math.random() * Math.PI * 2 };
   if (d.moon) {
     const mp = new THREE.Object3D(); pivot.add(mp);
-    const mm = new THREE.Mesh(new THREE.SphereGeometry(MOON.size, 20, 12), new THREE.MeshStandardMaterial({ color: 0xbbbbbb, roughness: 1 }));
+    const mm = new THREE.Mesh(new THREE.SphereGeometry(MOON.size, 20, 12), new THREE.MeshStandardMaterial({ map: tex('Moon').map, bumpMap: tex('Moon').bump, bumpScale: 1.5, roughness: 0.95 }));
     mm.position.x = MOON.dist; mp.add(mm); body.moonPivot = mp;
   }
   bodies.push(body); addLabel(body);
@@ -190,8 +200,10 @@ function frame(now) {
   if (playing) simDays += dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidSlow;
   placeBodies();
   for (const b of bodies) {
-    const hours = b.data.rot;
-    b.mesh.rotation.y += playing ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * 24 / hours * 0.02 * Math.PI * 2 : 0;
+    const hours = Math.abs(b.data.rot); // direction comes from the tilt (Venus 177°, Uranus 98°)
+    const spin = playing ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidSlow * 24 / hours * 0.02 * Math.PI * 2 : 0;
+    b.mesh.rotation.y += spin;
+    if (b.mesh.userData.clouds) b.mesh.userData.clouds.rotation.y += spin * 0.15 + dt * 0.01;
   }
   updateTrails();
 
@@ -241,6 +253,7 @@ export function setKid(on, opts = {}) {
   for (const b of bodies) {
     const k = on && b.pivot ? Math.max(2.2, 2 / b.data.size) : 1;
     b.mesh.scale.setScalar(k); b.radius = b.data.size * k;
+    if (b.mesh.userData.ring) b.mesh.userData.ring.scale.setScalar(k);
     if (b.trail) b.trail.visible = !on && trailsOn;
     if (b.moonPivot) { const m = b.moonPivot.children[0]; m.scale.setScalar(on ? 2 : 1); m.position.x = on ? b.radius + 1.4 : MOON.dist; }
   }
