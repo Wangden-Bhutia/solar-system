@@ -186,7 +186,7 @@ function frame(now) {
   if (playing) simDays += dt * BASE_DAYS_PER_SEC * 10 ** speedExp;
   placeBodies();
   for (const b of bodies) {
-    const hours = b.data.rot || 600; // Sun ~25 d
+    const hours = b.data.rot;
     b.mesh.rotation.y += playing ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * 24 / hours * 0.02 * Math.PI * 2 : 0;
   }
   updateTrails();
