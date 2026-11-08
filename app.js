@@ -94,7 +94,7 @@ for (const d of PLANETS) {
 
 // Simulation state
 let playing = true, speedExp = 0, trailsOn = true, focused = null;
-export const hooks = { kid: false, onFocus: null };
+export const hooks = { kid: false, onFocus: null, intercept: null, focusMul: 0, here: false };
 const BASE_DAYS_PER_SEC = 365.26 / 20; // 1 Earth year per 20 s at 1x
 let simDays = 0;
 const fly = { t: 1, fromPos: new THREE.Vector3(), fromTgt: new THREE.Vector3(), dur: 1.2 };
@@ -125,17 +125,18 @@ function updateTrails() {
 
 // Focus / info
 const info = document.getElementById('info');
-function focus(b) {
-  focused = b;
+function focus(b, opts = {}) {
+  if (!opts.silent && hooks.intercept && hooks.intercept(b)) return;
+  focused = b; fly.dur = opts.dur || 1.2; hooks.focusMul = opts.mul || 0; hooks.outside = !!opts.outside;
   fly.fromPos.copy(camera.position); fly.fromTgt.copy(controls.target); fly.t = 0;
   document.getElementById('i-name').textContent = b.data.name;
   document.getElementById('i-blurb').textContent = b.data.blurb;
   document.getElementById('i-facts').innerHTML = b.data.facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
   info.hidden = hooks.kid;
-  if (hooks.onFocus) hooks.onFocus(b);
+  if (!opts.silent && hooks.onFocus) hooks.onFocus(b);
 }
-function unfocus(goHome) {
-  focused = null; info.hidden = true;
+function unfocus(goHome, dur) {
+  focused = null; info.hidden = true; fly.dur = dur || 1.2;
   if (goHome) { fly.fromPos.copy(camera.position); fly.fromTgt.copy(controls.target); fly.t = 0; fly.home = true; }
 }
 document.getElementById('close').onclick = () => unfocus(false);
@@ -199,9 +200,9 @@ function frame(now) {
     let tgt, pos;
     if (focused) {
       tgt = focused.mesh.getWorldPosition(tmp).clone();
-      const dir = fly.fromPos.clone().sub(tgt).normalize();
+      const dir = hooks.outside ? (() => { const sw = tgt.clone().setY(0).normalize().negate(); return sw.multiplyScalar(0.8).add(new THREE.Vector3(-sw.z / 0.8, 0, sw.x / 0.8).multiplyScalar(0.6)).normalize(); })() : fly.fromPos.clone().sub(tgt).normalize();
       dir.y = Math.max(dir.y, 0.35); dir.normalize();
-      pos = tgt.clone().add(dir.multiplyScalar(focused.radius * (innerWidth < innerHeight ? 9 : 6)));
+      pos = tgt.clone().add(dir.multiplyScalar(focused.radius * (hooks.focusMul || (innerWidth < innerHeight ? 9 : 6))));
     } else { tgt = HOME.target; pos = HOME.pos; }
     controls.target.lerpVectors(fly.fromTgt, tgt, k);
     camera.position.lerpVectors(fly.fromPos, pos, k);
@@ -221,12 +222,19 @@ function frame(now) {
     b.label.style.visibility = vis ? 'visible' : 'hidden';
     if (vis) b.label.style.transform = `translate(${(p.x + 1) / 2 * innerWidth}px,${(1 - p.y) / 2 * innerHeight}px) translate(-50%,-150%)`;
   }
+  // "You are here" marker on Earth (kid overview only)
+  const earth = bodies.find(b => b.data.name === 'Earth');
+  const hp = earth.mesh.getWorldPosition(tmp).project(camera);
+  const showHere = hooks.kid && hooks.here && !focused && fly.t >= 1 && hp.z < 1;
+  hereEl.hidden = !showHere;
+  if (showHere) hereEl.style.transform = `translate(${(hp.x + 1) / 2 * innerWidth}px,${(1 - hp.y) / 2 * innerHeight}px)`;
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+const hereEl = document.getElementById('here');
 const ambient = scene.children.find(o => o.isAmbientLight);
-export function setKid(on) {
+export function setKid(on, opts = {}) {
   hooks.kid = on;
   document.body.classList.toggle('kid', on);
   ambient.intensity = on ? 1.6 : 0.6;
@@ -234,11 +242,13 @@ export function setKid(on) {
     const k = on && b.pivot ? Math.max(2.2, 2 / b.data.size) : 1;
     b.mesh.scale.setScalar(k); b.radius = b.data.size * k;
     if (b.trail) b.trail.visible = !on && trailsOn;
+    if (b.moonPivot) { const m = b.moonPivot.children[0]; m.scale.setScalar(on ? 2 : 1); m.position.x = on ? b.radius + 1.4 : MOON.dist; }
   }
   trailsHidden = on;
   resize();
-  unfocus(true);
+  if (!opts.noHome) unfocus(true);
 }
 let trailsHidden = false;
-export { bodies, focus, unfocus };
+export { bodies, focus, unfocus, camera, controls };
 window.__solar = { focusByName: n => focus(bodies.find(b => b.data.name === n)), setKid };
+window.__cam = () => [camera.position.toArray().map(v => +v.toFixed(3)), controls.target.toArray().map(v => +v.toFixed(3))];

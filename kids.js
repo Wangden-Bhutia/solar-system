@@ -59,6 +59,13 @@ function showBubble(pic, text, color) {
   bText.textContent = text; bubble.hidden = false;
 }
 
+hooks.intercept = b => {
+  if (!hooks.kid || !game || b.data.name === game.answer) return false;
+  chime([440]);
+  const msg = `That is ${b.data.name}. Try again!`;
+  showBubble(game.pic, `${msg} ${game.ask}`); say(`${msg} ${game.ask}`);
+  return true; // camera stays put
+};
 hooks.onFocus = b => {
   if (!hooks.kid) return;
   const name = b.data.name;
@@ -87,11 +94,6 @@ function answer(b) {
     const msg = `Yes! That is ${b.data.name}! ${fresh ? 'You got a sticker!' : 'Well done!'}`;
     showBubble(game.sticker, msg, colorOf(b)); say(msg);
     game = null; $('nextGame').hidden = false;
-  } else {
-    chime([440]);
-    const msg = `That is ${b.data.name}. Try again!`;
-    showBubble(game.pic, `${msg} ${game.ask}`); say(`${msg} ${game.ask}`);
-    unfocus(false);
   }
 }
 function sparkle(emoji) {
@@ -119,8 +121,33 @@ paintMute();
 const corner = $('grownup'); let holdT = null;
 corner.addEventListener('pointerdown', e => { e.preventDefault(); corner.classList.add('holding'); holdT = setTimeout(() => { corner.classList.remove('holding'); enterGrownup(); }, 2000); });
 ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => corner.addEventListener(ev, () => { clearTimeout(holdT); corner.classList.remove('holding'); }));
-function enterGrownup() { game = null; bubble.hidden = true; $('book').hidden = true; $('nextGame').hidden = true; if ('speechSynthesis' in window) speechSynthesis.cancel(); setKid(false); }
-$('kidBtn').onclick = () => setKid(true);
+function enterGrownup() { introTimers.forEach(clearTimeout); introOn = false; intro.hidden = true; document.body.classList.remove('intro'); game = null; bubble.hidden = true; $('book').hidden = true; $('nextGame').hidden = true; if ('speechSynthesis' in window) speechSynthesis.cancel(); setKid(false); }
 
-setKid(true);
-window.__kids = { store, QUESTS, startQuest: id => { game = QUESTS.find(q => q.id === id); showBubble(game.pic, game.ask); say(game.ask); }, enterGrownup };
+// Earth-first opening
+const earthBody = () => bodies.find(b => b.data.name === 'Earth');
+const intro = $('intro'); let introTimers = [], introOn = false;
+function startCloseOnEarth() {
+  setKid(true, { noHome: true });
+  hooks.here = false; document.body.classList.add('intro');
+  focus(earthBody(), { silent: true, mul: innerWidth < innerHeight ? 7 : 4.5, dur: 0.01, outside: true });
+}
+function introStep(fn, ms) { introTimers.push(setTimeout(fn, ms)); }
+function playIntro() {
+  intro.hidden = true; introOn = true;
+  const a = 'This is Earth, our home!'; chime(); showBubble('🌍', a, '#3f7fe0'); say(a);
+  introStep(() => { const t = 'Earth goes around the Sun.'; showBubble('☀️', t); say(t); }, 3500);
+  introStep(() => { bubble.hidden = true; unfocus(true, 5); }, 6500);
+  introStep(endIntro, 11800);
+}
+function endIntro() {
+  introTimers.forEach(clearTimeout); introTimers = [];
+  if (!introOn) return; introOn = false;
+  document.body.classList.remove('intro'); hooks.here = true;
+  const t = "Let's explore our neighbours!"; showBubble('🚀', t); say(t);
+}
+function skipIntro() { if (!introOn) return; introTimers.forEach(clearTimeout); introTimers = []; unfocus(true, 1.2); setTimeout(() => { introOn = true; endIntro(); }, 1300); introOn = false; }
+$('introStart').onclick = e => { e.stopPropagation(); playIntro(); };
+addEventListener('pointerdown', e => { if (introOn && !e.target.closest('#grownup')) skipIntro(); });
+$('kidBtn').onclick = () => { setKid(true); hooks.here = true; };
+startCloseOnEarth();
+window.__kids = { store, playIntro, QUESTS, startQuest: id => { game = QUESTS.find(q => q.id === id); showBubble(game.pic, game.ask); say(game.ask); }, enterGrownup };

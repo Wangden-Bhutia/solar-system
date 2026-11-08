@@ -61,3 +61,13 @@ body.kid #bar,body.kid #title,body.kid #labels,body.kid #info{display:none!impor
 }
 @media (prefers-reduced-motion:reduce){#sparkle.go{animation-duration:.01s}}
 [hidden]{display:none!important}
+#here{position:fixed;left:0;top:0;pointer-events:none}
+#here span{position:absolute;transform:translate(-50%,-260%);white-space:nowrap;background:rgba(255,255,255,.9);color:#1a1f3d;font-size:13px;font-weight:600;padding:3px 9px;border-radius:12px}
+#here span::after{content:'';position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-bottom:0;border-top-color:rgba(255,255,255,.9)}
+#intro{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 40px);transform:translateX(-50%)}
+.kbtn.big{width:110px;height:110px;font-size:52px;border-radius:36px;background:rgba(63,127,224,.85);box-shadow:0 0 0 8px rgba(63,127,224,.25)}
+body.intro #kbar,body.intro #nextGame{display:none}
+#book{background:rgba(70,84,150,.96)}
+.slot{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.35);color:rgba(255,255,255,.55)}
+.slot.got{background:rgba(255,240,200,.85)}
+@media (max-height:500px){#intro{left:auto;right:30px;transform:none;bottom:24px}}
