@@ -22,7 +22,7 @@ jobs:
       - name: Build site folder
         run: |
           mkdir -p _site
-          cp -r index.html style.css app.js data.js kids.js textures.js vendor _site/
+          cp -r index.html style.css app.js data.js kids.js textures.js land.js vendor _site/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
