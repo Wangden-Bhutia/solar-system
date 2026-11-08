@@ -94,6 +94,7 @@ for (const d of PLANETS) {
 
 // Simulation state
 let playing = true, speedExp = 0, trailsOn = true, focused = null;
+export const hooks = { kid: false, onFocus: null };
 const BASE_DAYS_PER_SEC = 365.26 / 20; // 1 Earth year per 20 s at 1x
 let simDays = 0;
 const fly = { t: 1, fromPos: new THREE.Vector3(), fromTgt: new THREE.Vector3(), dur: 1.2 };
@@ -109,7 +110,7 @@ function placeBodies() {
 function updateTrails() {
   for (const b of bodies) {
     if (!b.trail) continue;
-    b.trail.visible = trailsOn; if (!trailsOn) continue;
+    b.trail.visible = trailsOn && !hooks.kid; if (!b.trail.visible) continue;
     const pos = b.trail.geometry.attributes.position, col = b.trail.geometry.attributes.color;
     const span = Math.min(0.35, 0.35) * Math.PI * 2; // trail covers ~35% of orbit
     const base = b.angle + (simDays / b.data.period) * Math.PI * 2, c = new THREE.Color(b.data.color);
@@ -130,7 +131,8 @@ function focus(b) {
   document.getElementById('i-name').textContent = b.data.name;
   document.getElementById('i-blurb').textContent = b.data.blurb;
   document.getElementById('i-facts').innerHTML = b.data.facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
-  info.hidden = false;
+  info.hidden = hooks.kid;
+  if (hooks.onFocus) hooks.onFocus(b);
 }
 function unfocus(goHome) {
   focused = null; info.hidden = true;
@@ -145,7 +147,7 @@ canvas.addEventListener('pointerup', e => {
   ndc.set(e.clientX / innerWidth * 2 - 1, -e.clientY / innerHeight * 2 + 1);
   ray.setFromCamera(ndc, camera);
   // Generous hit test: nearest body whose screen-space distance is small
-  let best = null, bestD = 28;
+  let best = null, bestD = hooks.kid ? 60 : 28;
   for (const b of bodies) {
     const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera);
     const d = Math.hypot((p.x - ndc.x) * innerWidth / 2, (p.y - ndc.y) * innerHeight / 2);
@@ -173,7 +175,7 @@ document.getElementById('reset').onclick = () => unfocus(true);
 function resize() {
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false); camera.aspect = w / h;
-  HOME.pos.set(0, 45, 75).multiplyScalar(w / h < 1 ? 1.9 : 1);
+  HOME.pos.set(0, 45, 75).multiplyScalar((w / h < 1 ? 1.9 : 1) * (hooks.kid ? 0.8 : 1));
   camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize); resize(); camera.position.copy(HOME.pos);
@@ -183,7 +185,8 @@ const tmp = new THREE.Vector3(), prevFocus = new THREE.Vector3();
 let last = performance.now();
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
-  if (playing) simDays += dt * BASE_DAYS_PER_SEC * 10 ** speedExp;
+  const kidSlow = hooks.kid ? 0.25 : 1;
+  if (playing) simDays += dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidSlow;
   placeBodies();
   for (const b of bodies) {
     const hours = b.data.rot;
@@ -222,4 +225,20 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-window.__solar = { focusByName: n => focus(bodies.find(b => b.data.name === n)) };
+const ambient = scene.children.find(o => o.isAmbientLight);
+export function setKid(on) {
+  hooks.kid = on;
+  document.body.classList.toggle('kid', on);
+  ambient.intensity = on ? 1.6 : 0.6;
+  for (const b of bodies) {
+    const k = on && b.pivot ? Math.max(2.2, 2 / b.data.size) : 1;
+    b.mesh.scale.setScalar(k); b.radius = b.data.size * k;
+    if (b.trail) b.trail.visible = !on && trailsOn;
+  }
+  trailsHidden = on;
+  resize();
+  unfocus(true);
+}
+let trailsHidden = false;
+export { bodies, focus, unfocus };
+window.__solar = { focusByName: n => focus(bodies.find(b => b.data.name === n)), setKid };

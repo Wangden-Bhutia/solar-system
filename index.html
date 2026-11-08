@@ -24,7 +24,22 @@
   <button id="trails" class="on" aria-pressed="true">Trails</button>
   <button id="lbls" class="on" aria-pressed="true">Labels</button>
   <button id="reset">Reset</button>
+  <button id="kidBtn" aria-label="Kid mode">Kids</button>
 </nav>
-<script type="module" src="app.js"></script>
+<div id="kid-ui">
+  <div id="grownup" aria-label="Grown-ups: press and hold"><span>⚙︎</span></div>
+  <button id="k-mute" class="kbtn small"></button>
+  <div id="bubble" hidden><div id="b-pic"></div><p id="b-text"></p></div>
+  <button id="nextGame" class="kbtn" hidden aria-label="Next">▶️</button>
+  <div id="sparkle"></div>
+  <div id="book" hidden><button id="book-close" class="kbtn small" aria-label="Close">✖️</button><div id="book-grid"></div></div>
+  <nav id="kbar">
+    <button id="k-listen" class="kbtn" aria-label="Listen">👂</button>
+    <button id="k-games" class="kbtn" aria-label="Games">🎮</button>
+    <button id="k-stickers" class="kbtn" aria-label="Stickers">⭐</button>
+    <button id="k-home" class="kbtn" aria-label="Home">🏠</button>
+  </nav>
+</div>
+<script type="module" src="kids.js"></script>
 </body>
 </html>
