@@ -1,5 +1,11 @@
 // Procedural, stylised planet textures (generated at load; no image files).
 import * as THREE from './vendor/three.module.min.js';
+import { LAND_W, LAND_H, LAND_B64 } from './land.js';
+const LAND = Uint8Array.from(atob(LAND_B64), ch => ch.charCodeAt(0));
+const landBit = (x, y) => { x = ((x % LAND_W) + LAND_W) % LAND_W; y = Math.min(LAND_H - 1, Math.max(0, y)); const k = y * LAND_W + x; return (LAND[k >> 3] >> (k & 7)) & 1; };
+// Bilinear sample of the land mask at texture coords u,v in [0,1)
+function landAt(u, v) { const fx = u * LAND_W - 0.5, fy = v * LAND_H - 0.5, x = Math.floor(fx), y = Math.floor(fy), tx = fx - x, ty = fy - y;
+  return (landBit(x, y) * (1 - tx) + landBit(x + 1, y) * tx) * (1 - ty) + (landBit(x, y + 1) * (1 - tx) + landBit(x + 1, y + 1) * tx) * ty; }
 
 // ---- seeded 3D value noise ----
 function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
@@ -80,10 +86,13 @@ const gen = {
     }).map;
   },
   Earth() {
-    return paint(768, 384, (x, y, z, lat) => {
-      const n = fbm(x * 1.8 + 3, y * 1.8, z * 1.8, 6) + 0.08 * fbm(x * 9, y * 9, z * 9, 3);
+    // Real coastlines from Natural Earth (land.js); noise only adds texture/colour variation.
+    return paint(768, 384, (x, y, z, lat, lon, i, j) => {
+      const land = landAt((i + 0.5) / 768, (j + 0.5) / 384) + fbm(x * 14, y * 14, z * 14, 2) * 0.25;
+      const n = 0.02 + Math.max(0, fbm(x * 3 + 3, y * 3, z * 3, 5)) * 0.6 + (land - 0.5) * 0.3;
       const alat = Math.abs(lat) * 180 / Math.PI; let c;
-      if (n < 0.02) { // ocean
+      if (land < 0.5) { // ocean (shallower near coasts)
+        const n = -0.25 + land * 0.5;
         c = mix(hex(0x0b3d91), hex(0x2f8fd8), smooth(-0.25, 0.02, n)); c.h = 0.35;
       } else {
         const dry = smooth(10, 30, alat) * (1 - smooth(35, 55, alat)) * smooth(-0.1, 0.25, fbm(x * 6, y * 6, z * 6, 3));
