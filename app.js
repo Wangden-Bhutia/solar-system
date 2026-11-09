@@ -245,9 +245,6 @@ toggle('trails', on => { trailsOn = on; });
 toggle('lbls', on => labelsEl.classList.toggle('off', !on));
 document.getElementById('reset').onclick = () => unfocus(true);
 
-// Overview framing: the closest camera distance (along a fixed viewing direction)
-// at which every orbit ring, sampled around its full circle, sits inside the
-// frustum with a margin. Works for portrait and landscape aspects.
 // Overview framing. Portrait screens are narrow, so by default they get a steeper view framed on
 // the inner Solar System (Mercury to Mars, so they are legible and tappable); "All planets" frames every
 // orbit. Landscape defaults to all planets. The camera distance is fitted so the framed orbit,
@@ -266,7 +263,7 @@ export function fitHomeDistance(radius, fovDeg, aspect, direction = HOME_DIRECTI
   for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
   return hi;
 }
-let lastPortrait = null, chosenScope = null, lastHome = null;
+let chosenScope = null, lastHome = null;
 export function homeRadius(scope) {
   // 'inner': the rocky planets, Mercury to Mars (all within 2 AU).
   const list = scope === 'inner' ? PLANETS.filter(p => p.au < 2) : PLANETS;
@@ -287,7 +284,7 @@ function resize() {
   // mobile URL bar showing or hiding do not move the camera.
   const moved = lastHome && (lastHome.angleTo(HOME.pos) > .05 || Math.abs(HOME.pos.length() / lastHome.length() - 1) > .12);
   if (moved && !focused && controls.target.length() < 1e-6) unfocus(true, .6);
-  lastHome = HOME.pos.clone(); lastPortrait = portrait;
+  lastHome = HOME.pos.clone();
 }
 export function setHomeScope(scope) { chosenScope = scope; resize(); unfocus(true, 1.2); }
 addEventListener('resize', resize); resize(); camera.position.copy(HOME.pos);
