@@ -7,9 +7,9 @@ async function setup(width=390,height=844,stored={}){
  const sheetHeights={closed:0,peek:190,half:height*.52,full:height-80};
  const sheet=document.getElementById('sheet');sheet.getBoundingClientRect=()=>{const h=sheetHeights[sheet.dataset.state];return {left:0,top:height-h,width,height:h};};
  document.getElementById('stage').getBoundingClientRect=()=>({left:0,top:0,width,height});
- const hooks={},focuses=[],updates=[],renders=[],played=[],storage={...stored};let unlocks=0,stops=0;
+ const hooks={homeScope:'inner'},focuses=[],updates=[],renders=[],played=[],storage={...stored};let unlocks=0,stops=0;
  const bodies=[SUN,...PLANETS,MOON].map(data=>({data}));const controls={};
- const app={hooks,bodies,controls,renderer:{},focus(b,opts={}){focuses.push([b.data.name,opts]);if(!opts.silent)hooks.onFocus?.(b);},unfocus(){focuses.push(['overview']);}};
+ const app={hooks,bodies,controls,renderer:{},focus(b,opts={}){focuses.push([b.data.name,opts]);if(!opts.silent)hooks.onFocus?.(b);},unfocus(){focuses.push(['overview']);},setHomeScope(scope){hooks.homeScope=scope;focuses.push(['overview:'+scope]);}};
  const audio={createVoicePlayer:({onState})=>({unlock(){unlocks++;},stop(){stops++;onState('idle');},say(id){assert.ok(lines.LINES[id],id);played.push(id);onState('speaking');return Promise.resolve();}})};
  const mods={'./app.js':app,'./science.js':science,'./lab-state.js':state,'./sheet.js':sheetMod,'./insights.js':insights,'./voice/lines.js':lines,'./voice-player.js':audio,'./experiments.js':{createExperiments:()=>({update(s){updates.push(s);},render(w,h,v){renders.push([w,h,v]);}})}};
  const context=vm.createContext({document,window:{},console,innerWidth:width,innerHeight:height,addEventListener(){},setTimeout,localStorage:{getItem:k=>storage[k]??null,setItem:(k,v)=>storage[k]=v}});
@@ -20,18 +20,19 @@ async function setup(width=390,height=844,stored={}){
 test('starts on the whole-system overview: sheet closed and inert, first-time hint shown, nothing autoplays',async()=>{
  const a=await setup();assert.equal(a.sheet,'closed');assert.equal(a.$('sheet').getAttribute('aria-hidden'),'true');assert.equal(a.$('sheet').inert,true);
  assert.equal(a.$('hint').hidden,false);assert.deepEqual([...a.focuses.map(f=>f[0])],['overview'],'opens on the whole-system overview, not a close-up of Earth');assert.equal(a.played.length,0);
- assert.equal(a.$('back').textContent,'Overview');
+ assert.equal(a.$('back').textContent,'All planets');
  assert.deepEqual({...a.hooks.visible(390,844)},{width:390,height:844});
 });
 test('tap-to-select glides to the world and slides up a peek card with name, striking fact and contextual action',async()=>{
  const a=await setup();a.tap('Moon');
  assert.equal(a.sheet,'peek');assert.equal(a.$('sheet').inert,false);assert.equal(a.$('title').textContent,'Moon');
  assert.equal(a.$('fact').textContent,insights.STRIKING.Moon);assert.equal(a.$('action').textContent,'Explore the phases');
- assert.equal(a.$('hint').hidden,true);assert.equal(a.storage['solar.hint.v1'],'seen');
+ assert.equal(a.$('hint').hidden,true);
  assert.equal(a.focuses.at(-1)[0],'Moon');assert.equal(a.$('back').textContent,'← Back');
  assert.deepEqual(a.hooks.visible(390,844),{width:390,height:654});
  a.tap('Earth');assert.equal(a.$('action').textContent,'Why do seasons happen?');assert.match(a.$('fact').textContent,/23\.4°/);
- const again=await setup(390,844,{'solar.hint.v1':'seen'});assert.equal(again.$('hint').hidden,true);
+ a.hooks.onEmpty();assert.equal(a.sheet,'closed');assert.equal(a.$('hint').hidden,true,'stays dismissed for this visit');
+ const again=await setup(390,844,{'solar.hint.v1':'seen'});assert.equal(again.$('hint').hidden,false,'an old stored flag no longer hides it on a new visit');
 });
 test('grip buttons, keyboard and swipes expand to full details and collapse; empty tap closes',async()=>{
  const a=await setup();a.tap('Mars');
@@ -78,9 +79,10 @@ test('Explore / Try it / Compare live inside the sheet; experiments stay half-op
  // Swiping a lab down from half returns to its world card rather than hiding controls over the scene.
  a.lab.setSheet(sheetMod.swipe(a.lab.state.value,'down'));assert.equal(a.lab.state.value.view,'explore');assert.equal(a.sheet,'peek');
 });
-test('Back with the card closed, and the menu overview, both return to the whole Solar System',async()=>{
- const a=await setup();a.tap('Jupiter');a.hooks.onEmpty();assert.equal(a.$('back').textContent,'Overview');
- a.$('back').onclick();assert.equal(a.lab.state.value.feature,'orbit');assert.deepEqual(a.focuses.at(-1),['overview']);assert.equal(a.sheet,'closed');
+test('Back with the card closed switches inner planets ↔ all planets; menu overview returns to the Solar System',async()=>{
+ const a=await setup();a.tap('Jupiter');assert.equal(a.$('back').textContent,'← Back');a.hooks.onEmpty();assert.equal(a.$('back').textContent,'All planets');
+ a.$('back').onclick();assert.deepEqual(a.focuses.at(-1),['overview:all']);assert.equal(a.sheet,'closed');assert.equal(a.$('back').textContent,'Inner planets');
+ a.$('back').onclick();assert.deepEqual(a.focuses.at(-1),['overview:inner']);assert.equal(a.$('back').textContent,'All planets');
  a.tap('Venus');a.$('reset').dispatchEvent(new a.document.defaultView.Event('click'));assert.equal(a.sheet,'closed');assert.deepEqual(a.focuses.at(-1),['overview']);
 });
 test('every world has a working card, contextual action, facts and external source',async()=>{

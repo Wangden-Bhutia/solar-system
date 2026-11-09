@@ -5,7 +5,7 @@ import * as THREE from '../vendor/three.module.min.js';import * as data from '..
 test('Moon is independently focusable; kid/default/real scale keep radius ratios and correct parent distances',async()=>{
   function element(){return {style:{},getBoundingClientRect(){return {width:320,height:311,left:12,top:120};},value:'0',classList:{add(){},toggle(){}},addEventListener(){},appendChild(){},setAttribute(){},getContext(){return {createRadialGradient(){return {addColorStop(){}};},fillRect(){}};}};}
   const els={};let frame;
-  const context=vm.createContext({document:{getElementById:id=>els[id]||=element(),createElement:element,body:element()},window:{},innerWidth:320,innerHeight:740,devicePixelRatio:2,performance,addEventListener(){},requestAnimationFrame:fn=>{frame=fn;},console});
+  const context=vm.createContext({document:{getElementById:id=>els[id]||=element(),createElement:element,body:element(),addEventListener(){}},window:{},innerWidth:320,innerHeight:740,devicePixelRatio:2,performance,addEventListener(){},requestAnimationFrame:fn=>{frame=fn;},console});
   class Renderer{setPixelRatio(){}setSize(){}render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}}
   class Controls{constructor(camera){this.camera=camera;this.target=new THREE.Vector3();}update(){this.camera.lookAt(this.target);}}
   const three={...THREE,WebGLRenderer:Renderer};
@@ -28,7 +28,7 @@ test('Moon is independently focusable; kid/default/real scale keep radius ratios
 async function loadScene(width=390,height=844){
   function element(){return {style:{},getBoundingClientRect(){return {width,height,left:0,top:0};},value:'0',classList:{add(){},toggle(){}},addEventListener(){},appendChild(){},setAttribute(){},getContext(){return {createRadialGradient(){return {addColorStop(){}};},fillRect(){}};}};}
   const els={};let frame;
-  const context=vm.createContext({document:{getElementById:id=>els[id]||=element(),createElement:element,body:element()},window:{},innerWidth:width,innerHeight:height,devicePixelRatio:2,performance,addEventListener(){},requestAnimationFrame:fn=>{frame=fn;},console});
+  const context=vm.createContext({document:{getElementById:id=>els[id]||=element(),createElement:element,body:element(),addEventListener(){}},window:{},innerWidth:width,innerHeight:height,devicePixelRatio:2,performance,addEventListener(){},requestAnimationFrame:fn=>{frame=fn;},console});
   class Renderer{setPixelRatio(){}setSize(){}render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}}
   class Controls{constructor(camera){this.camera=camera;this.target=new THREE.Vector3();}update(){this.camera.lookAt(this.target);}}
   const textures={tex:name=>['Moon','Earth','Mars','Mercury'].includes(name)?{map:new THREE.Texture(),bump:new THREE.Texture()}:new THREE.Texture(),rimShell:()=>new THREE.Object3D(),ringGeometry:()=>new THREE.RingGeometry(1,2),saturnRingTex:()=>new THREE.Texture(),uranusRingTex:()=>new THREE.Texture(),SATURN_RING:{inner:1.2,outer:2.3},URANUS_RING:{inner:1.5,outer:2}};
@@ -40,8 +40,8 @@ async function loadScene(width=390,height=844){
 }
 const screen=(camera,obj,w,h)=>{const p=obj.getWorldPosition(new THREE.Vector3()).project(camera);return [(p.x+1)/2*w,(1-p.y)/2*h];};
 test('tiny planets are tappable with an enlarged touch radius; empty space picks nothing',async()=>{
-  const s=await loadScene();s.hooks.hold=true;s.step(40);
-  // In the overview, every planet is a few pixels wide. Tap 30 px outward from the outermost one.
+  const s=await loadScene();s.hooks.hold=true;s.setHomeScope('all');s.step(40);
+  // In the all-planets overview, every planet is a few pixels wide. Tap 30 px outward from the outermost one.
   const world=s.bodies.filter(b=>b.pivot).map(b=>({b,p:screen(s.camera,b.mesh,390,844)})).sort((a,c)=>Math.hypot(c.p[0]-195,c.p[1]-422)-Math.hypot(a.p[0]-195,a.p[1]-422))[0];
   const [x,y]=world.p;assert.ok(x>0&&x<390&&y>0&&y<844,`${world.b.data.name} on screen in overview`);
   const dist=s.camera.position.distanceTo(world.b.mesh.getWorldPosition(new THREE.Vector3()));
@@ -73,33 +73,46 @@ test('applyVisibleRegion: identity when uncovered; same on-screen scale as a scr
   assert.ok(Math.abs(pxPerUnit-expected)<1e-6,`${pxPerUnit} vs ${expected}`);
   assert.ok(Math.abs((1-centre.y)/2*844-200)<1e-6);
 });
-const PLANET_NAMES=data.PLANETS.map(p=>p.name);
+const PLANET_NAMES=data.PLANETS.map(p=>p.name),INNER=['Mercury','Venus','Earth','Mars'];
 const inFrustum=(camera,mesh)=>{const p=mesh.getWorldPosition(new THREE.Vector3()).project(camera);return p.z<1&&Math.abs(p.x)<=1&&Math.abs(p.y)<=1;};
-for(const [w,h,label] of [[412,915,'portrait 412x915'],[390,844,'portrait 390x844'],[915,412,'landscape 915x412']]){
-  test(`overview framing (${label}): opens on the whole system with all eight planets and the Sun inside the frustum (default scale)`,async()=>{
+const ringPx=(camera,r,w)=>{const p=new THREE.Vector3(r,0,0).project(camera),c=new THREE.Vector3().project(camera);return (p.x-c.x)/2*w;};
+for(const [w,h] of [[412,915],[390,844]]){
+  test(`portrait overview ${w}x${h}: opens on the inner planets, legible and tappable (default scale)`,async()=>{
     const s=await loadScene(w,h);s.hooks.hold=true;s.step(2);
-    assert.ok(s.camera.position.distanceTo(s.HOME.pos)<1e-6,'starts at the overview position');
-    for(const b of s.bodies.filter(b=>b.pivot||b.data.name==='Sun'))assert.ok(inFrustum(s.camera,b.mesh),`${b.data.name} on screen`);
-    // Not wastefully far out: the outermost orbit spans at least 75% of the narrow screen dimension.
-    const ring=[0,Math.PI/2,Math.PI,Math.PI*1.5].map(a=>new THREE.Vector3(Math.cos(a),0,Math.sin(a)).multiplyScalar(Math.max(...data.PLANETS.map(p=>p.dist))).project(s.camera));
-    const spanX=(Math.max(...ring.map(p=>p.x))-Math.min(...ring.map(p=>p.x)))/2;
-    assert.ok(w<h?spanX>.75:Math.max(...ring.map(p=>Math.abs(p.y)))>.75,`span ${spanX.toFixed(2)}`);
+    assert.equal(s.hooks.homeScope,'inner');assert.ok(s.camera.position.distanceTo(s.HOME.pos)<1e-6,'starts at the overview position');
+    for(const n of ['Sun',...INNER])assert.ok(inFrustum(s.camera,s.bodies.find(b=>b.data.name===n).mesh),`${n} on screen`);
+    const radii=INNER.map(n=>ringPx(s.camera,data.PLANETS.find(p=>p.name===n).dist,w));
+    const sunPx=ringPx(s.camera,data.SUN.size,w);
+    assert.ok(radii[0]-sunPx>=15,`Mercury's orbit clears the Sun disc (${(radii[0]-sunPx).toFixed(0)} px)`);
+    for(let i=1;i<radii.length;i++)assert.ok(radii[i]-radii[i-1]>=20,`${INNER[i-1]}→${INNER[i]} orbits ${(radii[i]-radii[i-1]).toFixed(0)} px apart`);
+    assert.ok(radii.at(-1)>w*.38&&radii.at(-1)<=w*.46,`Mars orbit ${radii.at(-1).toFixed(0)} px fills the width without leaving it`);
+    // Steeper than the landscape view so the orbit ellipses use the tall screen.
+    assert.ok(s.HOME.pos.y/s.HOME.pos.length()>Math.sin(50*Math.PI/180));
   });
 }
-test('Overview flies the camera from a close-up back to the full-system framing',async()=>{
+for(const [w,h,label,defaultAll] of [[412,915,'portrait 412x915',false],[390,844,'portrait 390x844',false],[915,412,'landscape 915x412',true]]){
+  test(`all-planets overview (${label}): all eight planets and the Sun inside the frustum (default scale)`,async()=>{
+    const s=await loadScene(w,h);s.hooks.hold=true;
+    if(defaultAll)assert.equal(s.hooks.homeScope,'all','landscape defaults to all planets');else s.setHomeScope('all');
+    s.step(40);
+    assert.ok(s.camera.position.distanceTo(s.HOME.pos)<1e-6,'at the overview position');
+    for(const b of s.bodies.filter(b=>b.pivot||b.data.name==='Sun'))assert.ok(inFrustum(s.camera,b.mesh),`${b.data.name} on screen`);
+    const r=ringPx(s.camera,Math.max(...data.PLANETS.map(p=>p.dist)),w);assert.ok(r<=w/2&&(w<h?r>w*.35:true),`Neptune orbit ${r.toFixed(0)} px`);
+  });
+}
+test('Overview flies the camera from a close-up back to the overview framing',async()=>{
   const s=await loadScene(412,915);s.hooks.hold=true;
   const mars=s.bodies.find(b=>b.data.name==='Mars');s.focus(mars,{silent:true,dur:.3});s.step(12);
-  const marsPos=mars.mesh.getWorldPosition(new THREE.Vector3());
-  assert.ok(s.camera.position.distanceTo(marsPos)<mars.radius*20,'close-up on Mars');
-  assert.ok(PLANET_NAMES.some(n=>!inFrustum(s.camera,s.bodies.find(b=>b.data.name===n).mesh)),'close-up hides some planets');
+  assert.ok(s.camera.position.distanceTo(mars.mesh.getWorldPosition(new THREE.Vector3()))<mars.radius*20,'close-up on Mars');
+  assert.ok(!inFrustum(s.camera,s.bodies.find(b=>b.data.name==='Sun').mesh)||INNER.some(n=>!inFrustum(s.camera,s.bodies.find(b=>b.data.name===n).mesh)),'close-up hides part of the system');
   s.unfocus(true,.3);s.step(12);
-  assert.ok(s.camera.position.distanceTo(s.HOME.pos)<1e-6,'back at the overview position');
-  assert.ok(s.controls.target.length()<1e-6,'looking at the Sun');
-  for(const n of PLANET_NAMES)assert.ok(inFrustum(s.camera,s.bodies.find(b=>b.data.name===n).mesh),`${n} on screen again`);
+  assert.ok(s.camera.position.distanceTo(s.HOME.pos)<1e-6,'back at the overview position');assert.ok(s.controls.target.length()<1e-6,'looking at the Sun');
+  for(const n of INNER)assert.ok(inFrustum(s.camera,s.bodies.find(b=>b.data.name===n).mesh),`${n} on screen again`);
+  s.setHomeScope('all');s.step(30);for(const n of PLANET_NAMES)assert.ok(inFrustum(s.camera,s.bodies.find(b=>b.data.name===n).mesh),`${n} on screen with all planets`);
 });
 test('fitHomeDistance: closer for landscape than portrait, and every ring point inside the frustum margin',async()=>{
-  const s=await loadScene();const portrait=s.fitHomeDistance(100,50,412/915),landscape=s.fitHomeDistance(100,50,915/412);
+  const s=await loadScene();const portrait=s.fitHomeDistance(100,50,412/915,s.homeDirection(412/915)),landscape=s.fitHomeDistance(100,50,915/412,s.homeDirection(915/412));
   assert.ok(landscape<portrait);
-  const cam=new THREE.PerspectiveCamera(50,412/915,.05,1e6);cam.position.copy(s.HOME_DIRECTION).multiplyScalar(portrait);cam.lookAt(0,0,0);cam.updateMatrixWorld();
+  const cam=new THREE.PerspectiveCamera(50,412/915,.05,1e6);cam.position.copy(s.homeDirection(412/915)).multiplyScalar(portrait);cam.lookAt(0,0,0);cam.updateMatrixWorld();
   for(let i=0;i<360;i+=5){const p=new THREE.Vector3(Math.cos(i*Math.PI/180)*100,0,Math.sin(i*Math.PI/180)*100).project(cam);assert.ok(Math.abs(p.x)<=.91&&Math.abs(p.y)<=.91,`${i}°`);}
 });

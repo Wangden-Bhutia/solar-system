@@ -15,7 +15,8 @@ camera.position.copy(HOME.pos);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true; controls.minDistance = 0.6; controls.maxDistance = 900;
 
-// Starfield
+// Starfield (re-centred on the camera every frame, so it always surrounds the view)
+let stars;
 {
   const n = 4000, p = new Float32Array(n * 3), c = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
@@ -27,7 +28,7 @@ controls.enableDamping = true; controls.minDistance = 0.6; controls.maxDistance 
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(p, 3));
   g.setAttribute('color', new THREE.BufferAttribute(c, 3));
-  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 1.4, vertexColors: true, sizeAttenuation: false })));
+  stars = new THREE.Points(g, new THREE.PointsMaterial({ size: 1.4, vertexColors: true, sizeAttenuation: false })); scene.add(stars);
 }
 
 scene.add(new THREE.AmbientLight(0x404660, 0.08));
@@ -47,8 +48,9 @@ function bandTex(hex) {
 const labelsEl = document.getElementById('labels');
 const bodies = [];
 function addLabel(body) {
-  const el = document.createElement('div'); el.className = 'lbl'; el.textContent = body.data.name;
-  el.addEventListener('click', () => focus(body)); labelsEl.appendChild(el); body.label = el;
+  const el = document.createElement('button'); el.type = 'button'; el.className = 'lbl'; el.textContent = body.data.name;
+  el.tabIndex = -1; // keyboard users have "Go to a world" in the menu; moving labels would scramble tab order
+  el.addEventListener('click', e => { e.stopPropagation(); lastTapAt = performance.now(); focus(body); }); labelsEl.appendChild(el); body.label = el;
 }
 
 // Sun
@@ -116,7 +118,8 @@ for (const b of bodies) {
 
 // Simulation state
 let playing = true, speedExp = 0, trailsOn = true, focused = null;
-export const hooks = { kid: false, onFocus: null, intercept: null, focusMul: 0, here: false, renderOverride: null, hold: false };
+let lastSize = [0, 0];
+export const hooks = { kid: false, onFocus: null, intercept: null, focusMul: 0, here: false, renderOverride: null, hold: false, homeScope: 'all' };
 const BASE_DAYS_PER_SEC = 365.26 / 20; // 1 Earth year per 20 s at 1x
 let simDays = 0;
 const fly = { t: 1, fromPos: new THREE.Vector3(), fromTgt: new THREE.Vector3(), dur: 1.2 };
@@ -163,8 +166,7 @@ function unfocus(goHome, dur) {
 }
 document.getElementById('info-close').onclick = () => unfocus(false);
 
-const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(); let down = null;
-canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 // Touch needs a generous pick radius: tiny planets are a few pixels wide.
 export const PICK_RADIUS = { touch: 48, mouse: 28 };
 function pickAt(clientX, clientY, pointerType = 'touch') {
@@ -183,11 +185,43 @@ function pickAt(clientX, clientY, pointerType = 'touch') {
   if (hb && (hb.pivot || hb.satellite || !best)) best = hb; // planets near the Sun win over the Sun disc
   return best;
 }
-canvas.addEventListener('pointerup', e => {
-  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;
-  if (hooks.renderOverride) return;
-  const best = pickAt(e.clientX, e.clientY, e.pointerType);
+// Tap recogniser. Listens on the document in the capture phase so nothing layered over the
+// canvas, and no listener on the canvas (OrbitControls captures the pointer), can swallow a tap.
+// Touch gets a larger movement allowance than a mouse; two-finger gestures never count as taps.
+// A click with no preceding pointer sequence (some automation, older browsers) is the fallback.
+export const TAP_SLOP = { touch: 14, pen: 10, mouse: 6 };
+const TAP_MAX_MS = 900, UI = 'button,a,input,select,textarea,summary,label,details,#sheet,#topbar,.lbl';
+const pointers = new Map(); let multiTouch = false, lastTapAt = -1e9, lastPointerUpAt = -1e9;
+const onScene = t => t === canvas || (t?.closest ? !t.closest(UI) : true);
+function handleTap(x, y, type, picked) {
+  lastTapAt = performance.now();
+  if (hooks.renderOverride) return; // experiments own the scene while open
+  const best = picked === undefined ? pickAt(x, y, type) : picked;
   if (best) focus(best); else hooks.onEmpty?.();
+  return best;
+}
+document.addEventListener('pointerdown', e => {
+  if (!onScene(e.target)) return;
+  // Pick now: a little finger jitter rotates the camera (OrbitControls) before the finger lifts,
+  // so what was under the finger at touch-down is what the child aimed at.
+  const type = e.pointerType || 'mouse';
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), type, picked: hooks.renderOverride ? null : pickAt(e.clientX, e.clientY, type) });
+  if (pointers.size > 1) multiTouch = true;
+}, true);
+document.addEventListener('pointerup', e => {
+  lastPointerUpAt = performance.now();
+  const d = pointers.get(e.pointerId); pointers.delete(e.pointerId);
+  const wasMulti = multiTouch; if (!pointers.size) multiTouch = false;
+  if (!d || wasMulti) return;
+  const moved = Math.hypot(e.clientX - d.x, e.clientY - d.y);
+  if (moved > (TAP_SLOP[d.type] ?? 10) || performance.now() - d.t > TAP_MAX_MS) return;
+  handleTap(d.x, d.y, d.type, d.picked);
+}, true);
+document.addEventListener('pointercancel', e => { pointers.delete(e.pointerId); if (!pointers.size) multiTouch = false; }, true);
+canvas.addEventListener('click', e => {
+  const now = performance.now();
+  if (now - lastTapAt < 700 || now - lastPointerUpAt < 700) return; // already handled, or the end of a drag
+  handleTap(e.clientX, e.clientY, globalThis.matchMedia?.('(pointer: coarse)').matches ? 'touch' : 'mouse');
 });
 
 // Controls
@@ -207,7 +241,12 @@ document.getElementById('reset').onclick = () => unfocus(true);
 // Overview framing: the closest camera distance (along a fixed viewing direction)
 // at which every orbit ring, sampled around its full circle, sits inside the
 // frustum with a margin. Works for portrait and landscape aspects.
+// Overview framing. Portrait screens are narrow, so by default they get a steeper view framed on
+// the inner Solar System (Mercury to Mars, so they are legible and tappable); "All planets" frames every
+// orbit. Landscape defaults to all planets. The camera distance is fitted so the framed orbit,
+// sampled around its full circle, sits inside the frustum with a margin.
 export const HOME_DIRECTION = new THREE.Vector3(0, .52, .85).normalize();
+export const homeDirection = aspect => { const elev = (aspect < 1 ? 58 : 32) * Math.PI / 180; return new THREE.Vector3(0, Math.sin(elev), Math.cos(elev)); };
 export function fitHomeDistance(radius, fovDeg, aspect, direction = HOME_DIRECTION, margin = .9) {
   const cam = new THREE.PerspectiveCamera(fovDeg, aspect, .05, 1e9), p = new THREE.Vector3();
   const fits = d => {
@@ -220,21 +259,27 @@ export function fitHomeDistance(radius, fovDeg, aspect, direction = HOME_DIRECTI
   for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
   return hi;
 }
-let lastPortrait = null;
+let lastPortrait = null, chosenScope = null;
+export function homeRadius(scope) {
+  // 'inner': the rocky planets, Mercury to Mars (all within 2 AU).
+  const list = scope === 'inner' ? PLANETS.filter(p => p.au < 2) : PLANETS;
+  return Math.max(...list.map(p => D(p))) * (scope === 'inner' ? 1.1 : 1.04);
+}
 function resize() {
   const {width:w,height:h} = canvas.getBoundingClientRect();
-  renderer.setSize(w, h, false); camera.aspect = w / h;
-  // Frame the whole system (grown-up), the inner system out to Jupiter (kid), or true-scale orbits
-  const outer = realScale ? Math.max(...PLANETS.map(p => p.realDist)) : Math.max(...PLANETS.map(p => p.dist));
-  const distance = hooks.kid ? 150 / Math.min(1, w/h) : fitHomeDistance(outer * 1.04, camera.fov, w / h);
-  HOME.pos.copy(HOME_DIRECTION).multiplyScalar(distance);
-  controls.maxDistance = realScale ? Math.max(1.5e6,HOME.pos.length()*1.5) : Math.max(900,HOME.pos.length()*1.5);
-  camera.updateProjectionMatrix();
-  // Rotating the phone while in the overview re-frames the whole system.
+  if (!w || !h) return;
+  renderer.setSize(w, h, false); lastSize = [w, h]; camera.aspect = w / h;
   const portrait = h >= w;
+  hooks.homeScope = realScale ? 'all' : chosenScope || (portrait ? 'inner' : 'all');
+  if (hooks.kid) HOME.pos.copy(HOME_DIRECTION).multiplyScalar(150 / Math.min(1, w/h));
+  else { const dir = homeDirection(w / h); HOME.pos.copy(dir).multiplyScalar(fitHomeDistance(homeRadius(hooks.homeScope), camera.fov, w / h, dir)); }
+  controls.maxDistance = realScale ? Math.max(1.5e6,HOME.pos.length()*1.5) : Math.max(900, fitHomeDistance(homeRadius('all'), camera.fov, w / h, homeDirection(w / h)) * 1.5);
+  camera.updateProjectionMatrix();
+  // Rotating the phone while in the overview re-frames it.
   if (lastPortrait !== null && portrait !== lastPortrait && !focused) unfocus(true, .6);
   lastPortrait = portrait;
 }
+export function setHomeScope(scope) { chosenScope = scope; resize(); unfocus(true, 1.2); }
 addEventListener('resize', resize); resize(); camera.position.copy(HOME.pos);
 
 const ease = t => t < .5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
@@ -251,11 +296,13 @@ function applyVisibleRegion(cam, width, height, visible) {
   cam.updateProjectionMatrix();
   return { width: vw, height: vh, aspect: vw / vh };
 }
+// Label priority when names would overlap: the focused world, then Earth and the most visible worlds.
+const LABEL_ORDER = ['Earth', 'Sun', 'Jupiter', 'Saturn', 'Mars', 'Venus', 'Mercury', 'Uranus', 'Neptune', 'Moon'];
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
   if (hooks.renderOverride) { hooks.renderOverride(); requestAnimationFrame(frame); return; }
   const bounds = canvas.getBoundingClientRect();
-  renderer.setSize(bounds.width,bounds.height,false);
+  if (bounds.width !== lastSize[0] || bounds.height !== lastSize[1]) { renderer.setSize(bounds.width, bounds.height, false); lastSize = [bounds.width, bounds.height]; } // resizing every frame reallocates the drawing buffer
   const view = applyVisibleRegion(camera, bounds.width, bounds.height, hooks.visible?.(bounds.width, bounds.height));
   const kidSlow = hooks.kid ? 0.25 : 1;
   if (playing && !hooks.hold) simDays += dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidSlow;
@@ -289,12 +336,19 @@ function frame(now) {
   }
   controls.update();
 
-  // Labels
-  for (const b of bodies) {
+  stars.position.copy(camera.position);
+  // Labels: small tappable names; overlapping ones are hidden so the view stays uncluttered.
+  const placed = [], ordered = [...bodies].sort((a, b) => (b === focused) - (a === focused) || LABEL_ORDER.indexOf(a.data.name) - LABEL_ORDER.indexOf(b.data.name));
+  for (const b of ordered) {
     const p = b.mesh.getWorldPosition(tmp).project(camera);
-    const vis = p.z < 1 && Math.abs(p.x) < 1.1 && Math.abs(p.y) < 1.1;
+    const x = bounds.left + (p.x + 1) / 2 * bounds.width, y = bounds.top + (1 - p.y) / 2 * bounds.height;
+    const w = b.data.name.length * 7 + 18, h = 26, box = [x - w / 2, y - 14 - h, x + w / 2, y - 14];
+    let vis = p.z < 1 && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05 && !(b.satellite && !focused);
+    if (vis) vis = !placed.some(o => box[0] < o[2] && box[2] > o[0] && box[1] < o[3] && box[3] > o[1]);
+    if (vis) placed.push(box);
     b.label.style.visibility = vis ? 'visible' : 'hidden';
-    if (vis) b.label.style.transform = `translate(${bounds.left + (p.x + 1) / 2 * bounds.width}px,${bounds.top + (1 - p.y) / 2 * bounds.height}px) translate(-50%,-150%)`;
+    b.label.hidden = !vis;
+    if (vis) b.label.style.transform = `translate(${x}px,${y}px) translate(-50%,calc(-100% - 10px))`;
   }
   // "You are here" marker on Earth (kid overview only)
   const earth = bodies.find(b => b.data.name === 'Earth');
@@ -336,6 +390,6 @@ export function setRealScale(on) {
 }
 document.getElementById('realBtn').onclick = e => { const on = !realScale; e.currentTarget.classList.toggle('on', on); e.currentTarget.setAttribute('aria-pressed', on); document.getElementById('scaleNote').textContent = on ? 'true sizes & distances' : 'sizes to scale (Sun 1/5) · distances shrunk'; setRealScale(on); };
 window.__face = (name, lonDeg) => { const b = bodies.find(x => x.data.name === name); const d = camera.position.clone().sub(b.mesh.getWorldPosition(new THREE.Vector3())); const tilt = b.mesh.parent; const local = tilt.worldToLocal(camera.position.clone()).sub(tilt.worldToLocal(b.mesh.getWorldPosition(new THREE.Vector3()))); b.mesh.rotation.y = Math.atan2(-local.z, local.x) - lonDeg * Math.PI / 180; void d; };
-export { bodies, focus, unfocus, camera, controls, renderer, pickAt, applyVisibleRegion, HOME };
+export { bodies, focus, unfocus, camera, controls, renderer, pickAt, applyVisibleRegion, HOME, handleTap };
 window.__solar = { pickAt, screenOf: n => { const bounds=canvas.getBoundingClientRect(); const b = bodies.find(x => x.data.name === n); const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera); return [bounds.left + (p.x + 1) / 2 * bounds.width, bounds.top + (1 - p.y) / 2 * bounds.height]; }, focusByName: n => focus(bodies.find(b => b.data.name === n)), setKid };
 window.__cam = () => [camera.position.toArray().map(v => +v.toFixed(3)), controls.target.toArray().map(v => +v.toFixed(3))];

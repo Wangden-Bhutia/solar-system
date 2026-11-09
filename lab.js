@@ -1,4 +1,4 @@
-import { bodies, focus, unfocus, hooks, renderer, controls } from './app.js';
+import { bodies, focus, unfocus, hooks, renderer, controls, setHomeScope } from './app.js';
 import { createExperiments } from './experiments.js';
 import { createLabState } from './lab-state.js';
 import { swipe, emptyTap, openHeight, classifyDrag, visibleRegion } from './sheet.js';
@@ -12,7 +12,9 @@ const sourceLink=(key,label='NASA source')=>`<a href="${NASA[key]}" target="_bla
 const sourceNote=`<p class="fine">Sources checked ${CHECKED}. This is an illustrative teaching model, not a live sky, weather forecast or spacecraft view.</p>`;
 let narration='lab_earth', lastAudioState='idle', interrupted=false;
 let preferences;try{preferences=JSON.parse(localStorage.getItem('solar.kids.v1'))||{};}catch{preferences={};}
-let hintSeen=false;try{hintSeen=localStorage.getItem('solar.hint.v1')==='seen';}catch{}
+// The hint shows on every visit until a world is selected. (Remembering it across visits hid it
+// for anyone who had tapped once on this origin, including testers of a newer build.)
+let hintSeen=false;
 $('sound').checked=!preferences.muted;
 const player=createVoicePlayer({lines:LINES,durations:VOICE.dur,onState:s=>{
  if(s==='idle' && lastAudioState==='retry')return;
@@ -24,9 +26,14 @@ $('sound').onchange=()=>{preferences.muted=!$('sound').checked;try{localStorage.
 document.addEventListener('visibilitychange',()=>{if(document.hidden){interrupted=['speaking','loading'].includes(lastAudioState);stopAudio();}else if(interrupted){lastAudioState='retry';$('audio-status').textContent='Tap ♫ to continue.';interrupted=false;}});
 function go(patch){stopAudio();const next={...state.value,...patch};if(!('sheet' in patch))patch={...patch,sheet:openHeight(next)};state.navigate(patch);$('settings').open=false;render();}
 function setSheet(patch){if(!patch)return;if(patch.view&&patch.view!==state.value.view)stopAudio();state.update(patch);render();}
-function dismissHint(){if(hintSeen)return;hintSeen=true;try{localStorage.setItem('solar.hint.v1','seen');}catch{}}
+function dismissHint(){hintSeen=true;}
 // Back: previous card/lab; with no history it returns to the whole Solar System.
-$('back').onclick=()=>{stopAudio();if(state.value.sheet!=='closed'&&state.canBack)state.back();else state.update({view:'explore',experiment:null,feature:'orbit',sheet:'closed'});render();};
+// At the overview (sheet closed) the same chip switches between the inner planets and all planets.
+$('back').onclick=()=>{stopAudio();const s=state.value;
+ if(s.sheet!=='closed'&&state.canBack)state.back();
+ else if(s.sheet!=='closed')state.update({view:'explore',experiment:null,feature:'orbit',sheet:'closed'});
+ else setHomeScope(hooks.homeScope==='inner'?'all':'inner');
+ render();};
 for(const button of document.querySelectorAll('[data-view]'))button.onclick=()=>{const view=button.dataset.view,s=state.value;
  const patch={view,experiment:null};
  if(view==='compare'&&NEARBY[s.world]){patch.compareA=s.world;if(s.compareB===s.world)patch.compareB=s.world==='Earth'?'Moon':'Earth';}
@@ -164,7 +171,8 @@ function render(){
  $('grip').setAttribute('aria-label',s.sheet==='full'?'Show less':'Show more');
  for(const v of ['explore','try','compare'])$(v+'-panel').hidden=s.view!==v;
  for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-pressed',String(b.dataset.view===s.view));
- const atOverview=!open||!state.canBack;$('back').textContent=atOverview?'Overview':'← Back';$('back').setAttribute('aria-label',atOverview?'Show the whole Solar System':'Go back');
+ if(!open){const all=hooks.homeScope!=='inner';$('back').textContent=all?'Inner planets':'All planets';$('back').setAttribute('aria-label',all?'Zoom in on the inner planets, Mercury to Mars':'Zoom out to show all eight planets');}
+ else{const atOverview=!state.canBack;$('back').textContent=atOverview?'Overview':'← Back';$('back').setAttribute('aria-label',atOverview?'Close the card and show the Solar System':'Go back');}
  $('hint').hidden=hintSeen||open;
  $('world-depth').open=false;
  $('experiment-chooser').hidden=experiment;$('experiment').hidden=!experiment;$('experiment-reset').hidden=!experiment;

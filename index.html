@@ -3,7 +3,7 @@
 <body data-sheet="closed">
 <main id="stage" aria-label="Interactive space scene">
  <canvas id="c" aria-label="3D Solar System. Drag to look around. Tap a planet, the Sun or the Moon to open its card. Keyboard: use Go to a world in the menu."></canvas>
- <div id="labels" class="off"></div><div id="here" hidden></div><div id="orbit-map" hidden></div>
+ <div id="labels"></div><div id="here" hidden></div><div id="orbit-map" hidden></div>
 </main>
 <nav id="topbar" aria-label="Navigation">
  <button id="back" class="chip" aria-label="Back to overview">Overview</button>
@@ -11,7 +11,7 @@
   <label>Go to a world <select id="world"></select></label>
   <button id="play" aria-label="Pause">Pause motion</button>
   <label class="speed"><span id="speedTxt"></span><input id="speed" type="range" min="-2" max="2" step="0.01" value="0" aria-label="Simulation speed"></label>
-  <div class="row"><button id="lbls" aria-pressed="false">Labels</button><button id="trails" class="on" aria-pressed="true">Trails</button><button id="realBtn" aria-pressed="false">Real scale</button></div>
+  <div class="row"><button id="lbls" class="on" aria-pressed="true">Labels</button><button id="trails" class="on" aria-pressed="true">Trails</button><button id="realBtn" aria-pressed="false">Real scale</button></div>
   <label><input id="sound" type="checkbox"> Optional voice (plays only when you tap ♫)</label>
   <button id="reset">Solar System overview</button>
   <p class="fine" id="scale-note">Sizes to scale (Sun shown at 1/5); orbit and Moon gaps shortened. Real scale restores size and distance ratios, not today’s positions.</p>
