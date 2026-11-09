@@ -40,6 +40,11 @@ Regenerate from `voice/lines.json`: install `kokoro-onnx soundfile` plus ffmpeg,
 KOKORO_MODEL=/path/kokoro-v1.0.onnx KOKORO_VOICES=/path/voices-v1.0.bin python tools/build-voice.py
 ```
 
+## Fast start and offline use
+- **Faster start.** The app no longer paints procedural planet maps that the photographs replace a moment later: planets start in a plain colour until their photo arrives (the procedural map is used only if a photo fails). The labs' 3D scene and the two largest scales are built only when first opened. On a phone-speed simulation (CPU slowed 4×), the time until the Solar System is tappable fell from about 4.9 s to about 1.4 s.
+- **Offline.** A service worker (`sw.js`) keeps everything the app has loaded, so after one visit with a connection it opens without one. The page itself is fetched fresh when online, so new versions show at once. Voice clips are kept as they are played.
+- **Install.** `manifest.webmanifest` and two icons let phones add the app to the home screen.
+
 ## Run and test
 ```
 python3 -m http.server 8780 --bind 0.0.0.0
@@ -50,6 +55,9 @@ python3 tools/check-voice.py
 Node 24 tests use linkedom (DOM emulation) and Node VM modules. They test science functions; real taps (`tests/tap.test.js` boots the real index.html, app.js, OrbitControls, lab.js and voice player in linkedom and dispatches PointerEvent sequences at coordinates projected from each world); real Three.js geometry with a fake renderer (including the touch pick radius and the sheet-aware view offset), sheet state transitions and swipe classification, tap-to-select, close on empty tap, Back/Reset, DOM event wiring, mocked audio cancellation/fallback and packaging. CSS sheet heights, safe areas, landscape docking and real touch gestures are not exercised by these tests; they are not browser layout assertions. `check-voice.py` uses ffprobe to validate encoded clips and report durations/bytes.
 
 **Before merge:** actual phone visual screenshots and browser console/network inspection, plus actual Android Chrome Listen/mute/background/fallback QA are required. No browser was driven through Shell during implementation. The PR remains draft pending parent visual review. Pages deploys only from main, and no merge or deployment is authorized here.
+
+## Voyage outward
+The first entry under **Journeys** is a guided trip across every scale, from home to Andromeda, in seven stops: the Solar System, the nearest stars, Alpha Centauri A and B orbiting each other, the stars drifting (the nearest star changes), the turning Milky Way, the Local Group and Andromeda. Each **Next** travels with the same seamless zoom. Five stops ask a question first: how long light takes to reach the nearest star, how long Alpha Centauri A and B take to orbit, whether Alpha Centauri will always be nearest, how long the Sun takes to go round the Galaxy, and whether Andromeda will hit us. The answer shows once you guess. **✕ End voyage** leaves you free to explore wherever you are; finishing leaves you in the Local Group.
 
 ## Learn by guessing first
 - **✦ Journeys** (top bar): four short guided tours — *How big is space?*, *Why do we have seasons?*, *The Moon and us*, *Next door: Mars*. Each stop glides the camera to a world; questions must be answered (or skipped) before moving on, and labs open from the step with Back returning to it.
@@ -86,5 +94,8 @@ Tap Alpha Centauri, Sirius, Procyon, 61 Cygni, Luhman 16 or Epsilon Indi and cho
 ## Zoom out again: the Local Group
 Past the Milky Way's edge the zoom continues into the Local Group, at 1 unit = 10,000 light-years. The Milky Way stays in place, drawn by the same model shrunk ten times, with the Magellanic Clouds beside it. Further out are Andromeda and Triangulum, at their real distances and tilts, and about two dozen dwarf galaxies, with rings at 1, 2 and 3 million light-years. Tap any galaxy for its card. Andromeda's card gives its approach of about 110 km/s and both the classic merger prediction (about 4.5 billion years) and the 2025 finding of roughly even odds within 10 billion years. Sources: [docs/sources.md](docs/sources.md#the-local-group-local-datajs-localjs-november-2026).
 
-## One zoom, four scales
-Solar System → nearby stars → Milky Way → Local Group is a single continuous zoom with no cuts. When a scene's camera reaches its outer limit and you keep pinching or scrolling out, the next scale dissolves in around the Sun while the current one recedes and darkens, driven directly by your fingers or wheel, so you can stop or reverse mid-way. The stars → Milky Way and Milky Way → Local Group steps are to scale (camera distances ÷ 1,000 and ÷ 10), and every scale shares the same black sky. Zooming in at the inner limit plays the same blend backwards. The scale ladder under the top bar shows where you are and can be tapped (or used by keyboard) to jump between levels.
+## To the edge: Laniakea and the observable universe
+Two more levels finish the zoom. **Laniakea** (1 unit = 1 million light-years) shows our supercluster as 9,696 real NGC/IC galaxies placed by their redshifts. Clusters such as Virgo, Coma and Perseus stand out, along with the Great Attractor that Laniakea's galaxies flow towards. **The observable universe** (1 unit = 100 million light-years) shrinks all of that to a bright knot inside an illustrated cosmic web. Shells mark how long ago the light left, and MoM-z14, the most distant galaxy known, sits 33.8 billion light-years away. The microwave background marks the edge, about 46 billion light-years out. The voyage now ends there, with one more question. Sources and checks: [docs/sources.md](docs/sources.md#laniakea-laniakea-datajs-cosmos-datajs-cosmosjs-november-2026).
+
+## One zoom, six scales
+Solar System → nearby stars → Milky Way → Local Group → Laniakea → observable universe is a single continuous zoom with no cuts. When a scene's camera reaches its outer limit and you keep pinching or scrolling out, the next scale dissolves in around the Sun while the current one recedes and darkens, driven directly by your fingers or wheel, so you can stop or reverse mid-way. Every step after the first is to scale (camera distances ÷ 1,000, ÷ 10, ÷ 100 and ÷ 100), and every scale shares the same black sky. Zooming in at the inner limit plays the same blend backwards. The scale ladder under the top bar shows where you are and can be tapped (or used by keyboard) to jump between levels.

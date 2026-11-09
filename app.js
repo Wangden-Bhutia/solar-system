@@ -2,7 +2,7 @@ import * as THREE from './vendor/three.module.min.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { SUN, PLANETS, MOON, MOONS, DWARFS, keplerPosition, beltElements, SUN_SHRINK, DIST_K, DIST_P, UNITS_PER_AU } from './data.js';
 let realScale = false; const D = d => realScale ? d.realDist : d.dist;
-import { tex, rimShell, ringGeometry, saturnRingTex, uranusRingTex, SATURN_RING, URANUS_RING, photo } from './textures.js';
+import { tex, rimShell, ringGeometry, saturnRingTex, uranusRingTex, SATURN_RING, URANUS_RING, photo, canPhoto, swatch } from './textures.js';
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true });
@@ -55,8 +55,8 @@ function addLabel(body) {
 }
 
 // Sun
-const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(SUN.size, 48, 32), new THREE.MeshBasicMaterial({ map: tex('Sun') }));
-photo(sunMesh.material, 'sun');
+const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(SUN.size, 48, 32), new THREE.MeshBasicMaterial({ map: canPhoto() ? swatch(0xffb347) : tex('Sun') }));
+photo(sunMesh.material, 'sun', { fallback: () => tex('Sun') });
 sunMesh.add(rimShell(SUN.size * 1.03, 0xffb347, 1.6, 1.2));
 scene.add(sunMesh);
 const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: (() => {
@@ -73,19 +73,21 @@ const TRAIL_N = 160;
 const PHOTO = { Mercury:{ map:'mercury', normal:'mercury-normal' }, Earth:{ map:'earth' }, Mars:{ map:'mars', normal:'mars-normal' }, Jupiter:{ map:'jupiter' }, Saturn:{ map:'saturn' }, Uranus:{ map:'uranus' }, Neptune:{ map:'neptune' } };
 for (const d of PLANETS) {
   const pivot = new THREE.Object3D(); scene.add(pivot);
-  const t = tex(d.name), tx = t.map ? t : { map: t };
+  // With a photo on the way, start from a plain colour rather than painting a map that is about to be replaced.
+  const usePhoto = !!PHOTO[d.name] && canPhoto(), t = usePhoto ? { map: swatch(d.color) } : tex(d.name), tx = t.map ? t : { map: t };
   const mat = new THREE.MeshStandardMaterial({ map: tx.map, bumpMap: tx.bump || null, bumpScale: tx.bump ? d.size * 0.04 : 0, roughness: 0.85, metalness: 0 });
   const mesh = new THREE.Mesh(new THREE.SphereGeometry(d.size, 64, 40), mat);
   // Photographic maps for every planet except Venus: from space Venus is a featureless cloud deck,
   // which the procedural map already shows (the available Venus map is radar of the hidden surface).
-  if (PHOTO[d.name]) photo(mat, PHOTO[d.name].map, PHOTO[d.name]);
+  if (PHOTO[d.name]) photo(mat, PHOTO[d.name].map, { ...PHOTO[d.name], fallback: () => tex(d.name) });
   // Real axial tilt: tilt group holds the spinning mesh (obliquity > 90° makes Venus/Uranus spin retrograde)
   const tiltG = new THREE.Object3D(); tiltG.rotation.z = THREE.MathUtils.degToRad(d.tilt);
   pivot.add(tiltG); tiltG.add(mesh);
   mesh.add(rimShell(d.size * 1.035, d.rim || d.color, 2.6, d.name === 'Earth' ? 1.1 : 0.55, 32));
   if (d.name === 'Earth') {
-    const cl = new THREE.Mesh(new THREE.SphereGeometry(d.size * 1.012, 48, 32), new THREE.MeshStandardMaterial({ map: tex('EarthClouds'), transparent: true, depthWrite: false, roughness: 1 }));
-    mesh.add(cl); mesh.userData.clouds = cl; photo(cl.material, 'earth-clouds');
+    const cl = new THREE.Mesh(new THREE.SphereGeometry(d.size * 1.012, 48, 32), new THREE.MeshStandardMaterial({ map: canPhoto() ? null : tex('EarthClouds'), transparent: true, depthWrite: false, roughness: 1 }));
+    cl.visible = !canPhoto(); // clouds appear with their photo (or the procedural map if it fails)
+    mesh.add(cl); mesh.userData.clouds = cl; photo(cl.material, 'earth-clouds', { fallback: () => tex('EarthClouds'), onLoad: () => { cl.visible = true; } });
     const axis = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-d.size*1.5,0),new THREE.Vector3(0,d.size*1.5,0)]), new THREE.LineBasicMaterial({color:0xffd286}));
     tiltG.add(axis); mesh.userData.axis = axis;
   }

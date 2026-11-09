@@ -247,7 +247,7 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
     for (const x of pair?.els || []) x.el.hidden = which !== 'system';
   }
   const zoomState = () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1 || mode !== 'stars' || !!clock.rewind });
-  return { render, pick, select, enter, leave, setTime, play, pause, rewind, nearest, time: () => clock.t, playing: () => clock.playing, zoomBackIn, zoomOut, zoomState, setView, viewDir, showLabels: on => setLabels(on ? 'stars' : null), openSystem, openPair, pairInfo, closeSystem, get mode() { return mode; }, camera, controls, entries, scene, sys, fly };
+  return { render, pick, select, enter, leave, frame: d => { if (mode === 'stars') frame(d); }, setTime, play, pause, rewind, nearest, time: () => clock.t, playing: () => clock.playing, zoomBackIn, zoomOut, zoomState, setView, viewDir, showLabels: on => setLabels(on ? 'stars' : null), openSystem, openPair, pairInfo, closeSystem, get mode() { return mode; }, camera, controls, entries, scene, sys, fly };
 }
 
 // A full-screen black veil, drawn between two scenes during a zoom bridge to dim the inner one.

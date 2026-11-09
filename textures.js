@@ -215,13 +215,20 @@ export function tex(name) { if (!(name in cache)) cache[name] = gen[name](); ret
 // docs/sources.md). The procedural map above shows at once; the photo replaces it when it arrives.
 // Without a browser image loader (tests), the procedural map simply stays.
 const photoCache = {};
-export function photo(material, name, { normal, normalScale = 0.6, keepBump = false } = {}) {
-  if (typeof document === 'undefined' || typeof document.createElementNS !== 'function' || typeof Image === 'undefined') return false;
+// Can this environment load the photographic maps? (Browsers yes; the test harness no.)
+export const canPhoto = () => typeof document !== 'undefined' && typeof document.createElementNS === 'function' && typeof Image !== 'undefined';
+// A 1×1 texture of one colour: the placeholder while a photo loads, instead of painting a procedural map
+// that would be thrown away a moment later (painting them all cost about a second at start-up on phones).
+export function swatch(color) { const c = new THREE.Color(color), t = new THREE.DataTexture(new Uint8Array([c.r * 255, c.g * 255, c.b * 255, 255]), 1, 1); t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true; return t; }
+// fallback: a function giving the procedural map, used only if the photo cannot be loaded. onLoad: called when it arrives.
+export function photo(material, name, { normal, normalScale = 0.6, keepBump = false, fallback = null, onLoad = null } = {}) {
+  if (!canPhoto()) return false;
   const load = (file, srgb) => (photoCache[file] ||= new Promise(resolve => new THREE.TextureLoader().load(`textures/${file}.webp`, t => {
     if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; resolve(t);
   }, undefined, () => resolve(null))));
   load(name, true).then(t => {
-    if (!t) return; material.map = t; if (!keepBump) material.bumpMap = null; material.color?.set?.(0xffffff); material.needsUpdate = true;
+    if (!t) { if (fallback) { const f = fallback(); material.map = f.map || f; material.bumpMap = f.bump || null; material.needsUpdate = true; onLoad?.(); } return; }
+    onLoad?.(); material.map = t; if (!keepBump) material.bumpMap = null; material.color?.set?.(0xffffff); material.needsUpdate = true;
   });
   if (normal) load(normal, false).then(t => { if (!t || !material.isMeshStandardMaterial) return; material.normalMap = t; material.normalScale.set(normalScale, normalScale); material.needsUpdate = true; });
   return true;

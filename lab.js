@@ -2,12 +2,14 @@ import { bodies, focus, unfocus, hooks, renderer, controls, setHomeScope } from 
 import { createStars, createDimmer } from './stars.js';
 import { createGalaxy } from './galaxy.js';
 import { createLocal } from './local.js';
+import { createLaniakea, createUniverse } from './cosmos.js';
+import { COSMOS_FACTS, SHELLS, CMB_GLY } from './cosmos-data.js';
 import { LOCAL_FACTS, distanceBetween } from './local-data.js';
 import { GALAXY_FACTS } from './galaxy-data.js';
 import { STAR_TIME, yearsLabel, approachLabel } from './star-motion.js';
 import { pairOf, periastron, apastron, nextPeriastron, keplerMass } from './star-pairs.js';
 import { TIME_RANGE, timeLabel, lapsLabel, milestone, VC_SUN, OMEGA_ARMS, OMEGA_BAR, SUN_PERIOD } from './galaxy-motion.js';
-import { LEVELS, levelIndex, PAIRS, pairFor, bridgeFrame, stepBridge, atLimit, STAR_NEAR, STAR_FAR, GALAXY_NEAR, GALAXY_FAR, LOCAL_NEAR, LOCAL_UNIT } from './zoom-ladder.js';
+import { LEVELS, levelIndex, PAIRS, pairFor, bridgeFrame, stepBridge, atLimit, STAR_NEAR, STAR_FAR, GALAXY_NEAR, GALAXY_FAR, LOCAL_NEAR, LOCAL_UNIT, SEAMS, LEVEL_NAMES } from './zoom-ladder.js';
 import { camera, drawSolar } from './app.js';
 import { STAR_FACTS, habitableZone, sizeFromMass, lightLeftYear } from './stars-data.js';
 import { createExperiments } from './experiments.js';
@@ -17,19 +19,26 @@ import { seasonGeometry, daylightHours, noonAltitude, phaseGeometry, phaseName, 
 import { INSIGHTS, STRIKING, genericInsight, NASA, CHECKED, MOON_COUNT, SAT_SOURCES, JPL_RADII, DWARF_SOURCES, SBDB } from './insights.js';
 import { LINES, VOICE } from './voice/lines.js';
 import { createVoicePlayer } from './voice-player.js';
-import { PREDICTIONS, judge, JOURNEYS, journey, canAdvance, eclipseGeometry, tideLabel, tideRange, scaleWalk, sizeLike, formatMetres, formatDuration, lightSeconds, sunlightTo, AU_KM, FOOTBALL_CM, MOON_INCLINATION } from './learn.js';
+import { PREDICTIONS, judge, JOURNEYS, VOYAGE, journey, canAdvance, eclipseGeometry, tideLabel, tideRange, scaleWalk, sizeLike, formatMetres, formatDuration, lightSeconds, sunlightTo, AU_KM, FOOTBALL_CM, MOON_INCLINATION } from './learn.js';
 // Labs drawn in their own 3D scene; the scale lab keeps the live Solar System behind the sheet.
 const SCENE_LABS=new Set(['seasons','phases','eclipses','tides']);
 const LAB_TITLES={seasons:'Why do seasons happen?',phases:'Explore the phases',eclipses:'Why aren’t eclipses monthly?',tides:'What makes the tides?',scale:'How big is space?'};
-const $=id=>document.getElementById(id), state=createLabState(), experiments=createExperiments(renderer);
+let labScene=null;
+const $=id=>document.getElementById(id), state=createLabState(), experiments=new Proxy({},{get:(_,k)=>(labScene||=createExperiments(renderer))[k]}); // the labs' 3D scene is built the first time a lab opens
 const sheet=$('sheet');
 // ---- Beyond the Solar System: the nearby stars and their planets ----
-const SPACE=new Set(['stars','system','pair','galaxy','local']);
+const SPACE=new Set(['stars','system','pair','galaxy','local','super','universe']);
 const ORBITS=new Set(['system','pair']); // close-up views inside the star map: planets, or two stars orbiting each other
-const levelOf=v=>v==='local'?'local':v==='galaxy'?'galaxy':v==='stars'||ORBITS.has(v)?'stars':'solar';
+const levelOf=v=>v==='universe'||v==='super'||v==='local'?v:v==='galaxy'?'galaxy':v==='stars'||ORBITS.has(v)?'stars':'solar';
 const starsView=createStars({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:e=>pickStar(e),onTime:()=>paintTime(),onPair:()=>paintPairClock()});
 let shownLevel='solar',arrival=null;
 const localView=createLocal({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:g=>pickGalaxy(g)});
+// The two largest scales are built only when first visited: they hold the most points and most people start small.
+const lazy=make=>{let v=null;const f=()=>v||(v=make());f.built=()=>!!v;return f;};
+const built=l=>l==='super'?laniakeaView.built():l==='universe'?universeView.built():true;
+const laniakeaView=lazy(()=>createLaniakea({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:x=>pickCosmos('super',x)}));
+const universeView=lazy(()=>createUniverse({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:x=>pickCosmos('universe',x)}));
+const sceneOf=l=>l==='stars'?starsView:l==='galaxy'?galaxyView:l==='local'?localView:l==='super'?laniakeaView():l==='universe'?universeView():null;
 const galaxyView=createGalaxy({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:m=>pickLandmark(m),onTime:()=>paintTime()});
 // ---- Time at the big scales: one clock bar, in thousands of years for the stars (star-motion.js)
 // and millions for the Milky Way (galaxy-motion.js). Each scene keeps its own clock; leaving a scale
@@ -56,18 +65,25 @@ $('gnow').onclick=()=>{clockOf(clockLevel())?.rewind();paintTime();};
 // the outer one dissolves in, centred on the Sun and seen from the same direction. No cuts, no fades to black.
 const dim=createDimmer(renderer);
 let bridge=null,animating=false;
-const views={solar:{view:'explore',feature:'orbit'},stars:{view:'stars'},galaxy:{view:'galaxy'},local:{view:'local'}};
-const viewDirOf=l=>l==='solar'?camera.position.clone().sub(controls.target).normalize():l==='stars'?starsView.viewDir():l==='galaxy'?galaxyView.viewDir():localView.viewDir();
+const views={solar:{view:'explore',feature:'orbit'},stars:{view:'stars'},galaxy:{view:'galaxy'},local:{view:'local'},super:{view:'super'},universe:{view:'universe'}};
+const viewDirOf=l=>l==='solar'?camera.position.clone().sub(controls.target).normalize():sceneOf(l).viewDir();
 function drawBridge(){
  const r=$('stage').getBoundingClientRect(),f=bridgeFrame(bridge.pair,bridge.t);
- if(bridge.pair==='solar>stars'){drawSolar(f.inner.recede);dim(f.inner.dim);starsView.setView(bridge.dir,f.outer.d);starsView.render(r.width,r.height,null,{overlay:true,opacity:f.outer.opacity});}
- else if(bridge.pair==='stars>galaxy'){starsView.setView(bridge.dir,f.inner.d);starsView.render(r.width,r.height,null,{opacity:1-f.inner.dim});dim(f.inner.dim);galaxyView.setView(bridge.dir,f.outer.d);galaxyView.render(r.width,r.height,null,{overlay:true,opacity:f.outer.opacity});}
- else{const t=bridge.tgt;galaxyView.setView(bridge.dir,f.inner.d,t);galaxyView.render(r.width,r.height,null,{opacity:1-f.inner.dim});dim(f.inner.dim);localView.setView(bridge.dir,f.outer.d,t.clone().divideScalar(LOCAL_UNIT));localView.render(r.width,r.height,null,{overlay:true,opacity:f.outer.opacity});}
+ if(bridge.pair==='solar>stars'){drawSolar(f.inner.recede);dim(f.inner.dim);starsView.setView(bridge.dir,f.outer.d);starsView.render(r.width,r.height,null,{overlay:true,opacity:f.outer.opacity});return;}
+ // Metric seams: the inner scene recedes and dims; the outer one, ÷ k around the same centre, dissolves in.
+ const [i,o]=PAIRS[bridge.pair],k=SEAMS[bridge.pair].k,t=bridge.tgt;
+ sceneOf(i).setView(bridge.dir,f.inner.d,t||undefined);sceneOf(i).render(r.width,r.height,null,{opacity:1-f.inner.dim});dim(f.inner.dim);
+ sceneOf(o).setView(bridge.dir,f.outer.d,t?t.clone().divideScalar(k):undefined);sceneOf(o).render(r.width,r.height,null,{overlay:true,opacity:f.outer.opacity});
+}
+// Each scale's centre of view crosses the seam with it (the Galaxy may be centred on the Sun or on its own centre).
+// Stars ⇄ Galaxy always meets at the Sun, so it carries no centre.
+function bridgeTarget(pair,cur){
+ if(pair==='solar>stars'||pair==='stars>galaxy')return null;
+ const [i,o]=PAIRS[pair],k=SEAMS[pair].k;return cur===i?sceneOf(i).controls.target.clone():sceneOf(o).controls.target.clone().multiplyScalar(k);
 }
 function beginBridge(pair,t){
  const cur=levelOf(state.value.view);if(ORBITS.has(state.value.view)){starsView.closeSystem();state.update({view:'stars'});}
- // Galaxy ⇄ Local Group keeps the Galaxy's own centre of view (the Sun, or the Galaxy's centre after the clock ran); inward, the Local Group has already returned to the Sun.
- bridge={pair,t,dir:viewDirOf(cur),tgt:pair==='galaxy>local'?(cur==='galaxy'?galaxyView.controls.target.clone():localView.controls.target.clone().multiplyScalar(LOCAL_UNIT)):null};state.update({sheet:'closed',star:null,landmark:null});
+ bridge={pair,t,dir:viewDirOf(cur),tgt:bridgeTarget(pair,cur)};state.update({sheet:'closed',star:null,landmark:null});
  for(const l of PAIRS[pair])showLabelsOf(l,true);
  document.body.classList.add('bridging');render();
 }
@@ -76,10 +92,10 @@ function settle(end){
  const b=bridge,[inner,outer]=PAIRS[b.pair],target=end==='outer'?outer:inner,cur=levelOf(state.value.view);bridge=null;document.body.classList.remove('bridging');
  const other=target===inner?outer:inner;showLabelsOf(other,false);
  // Arrive with the camera exactly where the bridge left it.
- const tg=b.tgt?.toArray();
- arrival=target==='solar'?{solar:true}:target==='stars'?{dir:b.dir,d:b.pair==='solar>stars'?STAR_NEAR:STAR_FAR}:target==='galaxy'?(b.pair==='galaxy>local'?{dir:b.dir,d:GALAXY_FAR,tgt:tg}:{dir:b.dir,d:GALAXY_NEAR}):{dir:b.dir,d:LOCAL_NEAR,tgt:tg.map(v=>v/LOCAL_UNIT)};
+ const tg=b.tgt?.toArray(),seam=SEAMS[b.pair];
+ arrival=target==='solar'?{solar:true}:b.pair==='solar>stars'?{dir:b.dir,d:STAR_NEAR}:target===inner?{dir:b.dir,d:seam.far,tgt:tg}:{dir:b.dir,d:seam.near,tgt:tg&&tg.map(v=>v/seam.k)};
  if(target!==cur)state.navigate({...views[target],star:null,landmark:null,experiment:null,sheet:'closed'});
- else{const a=arrival;arrival=null;if(target==='stars')starsView.setView(a.dir,a.d);if(target==='galaxy')galaxyView.setView(a.dir,a.d,a.tgt&&galaxyView.controls.target.clone().fromArray(a.tgt));if(target==='local')localView.setView(a.dir,a.d,localView.controls.target.clone().fromArray(a.tgt));}
+ else{const a=arrival;arrival=null;if(target!=='solar')sceneOf(target).setView(a.dir,a.d,a.tgt?sceneOf(target).controls.target.clone().fromArray(a.tgt):undefined);}
  render();
 }
 // The same blend, played automatically for the scale ladder, Back and buttons: glide to the edge, then cross.
@@ -91,28 +107,31 @@ function animateBridge(to,done){
   if(settled){animating=false;settle(settled);done?.();}else globalThis.requestAnimationFrame(tick);};
  globalThis.requestAnimationFrame(tick);
 }
-function goLevel(target){
- const cur=levelOf(state.value.view);if(target===cur||bridge||animating)return;stopAudio();$('settings').open=false;
- const out=levelIndex(target)>levelIndex(cur),pair=pairFor(cur,out?1:-1),then=()=>{if(levelOf(state.value.view)!==target)goLevel(target);else if(target==='local')localView.overview();};
+// after (optional): called once the target scale is reached (the voyage uses it to act on arrival).
+function goLevel(target,after){
+ const cur=levelOf(state.value.view);if(target===cur){after?.();return;}if(bridge||animating)return;stopAudio();$('settings').open=false;
+ const out=levelIndex(target)>levelIndex(cur),pair=pairFor(cur,out?1:-1),then=()=>{if(levelOf(state.value.view)!==target)goLevel(target,after);else if(after)after();else if(target==='local'||target==='super'||target==='universe')sceneOf(target).overview();};
  const play=()=>{beginBridge(pair,out?0:1);animateBridge(out?1:0,then);};
- const ck=clockOf(cur);if(ck&&ck.time()!==0){animating=true;ck.rewind(()=>{animating=false;goLevel(target);});return;} // back to today first: the star map is as the sky is now
+ const ck=clockOf(cur);if(ck&&ck.time()!==0){animating=true;ck.rewind(()=>{animating=false;goLevel(target,after);});return;} // back to today first: the star map is as the sky is now
  if(ORBITS.has(state.value.view)){starsView.closeSystem();state.update({view:'stars',sheet:'closed'});render();}
  if(out&&cur==='stars')starsView.zoomOut(play);
  else if(!out&&cur==='stars')starsView.zoomBackIn(play);
  else if(!out&&cur==='galaxy')galaxyView.zoomToSun(play);
  else if(out&&cur==='galaxy')galaxyView.zoomOut(play);
  else if(!out&&cur==='local')localView.zoomBackIn(play);
+ else if(out&&cur==='local')localView.zoomOut(play);
+ else if(cur==='super'||cur==='universe')(out?sceneOf(cur).zoomOut:sceneOf(cur).zoomBackIn)(play);
  else{if(state.value.sheet!=='closed'){state.update({sheet:'closed'});render();}play();}
 }
 const enterStars=()=>goLevel('stars'),leaveStars=()=>goLevel('solar'),enterGalaxy=()=>goLevel('galaxy'),leaveGalaxy=()=>goLevel('stars'),leaveLocal=()=>goLevel('galaxy');
-function showLabelsOf(l,v){if(l==='stars')starsView.showLabels(v);if(l==='galaxy')galaxyView.showLabels(v);if(l==='local')localView.showLabels(v);}
+function showLabelsOf(l,v){if(l!=='solar')sceneOf(l).showLabels(v);}
 for(const b of $('ladder').querySelectorAll('button'))b.onclick=()=>goLevel(b.dataset.level);
 // Gestures: while bridging, the wheel and pinch move the blend; otherwise they open a bridge only when the
 // active camera is already at its limit (so ordinary zooming inside a scale is untouched).
 function zoomState(){const l=levelOf(state.value.view);
  if(l==='solar'){if(state.value.view==='try'&&state.value.experiment)return null;const d=camera.position.distanceTo(controls.target);return {d,min:controls.minDistance,max:controls.maxDistance,busy:false,outer:true,inner:false};}
  if(ORBITS.has(state.value.view))return null;
- const z=(l==='stars'?starsView:l==='galaxy'?galaxyView:localView).zoomState();return {...z,outer:l!=='local',inner:true};}
+ const z=sceneOf(l).zoomState();return {...z,outer:l!=='universe',inner:true};}
 function feedZoom(amount){
  if(animating)return;if(bridge){moveBridge(amount);return;}
  const l=levelOf(state.value.view),z=zoomState();if(!z||z.busy||state.value.sheet==='half'||state.value.sheet==='full')return;
@@ -133,6 +152,8 @@ function pickGalaxy(g){dismissHint();go({view:'local',landmark:g.name,sheet:'pee
 function pickLandmark(m){dismissHint();galaxyView.pause();go({view:'galaxy',landmark:m.name,sheet:'peek'});}
 function pickStar(e){dismissHint();starsView.pause();go({view:'stars',star:e.name,sheet:'peek'});}
 hooks.overrideTap=(x,y)=>{const s=state.value;
+ if(s.voyage!=null)return;
+ if(s.view==='super'||s.view==='universe'){const it=sceneOf(s.view).pick(x,y);if(it)pickCosmos(s.view,it);else if(s.sheet!=='closed')setSheet({sheet:'closed',landmark:null});return;}
  if(s.view==='local'){const g=localView.pick(x,y);if(g)pickGalaxy(g);else if(s.sheet!=='closed')setSheet({sheet:'closed',landmark:null});return;}
  if(s.view==='galaxy'){const m=galaxyView.pick(x,y);if(m)pickLandmark(m);else if(s.sheet!=='closed')setSheet({sheet:'closed',landmark:null});return;}
  if(s.view!=='stars')return;const e=starsView.pick(x,y);if(e)pickStar(e);else if(s.sheet!=='closed')setSheet({sheet:'closed',star:null});};
@@ -158,11 +179,12 @@ function dismissHint(){hintSeen=true;}
 // Back: previous card/lab; with no history it returns to the whole Solar System.
 // At the overview (sheet closed) the same chip switches between the inner planets and all planets.
 $('back').onclick=()=>{stopAudio();const s=state.value;
+ if(s.voyage!=null){if(!voyageBusy)endVoyage();return;}
  if(s.sheet!=='closed'&&state.canBack)state.back();
- else if(s.view==='local'&&s.sheet==='closed'){leaveLocal();return;}
+ else if(['local','super','universe'].includes(s.view)&&s.sheet==='closed'){goLevel(LEVELS[levelIndex(s.view)-1]);return;}
  else if(s.view==='galaxy'&&s.sheet==='closed'){leaveGalaxy();return;}
  else if(SPACE.has(s.view)&&s.sheet==='closed'){leaveStars();return;}
- else if(s.view==='galaxy'||s.view==='local')state.update({landmark:null,sheet:'closed'});
+ else if(['galaxy','local','super','universe'].includes(s.view))state.update({landmark:null,sheet:'closed'});
  else if(SPACE.has(s.view))state.update({view:'stars',star:null,sheet:'closed'});
  else if(s.sheet!=='closed')state.update({view:'explore',experiment:null,feature:'orbit',sheet:'closed'});
  else setHomeScope(hooks.homeScope==='inner'?'all':'inner');
@@ -338,14 +360,45 @@ $('light-go').onclick=()=>{
  race.id=requestAnimationFrame(tick);
 };
 // Guided journeys: a list, then ordered steps that move the camera and the sheet together.
+// ---- Voyage outward: one guided trip across every scale (learn.js VOYAGE). Each Next travels with the
+// same seamless zoom, then shows what that stop is about; questions are answered before moving on.
+let voyageBusy=false;
+function startVoyage(){stopAudio();dismissHint();state.navigate({view:'explore',journey:null,step:0,experiment:null,star:null,landmark:null,voyage:0,sheet:'closed'});travel(0);}
+function travel(i){
+ const st=VOYAGE.steps[i];voyageBusy=true;state.update({voyage:i,sheet:'closed',star:null,landmark:null});
+ if(levelOf(state.value.view)==='stars'&&st.level==='stars'&&state.value.view!=='stars')state.update({view:'stars'});
+ render();goLevel(st.level,()=>arrive(i));
+}
+function arrive(i){
+ const st=VOYAGE.steps[i];if(state.value.voyage!==i)return;
+ state.update({view:st.view||views[st.level].view,star:st.star||null,landmark:st.landmark||null,sheet:'half'});
+ if(st.level==='solar')unfocus(true,1.2);
+ if(st.level==='stars'&&!st.view&&!st.act)starsView.frame(11); // pull back from the Sun to see the neighbours
+ if(st.act==='drift'){starsView.setTime(0);starsView.play();}
+ if(st.act==='turn'){galaxyView.setTime(0);galaxyView.play();}
+ if(st.act==='overview')sceneOf(st.level).overview();
+ voyageBusy=false;render();
+}
+function endVoyage(){state.update({voyage:null,sheet:'closed',star:null,landmark:null});render();}
+function paintVoyage(){
+ const s=state.value,i=s.voyage,st=VOYAGE.steps[i],last=i===VOYAGE.steps.length-1;narration=null;$('action').hidden=true;
+ $('journey-list').hidden=true;$('journey-step').hidden=false;
+ $('kicker').textContent=`${VOYAGE.title} · ${i+1} of ${VOYAGE.steps.length}`;$('title').textContent=st.title;$('fact').textContent=st.text;
+ $('view-caption').textContent=voyageBusy?'Travelling…':{solar:'The Solar System',stars:'The nearest stars',galaxy:'The Milky Way',local:'The Local Group',super:'Laniakea, our supercluster',universe:'The observable universe'}[st.level]+' · models built from real measurements';
+ bindPredict($('journey-predict'),st.predict,paintVoyage);$('journey-lab').parentElement.hidden=true;
+ $('journey-prev').disabled=i===0||voyageBusy;
+ const ok=canAdvance(st,s.answers)&&!voyageBusy;$('journey-next').disabled=!ok;$('journey-next').textContent=last?'Finish ✓':'Next →';
+ $('journey-next').setAttribute('aria-label',voyageBusy?'Travelling':!canAdvance(st,s.answers)?'Answer the question to continue':last?'Finish the voyage':'Travel to the next stop');
+ $('journey-dots').textContent=VOYAGE.steps.map((_,k)=>k<i?'●':k===i?'◉':'○').join(' ');
+}
 function paintJourney(){
  const s=state.value,j=journey(s.journey);narration=null;$('action').hidden=true;
  $('journey-list').hidden=!!j;$('journey-step').hidden=!j;
  if(!j){
   $('kicker').textContent='Guided journeys';$('title').textContent='Choose a journey';$('fact').textContent='Short tours. Make a guess, then see what really happens.';
   $('view-caption').textContent='';
-  $('journey-list').innerHTML=JOURNEYS.map(x=>`<button class="experiment-card" data-journey="${x.id}"><strong>${x.title}</strong><span>${x.blurb} · ${x.steps.length} stops</span></button>`).join('');
-  for(const b of $('journey-list').querySelectorAll('button'))b.onclick=()=>go({view:'journey',journey:b.dataset.journey,step:0});
+  $('journey-list').innerHTML=[VOYAGE,...JOURNEYS].map(x=>`<button class="experiment-card${x===VOYAGE?' voyage-card':''}" data-journey="${x.id}"><strong>${x===VOYAGE?'✦ ':''}${x.title}</strong><span>${x.blurb} · ${x.steps.length} stops</span></button>`).join('');
+  for(const b of $('journey-list').querySelectorAll('button'))b.onclick=()=>b.dataset.journey==='voyage'?startVoyage():go({view:'journey',journey:b.dataset.journey,step:0});
   aimCamera({...s,feature:'orbit'});return;
  }
  const i=Math.max(0,Math.min(j.steps.length-1,s.step)),st=j.steps[i],last=i===j.steps.length-1;
@@ -362,8 +415,8 @@ function paintJourney(){
  const body=st.world?bodies.find(b=>b.data.name===st.world):null;
  if(body)aimCamera({...s,world:st.world,feature:'overview'},body);else aimCamera({...s,feature:'orbit'});
 }
-$('journey-prev').onclick=()=>{stopAudio();state.update({step:Math.max(0,state.value.step-1)});render();};
-$('journey-next').onclick=()=>{stopAudio();const s=state.value,j=journey(s.journey);if(!j||!canAdvance(j.steps[s.step],s.answers))return;
+$('journey-prev').onclick=()=>{stopAudio();if(state.value.voyage!=null){if(state.value.voyage>0&&!voyageBusy)travel(state.value.voyage-1);return;}state.update({step:Math.max(0,state.value.step-1)});render();};
+$('journey-next').onclick=()=>{stopAudio();if(state.value.voyage!=null){const s=state.value,st=VOYAGE.steps[s.voyage];if(voyageBusy||!canAdvance(st,s.answers))return;if(s.voyage>=VOYAGE.steps.length-1)endVoyage();else travel(s.voyage+1);return;}const s=state.value,j=journey(s.journey);if(!j||!canAdvance(j.steps[s.step],s.answers))return;
  if(s.step>=j.steps.length-1)state.update({journey:null,step:0});else state.update({step:s.step+1});render();};
 function seasonLabel(a){
  const angle=wrap(a);
@@ -477,6 +530,40 @@ function paintExplore(){
 }
 const fmt=(n,d=0)=>n.toLocaleString('en-IN',{maximumFractionDigits:d});
 const entryOf=name=>starsView.entries.find(e=>e.name===name);
+// The two largest scales (cosmos-data.js): Laniakea and the observable universe.
+function pickCosmos(level,item){dismissHint();go({view:level,landmark:item.name,sheet:'peek'});}
+function paintCosmos(){
+ const s=state.value,lv=s.view,it=s.landmark&&sceneOf(lv).items().find(x=>x.name===s.landmark);narration=null;$('action').hidden=true;$('star-panel').hidden=false;
+ $('star-companions').textContent='';$('star-planets').innerHTML='';
+ const rows=r=>$('star-facts').innerHTML=r.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
+ const link=(href,t)=>`<a href="${href}" target="_blank" rel="noopener">${t}</a>`,wiki=t=>link(`https://en.wikipedia.org/wiki/${encodeURIComponent(t.replace(/ /g,'_'))}`,t);
+ if(lv==='super'){
+  const depth=`<p>Each dot is a real galaxy from the NGC and IC catalogues (9,696 with measured redshifts, from OpenNGC). Its distance comes from its redshift using the Hubble law (distance = speed ÷ 70 km/s per megaparsec). That works well at these distances but not perfectly: galaxies in a cluster also swarm around inside it, which stretches each cluster along our line of sight. The catalogues favour bright, nearby galaxies, so the map thins out with distance; and few galaxies appear in a band around the sky where our own Galaxy’s dust blocks the view (the “zone of avoidance”). Laniakea itself has no sharp edge: it was defined in 2014 from the way galaxies flow, all heading towards the Great Attractor.</p>`;
+  if(!it){$('kicker').textContent='Our supercluster';$('title').textContent='Laniakea';
+   $('fact').textContent='The Local Group is one small part of Laniakea (Hawaiian for “immeasurable heaven”), a supercluster of about 100,000 galaxies. Every dot here is a real galaxy.';
+   $('view-caption').textContent='Real galaxies placed by redshift · rings at 100, 200 and 300 million light-years';
+   rows([['Across',`${COSMOS_FACTS.laniakeaWidth} light-years`],['Galaxies',COSMOS_FACTS.laniakeaGalaxies],['Mass',COSMOS_FACTS.laniakeaMass],['Mapped','2014, by Tully, Courtois, Hoffman and Pomarède'],['Dots shown','9,696 galaxies from the NGC and IC catalogues']]);
+   $('star-depth').innerHTML=`${depth}${wiki('Laniakea Supercluster')} · ${link('https://github.com/mattiaverga/OpenNGC','OpenNGC (CC BY-SA 4.0)')}${sourceNote}`;return;}
+  $('kicker').textContent=it.here?'Our group of galaxies':it.kind;$('title').textContent=it.name;
+  $('fact').textContent=it.here?'Our own small group: the Milky Way, Andromeda, Triangulum and dozens of dwarfs. At this scale, all of it is one bright dot.':it.fact;
+  $('view-caption').textContent=it.here?'You are here':`About ${fmt(it.mly)} million light-years away`;
+  rows(it.here?[['Across','about 10 million light-years'],['Galaxies','more than 100']]:[['Distance',`about ${fmt(it.mly)} million light-years`],['The light you see left it',`about ${fmt(it.mly)} million years ago`],['Type',it.kind],...(it.galaxies?[['Galaxies',it.galaxies]]:[])]);
+  $('star-depth').innerHTML=`${depth}${wiki(it.here?'Local Group':it.name==='Centaurus A'?'Centaurus A':it.name)}${sourceNote}`;return;
+ }
+ const depth=`<p>Light travels at a fixed speed, so looking far is looking back in time. The universe is 13.8 billion years old, yet we can see out to about 46 billion light-years in every direction, because space has been stretching while the light was on its way: the places where the oldest light set out are now far more distant than 13.8 billion light-years. The rings mark how long ago the light from each distance left. The web of galaxies drawn here is an illustration of the real pattern (strands and knots of galaxies around huge empty voids); real strands are far finer than this. Distances use the standard cosmological model with Planck 2018 values.</p>`;
+ if(!it){$('kicker').textContent='Everything we can see';$('title').textContent='The observable universe';
+  $('fact').textContent='About 93 billion light-years across. Its edge is not a wall: it is simply as far as light has had time to reach us from.';
+  $('view-caption').textContent='Rings: how long ago the light left · the web is an illustration, not a map';
+  rows([['Across',`about 93 billion light-years`],['Age of the universe',COSMOS_FACTS.age],['Galaxies',COSMOS_FACTS.galaxies],['Light from the edge left',`about 13.8 billion years ago`],...SHELLS.map(x=>[`Light from ${fmt(x.gly,1)} billion ly away`,`left ${fmt(x.gyr,1)} billion years ago`])]);
+  $('star-depth').innerHTML=`${depth}${wiki('Observable universe')} · ${wiki('Cosmic microwave background')}${sourceNote}`;return;}
+ $('kicker').textContent=it.here?'Our supercluster':it.kind;$('title').textContent=it.cmb?'The cosmic microwave background':it.name;
+ if(it.here){$('fact').textContent='Laniakea, with all its 100,000 galaxies, is the small bright knot at the centre.';$('view-caption').textContent='You are here';rows([['Across','about 400–500 million light-years'],['Share of the observable universe','about half a percent of its width']]);}
+ else if(it.cmb){$('fact').textContent='The oldest light there is, released about 380,000 years after the Big Bang, when the universe first became clear enough for light to travel. It glows faintly from every direction; the pattern drawn here is an illustration.';$('view-caption').textContent='The edge of what we can see';
+  rows([['Light left it','about 13.8 billion years ago'],['Where it set out from is now',`about ${fmt(CMB_GLY,1)} billion light-years away`],['Redshift','about 1,090: its light has been stretched more than a thousand times, into microwaves'],['Discovered','1965, by Penzias and Wilson']]);}
+ else{$('fact').textContent=it.fact;$('view-caption').textContent=`Announced ${it.announced} · James Webb Space Telescope`;
+  rows([['Its light left it',`about ${fmt(it.lookback,1)} billion years ago`],['We see it as it was','about 280 million years after the Big Bang'],['Where it is now','about 33.8 billion light-years away'],['Redshift',`${it.z}`]]);}
+ $('star-depth').innerHTML=`${depth}${wiki(it.here?'Laniakea Supercluster':it.cmb?'Cosmic microwave background':'MoM-z14')}${sourceNote}`;
+}
 // The Local Group: our galaxy's neighbourhood (local-data.js).
 function paintLocal(){
  const s=state.value,g=s.landmark&&localView.galaxies.find(x=>x.name===s.landmark);narration=null;$('action').hidden=true;$('star-panel').hidden=false;
@@ -584,12 +671,12 @@ function render(){
  const s=state.value,space=SPACE.has(s.view),experiment=s.view==='try'&&!!s.experiment,scene=experiment&&SCENE_LABS.has(s.experiment);
  const level=levelOf(s.view);
  if(level!==shownLevel){const from=shownLevel;shownLevel=level;
-  if(from==='stars')starsView.leave();if(from==='galaxy')galaxyView.leave();if(from==='local')localView.leave();
+  if(from!=='solar')sceneOf(from).leave();
   const at=arrival;arrival=null;
-  if(level==='stars')starsView.enter(at||(from==='galaxy'?'outside':'inside'));if(level==='galaxy')galaxyView.enter(at);if(level==='local')localView.enter(at);
+  if(level==='stars')starsView.enter(at||(from==='galaxy'?'outside':'inside'));if(level!=='solar'&&level!=='stars')sceneOf(level).enter(at);
   if(level==='solar'&&!at)unfocus(true,.01);}
 if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system'||starsView.pairInfo())starsView.openSystem(entryOf(s.star));})():s.view==='pair'?(()=>{if(starsView.pairInfo()?.pr!==pairOf(s.star))starsView.openPair(entryOf(s.star));})():starsView.mode==='system'&&starsView.closeSystem());
- if(level==='stars')starsView.select(s.star&&entryOf(s.star));if(level==='galaxy')galaxyView.select(s.landmark&&galaxyView.landmarks.find(x=>x.name===s.landmark));if(level==='local')localView.select(s.landmark&&localView.galaxies.find(x=>x.name===s.landmark));
+ if(level==='stars')starsView.select(s.star&&entryOf(s.star));if(level==='galaxy')galaxyView.select(s.landmark&&galaxyView.landmarks.find(x=>x.name===s.landmark));if(level==='local')localView.select(s.landmark&&localView.galaxies.find(x=>x.name===s.landmark));if(level==='super'||level==='universe')sceneOf(level).select(s.landmark&&sceneOf(level).items().find(x=>x.name===s.landmark));
  document.body.classList.toggle('space-mode',space);
  for(const b of $('ladder').querySelectorAll('button'))b.setAttribute('aria-pressed',String(b.dataset.level===level));
  if(race&&!(experiment&&s.experiment==='scale')){globalThis.cancelAnimationFrame?.(race.id);race=null;}
@@ -598,22 +685,25 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system'||starsV
  if(!open&&sheet.contains(document.activeElement))$('back').focus();
  $('grip').setAttribute('aria-expanded',String(s.sheet==='half'||s.sheet==='full'));
  $('grip').setAttribute('aria-label',s.sheet==='full'?'Show less':'Show more');
- for(const v of ['explore','try','compare','journey'])$(v+'-panel').hidden=s.view!==v;
- $('star-panel').hidden=s.view!=='stars'&&s.view!=='galaxy'&&s.view!=='local';$('system-panel').hidden=!ORBITS.has(s.view);
+ const voyage=s.voyage!=null;for(const v of ['explore','try','compare','journey'])$(v+'-panel').hidden=voyage?v!=='journey':s.view!==v;
+ $('star-panel').hidden=voyage||!['stars','galaxy','local','super','universe'].includes(s.view);$('system-panel').hidden=voyage||!ORBITS.has(s.view);
  for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-pressed',String(b.dataset.view===s.view));
- if(!open&&space){const g=level==='galaxy',lg=level==='local';$('back').textContent=lg?'← Milky Way':g?'← Nearby stars':'← Solar System';$('back').setAttribute('aria-label',lg?'Zoom back in to the Milky Way':g?'Zoom back in to the nearby stars':'Zoom back in to the Solar System');}
+ if(!open&&space){const innerName={solar:'Solar System',stars:'Nearby stars',galaxy:'Milky Way',local:'Local Group',super:'Laniakea'}[LEVELS[levelIndex(level)-1]];$('back').textContent=`← ${innerName}`;$('back').setAttribute('aria-label',`Zoom back in to the ${innerName==='Nearby stars'?'nearby stars':innerName}`);}
  else if(!open){const all=hooks.homeScope!=='inner';$('back').textContent=all?'Show inner planets':'Show all planets';$('back').setAttribute('aria-label',all?'Zoom in on the inner planets, Mercury to Mars':'Zoom out to show all eight planets');}
  else{const atOverview=!state.canBack;$('back').textContent=atOverview?'Overview':'← Back';$('back').setAttribute('aria-label',atOverview?'Close the card and show the Solar System':'Go back');}
- $('hint').hidden=(hintSeen&&!space)||open||!!clockLevel();gtime.hidden=!clockLevel()||open;if(!gtime.hidden)paintTime();$('hint').textContent=level==='local'?'Tap a galaxy':level==='galaxy'?'Tap a landmark':space?'Tap a star':'Tap a planet, the Sun or the Moon';
+ if(voyage){$('back').textContent='✕ End voyage';$('back').setAttribute('aria-label','End the voyage and explore from here');}
+ $('hint').hidden=(hintSeen&&!space)||open||!!clockLevel()||voyage;gtime.hidden=!clockLevel()||open||voyage;if(!gtime.hidden)paintTime();$('hint').textContent=level==='universe'?'Tap a marker':level==='super'?'Tap a cluster':level==='local'?'Tap a galaxy':level==='galaxy'?'Tap a landmark':space?'Tap a star':'Tap a planet, the Sun or the Moon';
  $('world-depth').open=false;
- sheet.querySelector('.tabs').hidden=experiment||s.view==='journey'||space; // labs: controls first, Back returns to the tabs
+ sheet.querySelector('.tabs').hidden=experiment||s.view==='journey'||space||voyage; // labs: controls first, Back returns to the tabs
  $('experiment-chooser').hidden=experiment;$('experiment').hidden=!scene;$('scale-lab').hidden=!(experiment&&s.experiment==='scale');$('experiment-reset').hidden=!experiment;
  $('orbit-map').hidden=!scene;
  document.body.classList.toggle('experiment-mode',scene);
  controls.enabled=!scene&&!space;hooks.hold=scene||space;
- hooks.renderOverride=level==='local'?()=>{const r=$('stage').getBoundingClientRect();localView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:level==='galaxy'?()=>{const r=$('stage').getBoundingClientRect();galaxyView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:space?()=>{const r=$('stage').getBoundingClientRect();starsView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:scene?()=>{const r=$('stage').getBoundingClientRect();experiments.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:null;
+ hooks.renderOverride=level==='local'||level==='super'||level==='universe'?()=>{const r=$('stage').getBoundingClientRect();sceneOf(level).render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:level==='galaxy'?()=>{const r=$('stage').getBoundingClientRect();galaxyView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:space?()=>{const r=$('stage').getBoundingClientRect();starsView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:scene?()=>{const r=$('stage').getBoundingClientRect();experiments.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:null;
  $('action2').hidden=true;
- if(s.view==='local')paintLocal();
+ if(voyage)paintVoyage();
+ else if(s.view==='local')paintLocal();
+ else if(s.view==='super'||s.view==='universe')paintCosmos();
  else if(s.view==='galaxy')paintGalaxy();
  else if(s.view==='stars')paintStar();
  else if(s.view==='system')paintSystem();
@@ -624,9 +714,11 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system'||starsV
  else if(s.view==='journey')paintJourney();
  else{narration='lab_try';$('action').hidden=true;$('kicker').textContent='Small science lab';$('title').textContent='Try an idea';$('fact').textContent=LINES.lab_try;$('view-caption').textContent='Five experiments. Change one thing and see why it matters.';}
  $('listen').hidden=!narration||!LINES[narration];
- if(bridge){hooks.renderOverride=drawBridge;hooks.hold=true;controls.enabled=false;starsView.controls.enabled=false;galaxyView.controls.enabled=false;localView.controls.enabled=false;}
- else{starsView.controls.enabled=level==='stars'&&starsView.mode==='stars';galaxyView.controls.enabled=level==='galaxy';localView.controls.enabled=level==='local';}
+ if(bridge){hooks.renderOverride=drawBridge;hooks.hold=true;controls.enabled=false;starsView.controls.enabled=false;galaxyView.controls.enabled=false;localView.controls.enabled=false;for(const l of ['super','universe'])if(built(l))sceneOf(l).controls.enabled=false;}
+ else{starsView.controls.enabled=level==='stars'&&starsView.mode==='stars';galaxyView.controls.enabled=level==='galaxy';localView.controls.enabled=level==='local';for(const l of ['super','universe'])if(built(l))sceneOf(l).controls.enabled=level===l;}
 }
 addEventListener('resize',()=>{if(state.value.view==='compare')paintCompare();});
 render();
+// Offline: cache what has been loaded, so the app opens again without a connection (sw.js).
+if(globalThis.isSecureContext&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(reg=>setTimeout(()=>reg.active?.postMessage({cache:[location.href.split('#')[0],...performance.getEntriesByType('resource').map(e=>e.name)]}),3000)).catch(()=>{});
 window.__lab={state,go,experiments,player,setSheet,starsView,galaxyView,localView};

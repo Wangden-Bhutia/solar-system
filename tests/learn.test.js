@@ -73,3 +73,12 @@ test('journeys: every step points at real worlds, labs and predictions; question
   assert.equal(L.journey('nope'), null);
   assert.match(L.journey('mars').steps.at(-1).text, /about 3 to 22 minutes/);
 });
+
+test('voyage outward: every scale in order, every question exists and has its answer among the options', async () => {
+  const { VOYAGE, PREDICTIONS, journey } = await import('../learn.js');
+  assert.equal(journey('voyage'), VOYAGE);
+  const order = ['solar', 'stars', 'galaxy', 'local', 'super', 'universe'], levels = VOYAGE.steps.map(s => order.indexOf(s.level));
+  assert.ok(levels.every((l, i) => l >= 0 && (i === 0 || l >= levels[i - 1])), 'travels outward only');
+  assert.deepEqual([...new Set(VOYAGE.steps.map(s => s.level))], order, 'visits all six scales');
+  for (const s of VOYAGE.steps.filter(x => x.predict)) { const p = PREDICTIONS[s.predict]; assert.ok(p && p.answer < p.options.length, s.predict); }
+});
