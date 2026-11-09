@@ -7,6 +7,7 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 import { GALAXIES } from './local-data.js';
 import { ngcGalaxies, skyPosition, CLUSTERS, SHELLS, FAR_GALAXY, CMB_GLY } from './cosmos-data.js';
 import { SUPER_NEAR, SUPER_FAR, UNIVERSE_NEAR, UNIVERSE_FAR } from './zoom-ladder.js';
+import { skyPoints } from './sky.js';
 
 const glow = (() => {
   if (typeof document === 'undefined' || !document.createElement) return null;
@@ -17,12 +18,12 @@ const glow = (() => {
 const KIND_COLOURS = [[1, 0.86, 0.66], [0.72, 0.82, 1], [0.85, 0.85, 0.9]]; // elliptical, spiral, other
 
 // Shared scene machinery: camera, controls, labels, glides, picking, fading for the zoom bridge.
-function createScene({ renderer, canvas, labelsEl, onPick, near, far, home, overviewD, overviewDir }) {
+function createScene({ renderer, canvas, labelsEl, onPick, near, far, home, overviewD, overviewDir, fitRadius = 0 }) {
   const scene = new THREE.Scene(), bg = new THREE.Color(0x000005); scene.background = bg;
   const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 1e6);
   const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enabled = false; controls.enablePan = false;
   controls.zoomSpeed = 1.8; controls.minDistance = near; controls.maxDistance = far;
-  const marks = [], extras = [];
+  const marks = [], extras = [], glows = [];
   const points = (pos, col, size, opacity, color = 0xffffff) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos instanceof Float32Array ? pos : new Float32Array(pos), 3)); if (col) g.setAttribute('color', new THREE.BufferAttribute(col instanceof Float32Array ? col : new Float32Array(col), 3));
     const p = new THREE.Points(g, new THREE.PointsMaterial({ size, sizeAttenuation: false, vertexColors: !!col, color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false })); p.frustumCulled = false; scene.add(p); return p; };
   function mark(item, { px = 8, color = 0xdfe8ff, opacity = 0.8, label = item.name } = {}) {
@@ -32,6 +33,8 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, home, over
     el.addEventListener('click', ev => { ev.stopPropagation(); onPick?.(item); }); labelsEl.appendChild(el);
     marks.push({ item, sprite, el }); return sprite;
   }
+  // A glow without a label (constant size on screen, like the marks).
+  function glowAt(pos, px, color, opacity) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color, sizeAttenuation: false, depthWrite: false, transparent: true, opacity, blending: THREE.AdditiveBlending })); sp.position.fromArray(pos); sp.userData.px = px; scene.add(sp); glows.push(sp); return sp; }
   function ring(r, text, color = 0x33415c, opacity = 0.45) {
     const pts = []; for (let i = 0; i <= 200; i++) { const a = i / 200 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r)); }
     scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color, transparent: true, opacity })));
@@ -42,6 +45,9 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, home, over
   const reduce = () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const portrait = () => { const r = canvas.getBoundingClientRect(); return r.height > r.width; };
   const HOME = new THREE.Vector3(...home);
+  // Distance at which a sphere of fitRadius fills the screen with a margin, whichever of width or height is tighter
+  // (a tall phone screen needs more room than its height alone suggests).
+  const fitDistance = () => { const r = canvas.getBoundingClientRect(), a = r.width && r.height ? r.width / r.height : 1, v = camera.fov * Math.PI / 360, h = Math.atan(Math.tan(v) * a); return fitRadius / Math.sin(Math.min(v, h)) * 1.06; };
   const fly = { t: 1, from: null, to: null, dir: new THREE.Vector3(0.25, 0.75, 0.6).normalize(), done: null,
     start(toD, toT, dur, done, toDir) { this.from = { d: camera.position.distanceTo(controls.target) || near, tgt: controls.target.clone(), dir: viewDir() }; this.to = { d: toD, tgt: toT.clone(), dir: (toDir || this.from.dir).clone().normalize() }; this.t = 0; this.dur = reduce() ? 0.01 : dur; this.done = done; },
     step(dt) { if (this.t >= 1) return; this.t = Math.min(1, this.t + dt / this.dur); const k = 1 - (1 - this.t) ** 3, d = this.from.d * (this.to.d / this.from.d) ** k;
@@ -75,9 +81,11 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, home, over
     const vw = Math.min(width, visible?.width ?? width), vh = Math.min(height, visible?.height ?? height), fullW = 2 * width - vw, fullH = 2 * height - vh;
     camera.aspect = fullW / fullH; camera.zoom = vh / fullH;
     if (vw === width && vh === height) camera.clearViewOffset(); else camera.setViewOffset(fullW, fullH, width - vw, height - vh, width, height);
+    if (fitRadius) controls.maxDistance = Math.max(far, fitDistance() * 1.12);
     camera.far = Math.max(1e4, camera.position.length() * 6); camera.updateProjectionMatrix(); fly.step(dt); drift(dt); controls.update();
     const k = 2 * Math.tan(camera.fov * Math.PI / 360) * 2 / vh;
     for (const x of marks) x.sprite.scale.setScalar(x.sprite.userData.px * k * (x.item === selected ? 1.7 : 1));
+    for (const sp of glows) sp.scale.setScalar(sp.userData.px * k);
     placeLabels(canvas.getBoundingClientRect());
     const clear = renderer.autoClear; renderer.autoClear = !overlay; renderer.render(scene, camera); renderer.autoClear = clear;
   }
@@ -88,10 +96,10 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, home, over
   }
   function setLabels(v) { on = v; for (const x of [...marks, ...extras]) x.el.hidden = !v; }
   function setView(dir, d, tgt = HOME) { fly.t = 1; fly.done = null; fly.dir.copy(dir).normalize(); controls.target.copy(tgt); camera.position.copy(controls.target).addScaledVector(fly.dir, d); controls.update(); }
-  const api = { scene, points, mark, ring, render, pick, setView, viewDir, camera, controls, fly,
+  const api = { scene, points, mark, ring, glowAt, render, pick, setView, viewDir, camera, controls, fly,
     enter(at) { setLabels(true); controls.enabled = true; if (at) setView(at.dir, at.d, at.tgt ? new THREE.Vector3(...at.tgt) : HOME); },
     leave() { setLabels(false); controls.enabled = false; },
-    overview(done) { fly.start(portrait() ? overviewD * 1.5 : overviewD, HOME, 2.2, done, overviewDir); },
+    overview(done) { fly.start(fitRadius ? fitDistance() : portrait() ? overviewD * 1.5 : overviewD, HOME, 2.2, done, overviewDir); },
     zoomOut(done) { fly.start(far, controls.target, 1.2, done); },
     zoomBackIn(done) { fly.start(near, HOME, 1.4, done); },
     zoomState: () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1 }),
@@ -102,13 +110,15 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, home, over
 // ---- Laniakea: 1 unit = 1 million light-years ----
 export function createLaniakea(opts) {
   const s = createScene({ ...opts, near: SUPER_NEAR, far: SUPER_FAR, home: [0, 0, 0], overviewD: 520, overviewDir: new THREE.Vector3(0.3, 0.8, 0.5) });
-  { const n = 800, p = []; for (let i = 0; i < n; i++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(60000); p.push(v.x, v.y, v.z); } s.points(p, null, 1, 0.4, 0x8a93a8); }
+  s.scene.add(skyPoints(9000)); // the shared sky (sky.js)
   const g = ngcGalaxies(1), col = new Float32Array(g.count * 3);
   for (let i = 0; i < g.count; i++) { const c = KIND_COLOURS[g.kind[i]], k = 0.6 + ((i * 2654435761) >>> 0) / 4294967296 * 0.4; col.set([c[0] * k, c[1] * k, c[2] * k], i * 3); }
   s.points(g.pos, col, 1.5, 0.75);
-  // The Local Group's own galaxies, shrunk from the level inside (they are too close for the Hubble law).
-  s.points(GALAXIES.flatMap(x => x.pos.map(v => v / 100)), null, 2, 0.9, 0xdfe8ff);
-  s.mark({ name: 'Local Group', kind: 'Our group of galaxies', here: true, rank: 0, pos: [0, 0, 0] }, { px: 12, color: 0xffe38a, label: 'Local Group · you are here' });
+  // The Local Group's own galaxies, shrunk from the level inside, drawn with the same glows (sizes, colours)
+  // as the Local Group level, so they don't collapse into dots as one scale fades into the other.
+  s.glowAt([0, 0, 0], 16, 0xffe38a, 0.35);
+  for (const g of GALAXIES) { const big = g.i != null || g.blob; s.glowAt(g.pos.map(v => v / 100), g.rank === 1 ? 25.6 : big ? 16 : 5, big ? 0xdfe8ff : 0xb9c4dc, g.rank === 1 ? 0.75 : g.rank === 2 ? 0.55 : big ? 0.35 : 0.9); }
+  s.mark({ name: 'Local Group', kind: 'Our group of galaxies', here: true, rank: 0, pos: [0, 0, 0] }, { px: 12, color: 0xffe38a, opacity: 0.25, label: 'Local Group · you are here' });
   for (const c of CLUSTERS) s.mark({ ...c, pos: skyPosition(c.ra, c.dec, c.mly, 1) }, { px: c.rank <= 2 ? 12 : 8, color: c.attractor ? 0xffc890 : 0xdfe8ff, label: c.attractor ? 'Norma · Great Attractor' : c.name });
   for (const r of [100, 200, 300]) s.ring(r, `${r} million ly`);
   return s;
@@ -130,7 +140,8 @@ export function cosmicWeb(radius, nodes = 900, perEdge = 12, seed = 4) {
 }
 export function createUniverse(opts) {
   const R = CMB_GLY * 10; // units of 100 million ly
-  const s = createScene({ ...opts, near: UNIVERSE_NEAR, far: UNIVERSE_FAR, home: [0, 0, 0], overviewD: 960, overviewDir: new THREE.Vector3(0.35, 0.6, 0.72) });
+  const s = createScene({ ...opts, near: UNIVERSE_NEAR, far: UNIVERSE_FAR, home: [0, 0, 0], overviewD: 960, fitRadius: R, overviewDir: new THREE.Vector3(0.35, 0.6, 0.72) });
+  s.scene.add(skyPoints(9000)); // the shared sky (sky.js)
   // Laniakea's galaxies, shrunk 100× from the level inside: a small bright knot at the centre.
   const g = ngcGalaxies(100); s.points(g.pos, null, 1.3, 0.8, 0xdfe8ff);
   const web = cosmicWeb(R * 0.98); s.points(web.pos, web.col, 1.2, 0.35);

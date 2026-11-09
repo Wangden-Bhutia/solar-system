@@ -3,6 +3,7 @@ import * as THREE from './vendor/three.module.min.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { R0, ARMS, armRadius, discPosition, galaxyParticles, LANDMARKS } from './galaxy-data.js';
 import { GALAXY_NEAR, GALAXY_FAR } from './zoom-ladder.js';
+import { skyPoints } from './sky.js';
 import { omega, ARMS_OMEGA, BAR_OMEGA, SUN_OMEGA, turn, sunPosition, tracerStars, TIME_RANGE, MYR_PER_SEC } from './galaxy-motion.js';
 
 // Each particle carries its own angular speed (radians per Myr); the vertex shader turns it about the
@@ -30,9 +31,7 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
   const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enabled = false; controls.enablePan = false;
   controls.zoomSpeed = 1.8; controls.minDistance = GALAXY_NEAR; controls.maxDistance = GALAXY_FAR; // zooming in past this hands back to the nearby stars
   // Distant background stars and other galaxies' faint glow are left out on purpose: this level is our Galaxy alone.
-  { const n = 1500, p = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(3000); p.set([v.x, v.y, v.z], i * 3); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
-    scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x5c6478, size: 1, sizeAttenuation: false }))); }
+  scene.add(skyPoints(3000)); // the shared sky (sky.js)
   const { positions, colors, kinds } = galaxyParticles();
   const spin = new Float32Array(kinds.length);
   for (let i = 0; i < kinds.length; i++) spin[i] = kinds[i] === 0 ? BAR_OMEGA : kinds[i] === 2 ? ARMS_OMEGA : omega(Math.hypot(positions[i * 3], positions[i * 3 + 2]));

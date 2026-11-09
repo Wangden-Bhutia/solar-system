@@ -6,6 +6,7 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 import { galaxyParticles, R0 } from './galaxy-data.js';
 import { GALAXIES, LOCAL_UNIT, discAxes, spiralParticles } from './local-data.js';
 import { LOCAL_NEAR, LOCAL_FAR } from './zoom-ladder.js';
+import { skyPoints } from './sky.js';
 
 const glow = (() => {
   if (typeof document === 'undefined' || !document.createElement) return null;
@@ -24,7 +25,7 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
   const points = (pos, col, size, opacity) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); if (col) g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     const p = new THREE.Points(g, new THREE.PointsMaterial({ size, sizeAttenuation: false, vertexColors: !!col, color: col ? 0xffffff : 0x8a93a8, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false })); p.frustumCulled = false; scene.add(p); return p; };
   // Far background galaxies' glow is left out: this level is the Local Group alone. A faint star field for depth.
-  { const n = 1200, p = []; for (let i = 0; i < n; i++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(20000); p.push(v.x, v.y, v.z); } points(p, null, 1, 0.5); }
+  scene.add(skyPoints(20000)); // the shared sky (sky.js)
   // The Milky Way: the Galaxy scene's own particles, shrunk 10×.
   { const { positions, colors } = galaxyParticles({ bulge: 1800, disc: 2600, arm: 4200, seed: 11 }); points(Array.from(positions, v => v / LOCAL_UNIT), Array.from(colors), 1.3, 0.55); }
   // Spirals and clouds, each in its real place and orientation.

@@ -568,6 +568,7 @@ function paintCosmos(){
  if(!it){$('kicker').textContent='Everything we can see';$('title').textContent='The observable universe';
   $('fact').textContent='About 93 billion light-years across. Its edge is not a wall: it is simply as far as light has had time to reach us from.';
   $('view-caption').textContent='Rings: how long ago the light left · the web is an illustration, not a map';
+  $('star-companions').innerHTML='<b>Why is it round?</b> Light has had the same 13.8 billion years to reach us from every direction, so the part of the universe we can see is a sphere with us at its centre. Every observer, anywhere, sits at the centre of their own. The whole universe is bigger, perhaps infinite, and its shape is not known.';
   rows([['Across',`about 93 billion light-years`],['Age of the universe',COSMOS_FACTS.age],['Galaxies',COSMOS_FACTS.galaxies],['Light from the edge left',`about 13.8 billion years ago`],...SHELLS.map(x=>[`Light from ${fmt(x.gly,1)} billion ly away`,`left ${fmt(x.gyr,1)} billion years ago`])]);
   $('star-depth').innerHTML=`${depth}${wiki('Observable universe')} · ${wiki('Cosmic microwave background')}${sourceNote}`;return;}
  $('kicker').textContent=it.here?'Our supercluster':it.kind;$('title').textContent=it.cmb?'The cosmic microwave background':it.name;

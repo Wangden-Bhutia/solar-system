@@ -8,6 +8,7 @@ import { pairOf, pairState, compareOrbits, apastron } from './star-pairs.js';
 import { starKind } from './stars-data.js';
 import { VISITORS, withMotion, positionAt, nearestAt, STAR_TIME, YEARS_PER_SEC } from './star-motion.js';
 import { STAR_NEAR, STAR_FAR } from './zoom-ladder.js';
+import { skyPoints } from './sky.js';
 
 const glowTex = (() => {
   if (typeof document === 'undefined' || !document.createElement) return null;
@@ -23,9 +24,7 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
   const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enabled = false;
   controls.minDistance = STAR_NEAR; controls.maxDistance = STAR_FAR; controls.enablePan = false; controls.zoomSpeed = 1.8; // these scales span a lot of distance: zoom faster
   // Faint background stars far beyond the neighbourhood.
-  { const n = 2500, p = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(4000 + Math.random() * 2000); p.set([v.x, v.y, v.z], i * 3); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
-    scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x8a93a8, size: 1, sizeAttenuation: false, transparent: true, opacity: 0.6 }))); }
+  scene.add(skyPoints(5000)); // the shared sky (sky.js)
   // Distance rings in the plane of the Solar System: 5, 10 and 15 light-years from the Sun.
   const rings = new THREE.Group(); scene.add(rings);
   for (const r of [5, 10, 15]) {
