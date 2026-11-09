@@ -3,17 +3,20 @@
 // position t from 0 (the inner scale) to 1 (the outer scale). Zooming past a scene's limit moves t
 // directly, so the outer scene dissolves in while the inner one recedes and darkens, with no cut,
 // fade-to-black or pause. Pure maths here; drawing is in lab.js / stars.js / galaxy.js.
-export const LEVELS = ['solar', 'stars', 'galaxy'];
-export const LEVEL_NAMES = { solar: 'Solar System', stars: 'Stars', galaxy: 'Milky Way' };
+export const LEVELS = ['solar', 'stars', 'galaxy', 'local'];
+export const LEVEL_NAMES = { solar: 'Solar System', stars: 'Stars', galaxy: 'Milky Way', local: 'Local Group' };
 export const levelIndex = l => LEVELS.indexOf(l);
-export const PAIRS = { 'solar>stars': ['solar', 'stars'], 'stars>galaxy': ['stars', 'galaxy'] };
-export const pairFor = (level, dir) => dir > 0 ? (level === 'solar' ? 'solar>stars' : level === 'stars' ? 'stars>galaxy' : null)
-  : (level === 'stars' ? 'solar>stars' : level === 'galaxy' ? 'stars>galaxy' : null);
+export const PAIRS = { 'solar>stars': ['solar', 'stars'], 'stars>galaxy': ['stars', 'galaxy'], 'galaxy>local': ['galaxy', 'local'] };
+export const pairFor = (level, dir) => { const i = LEVELS.indexOf(level), j = i + (dir > 0 ? 1 : -1); if (i < 0 || j < 0 || j >= LEVELS.length) return null; const [a, b] = dir > 0 ? [level, LEVELS[j]] : [LEVELS[j], level]; return `${a}>${b}`; };
 
 // Camera distances that meet at the seams.
 export const STAR_NEAR = 0.4;      // ly: the star map's closest view (its inner limit) = end of the Solar System bridge
 export const STAR_FAR = 120;       // ly: the star map's outer limit = start of the Galaxy bridge
 export const GALAXY_NEAR = 12;     // kly: the Galaxy's closest view (inner limit) = end of the Galaxy bridge
+export const GALAXY_FAR = 260;     // kly: the Galaxy's outer limit = start of the Local Group bridge
+export const LOCAL_UNIT = 10;      // kly per Local Group scene unit
+export const LOCAL_NEAR = 60;      // units (600 kly): the Local Group's closest view = end of its bridge
+export const LOCAL_FAR = 1300;     // units (13 million ly): the Local Group's outer limit
 // How much zooming crosses a whole bridge (wheel deltaY units; a pinch is converted to the same units).
 export const BRIDGE_SPAN = 600;
 
@@ -25,6 +28,11 @@ export function bridgeFrame(pair, t) {
     // The Solar System recedes (camera pulls back up to 8×) as the star map opens out from just around
     // the Sun (0.02 → 0.4 ly). The Solar System's units are compressed, so this seam is visual, not metric.
     return { inner: { recede: 1 + 7 * t ** 1.5, dim: smooth(t) }, outer: { d: 0.02 * (STAR_NEAR / 0.02) ** t, opacity: smooth(t) } };
+  }
+  if (pair === 'galaxy>local') {
+    // Also metric: the Local Group scene is the Galaxy scene shrunk by 10, around the same target.
+    const galD = GALAXY_FAR * (LOCAL_NEAR * LOCAL_UNIT / GALAXY_FAR) ** t;
+    return { inner: { d: galD, dim: smooth(t) }, outer: { d: galD / LOCAL_UNIT, opacity: smooth(t) } };
   }
   // Stars → Galaxy is metric: both scenes share the Sun as centre and the same view direction, and
   // the Galaxy's camera distance in kly is exactly the star map's in ly ÷ 1,000 (120 ly = 0.12 kly).

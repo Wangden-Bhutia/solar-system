@@ -99,3 +99,49 @@ Nineteen moons besides Earth's: Phobos, Deimos; Io, Europa, Ganymede, Callisto; 
 - **The Sun's vertical motion:** Bahcall & Bahcall 1985, Nature 316, 706 ([abstract](https://ui.adsabs.harvard.edu/abs/1985Natur.316..706B/abstract), read 9 Nov 2026): half-period 26–37 Myr, peak height 49–93 pc. The model uses a 64 Myr period and 70 pc. The Sun's present height of about 20.8 pc above the mid-plane is from Bennett & Bovy 2019 (MNRAS 482, 1417). At the Galaxy scale this bob is too small to see; it is described in the card.
 - **Earth milestones on the clock:** the end-Cretaceous extinction 66 million years ago; dinosaurs first appear in the Late Triassic, roughly 230–245 million years ago, so one lap back (about 222 million) they were "new on Earth".
 - **Simplifications, stated in the app:** circular orbits (no epicycles or radial migration), arm shapes held fixed, clock limited to ±250 million years (about one lap each way), and nebulae and young clusters hidden away from today because they last only a few million years.
+
+## Nearby stars in motion (`star-motion.js`, November 2026)
+- **Proper motions and radial velocities.** Taken from each star's Wikipedia infobox, which quotes Gaia DR3 or SIMBAD values (read 9 Nov 2026), for: Proxima Centauri (used for the Alpha Centauri system), Barnard's Star, Luhman 16, WISE 0855−0714, Wolf 359, Lalande 21185, Sirius, Gliese 65, Ross 154, Ross 248, Epsilon Eridani, GJ 1061, Teegarden's Star, Kapteyn's Star, SCR 1845−6357, DENIS J1048−3956, UGPS J0722−0540, Wolf 424, Gliese 440, GJ 1245, WISE 1741+2553, WISE 1639−6847, LHS 288, DENIS 0255−4700, TRAPPIST-1, and the passing stars Gliese 445, Scholz's Star and Gliese 710. The Luhman 16 radial velocity (23.1 km/s) comes from the article text.
+- **The remaining stars** come from the [HYG database v4.1](https://github.com/astronexus/HYG-Database): Hipparcos proper motions and Gliese-catalogue radial velocities, licensed CC BY-SA 4.0. HYG was also used as a cross-check. It has a placeholder for Barnard's Star's declination motion and records unknown radial velocities as 0, which is why the infobox values above were preferred.
+- **Radial velocity not measured.** Treated as unknown (drawn with sideways drift only, and the card says so) for WISE 0855−0714, SCR 1845−6357, Gliese 440, WISE 1741+2553, WISE 1639−6847 and DENIS 0255−4700. LHS 288 is also treated as unknown: SIMBAD lists 155.6 km/s without a cited source, and no published encounter list uses it.
+- **Model.** Each star moves in a straight line, p(t) = p₀ + v·t, with v built from its proper motion, radial velocity and distance (4.74047 km/s per arcsec/yr per parsec). The clock covers ±100,000 years. Beyond that range (the Gliese 710 flyby) only the chosen passing star is drawn.
+- **Checks against published encounters.** The [List of nearest stars](https://en.wikipedia.org/wiki/List_of_nearest_stars) table (read 9 Nov 2026), compiled from Bailer-Jones et al. and others, counts from about the year 2000 CE. The model reproduces it to within a few per cent:
+
+  | Star | Published | This model |
+  |---|---|---|
+  | Proxima / Alpha Centauri | 28,650 yr, 3.12 ly | 26,700 yr from now, 3.11 ly |
+  | Ross 248 | 38,500 yr, 3.04 ly | 36,500 yr, 3.04 ly |
+  | Gliese 445 | 46,300 yr, 3.34 ly | 44,300 yr, 3.34 ly |
+  | Barnard's Star | 11,700 yr, 3.77 ly | 9,700 yr, 3.77 ly |
+  | Lalande 21185 | 22,000 yr, 4.68 ly | 20,000 yr, 4.68 ly |
+  | Gliese 710 | 1.30 million yr, 0.167 ly | 1.34 million yr, 0.173 ly; a 2026 study gives 1.345 million yr, 0.062 pc |
+  | Scholz's Star | 70,000–81,000 yr ago, 0.82–1.08 ly (two studies) | 80,600 yr ago, 1.06 ly |
+  | Epsilon Eridani | 105,000 yr ago, 7 ly (its article) | 105,200 yr ago, 7.0 ly |
+
+- **"Nearest star" readout.** The nearest system to the Sun at the clock's time, by this model. Older eras (for example Luhman 16 being nearest roughly 15,000–60,000 years ago) follow from the same data but have not been checked against a published study.
+
+## Stars in pairs (`star-pairs.js`, November 2026)
+- **Relative-orbit elements and masses** come from each system's Wikipedia infobox (read 9 Nov 2026), which cites the orbit papers:
+
+  | Pair | Period | Semi-major axis | Eccentricity | Periastron | Masses |
+  |---|---|---|---|---|---|
+  | Alpha Centauri A–B | 79.762 yr | 23.299 AU | 0.51947 | 1875.66 | 1.0788 / 0.9092 M☉ |
+  | Sirius A–B | 50.1284 yr | 19.8 AU | 0.59142 | 1994.5715 | 2.063 / 1.018 M☉ |
+  | Procyon A–B | 40.840 yr | 15.137 AU | 0.39785 | 1968.076 | 1.478 / 0.592 M☉ |
+  | 61 Cygni A–B | 707.1 yr | 86.76 AU | 0.4424 | JD 2596496 (≈ 2396.85) | 0.6771 / 0.6289 M☉ |
+  | Luhman 16 A–B | 26.55 yr | 3.52 AU | 0.344 | 2018.060 | 35.4 / 29.4 Jupiter masses |
+  | Epsilon Indi Ba–Bb | 11.0197 yr | 2.4058 AU | 0.54042 | not published there | 66.92 / 53.25 Jupiter masses |
+
+  For Epsilon Indi Ba–Bb the starting point along the orbit is illustrative, and the card says so.
+- **Proxima's orbit around A–B:** period about 511,000 years, periastron about 4,100 AU, apastron about 12,300 AU (same infobox).
+- **Check:** for every pair, Kepler's third law (a³/P²) reproduces the measured total mass to within 1%, and the computed next periastrons fall in 2035 (Alpha Centauri) and 2044 (Sirius).
+- **Drawing:** each orbit is shown face on, in its own plane, so inclination and orientation on the sky are not shown. Star sizes are not to scale; white dwarfs are drawn small because they are about Earth-sized.
+
+## The Local Group (`local-data.js`, `local.js`, November 2026)
+- **Distances** come from Wikipedia's [List of nearest galaxies](https://en.wikipedia.org/wiki/List_of_nearest_galaxies) (read 9 Nov 2026). For example: Andromeda 2.538 Mly, Triangulum 2.73, LMC 0.163, SMC 0.205, Sagittarius Dwarf 0.078, Leo I 0.820, WLM 3.043.
+- **J2000 positions** are the catalogued values. They were checked against HYG's deep-sky list (`misc/dso.csv`, for M31, M32, M33, M110, NGC 147, NGC 185, IC 10, IC 1613, NGC 6822, LMC and SMC) and against Wikipedia infoboxes (Leo I, Draco, Sagittarius Dwarf, WLM). They are converted to the Galaxy scene's frame and shrunk 10×, so 1 unit = 10,000 ly.
+- **Discs.** Andromeda is drawn 152,000 ly wide (D25), inclined 77°. Triangulum is 61,000 ly wide, inclined 54° (both from Wikipedia). The position angles (35° and 23°) are from HYG. The spiral and cloud shapes are simple models.
+- **Facts.** Andromeda: about 1 trillion stars. Triangulum: about 40 billion stars, probably a satellite of Andromeda. LMC: about 20 billion stars, 32,200 ly across, predicted to merge with the Milky Way in about 2.4 billion years. SMC: 18,900 ly across. All from the galaxies' Wikipedia articles, read 9 Nov 2026. The SMC's star count differs within its article (3 billion in the infobox, "several hundred million" in the text), so the app says "a few billion" only loosely; it may be revised.
+- **Local Group size and mass.** About 2 × 10¹² solar masses and more than 100 members ([Local Group](https://en.wikipedia.org/wiki/Local_Group)). Its width depends on where the edge is drawn: the app says 10–17 million light-years.
+- **Andromeda's approach.** It is approaching at about 110 km/s. A merger was long predicted for about 4.5 billion years from now. Sawala et al. (2025, Nature Astronomy), using Gaia and Hubble data and including Triangulum and the LMC, found about a 50% chance of a merger within 10 billion years ([Andromeda–Milky Way collision](https://en.wikipedia.org/wiki/Andromeda%E2%80%93Milky_Way_collision); [UWA news release](https://www.uwa.edu.au/news/article/2025/june/astronomers-thought-the-milky-way-was-doomed-to-crash-into-andromeda)). The app presents both results.
+- **Seam with the Galaxy.** The Milky Way in this scene is the Galaxy scene's own particle model, shrunk 10×, and the camera distance here is exactly the Galaxy's ÷ 10, centred on the same point.

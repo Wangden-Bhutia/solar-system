@@ -1,6 +1,6 @@
 // DOM emulator only: NOT a browser, rendering test or actual mobile playback test.
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import {parseHTML} from 'linkedom';
-import {SUN,PLANETS,MOON,MOONS,DWARFS} from '../data.js';import * as science from '../science.js';import * as state from '../lab-state.js';import * as sheetMod from '../sheet.js';import * as insights from '../insights.js';import * as learn from '../learn.js';import * as starsData from '../stars-data.js';import * as galaxyData from '../galaxy-data.js';import * as ladderMod from '../zoom-ladder.js';import * as galaxyMotion from '../galaxy-motion.js';import * as lines from '../voice/lines.js';
+import {SUN,PLANETS,MOON,MOONS,DWARFS} from '../data.js';import * as science from '../science.js';import * as state from '../lab-state.js';import * as sheetMod from '../sheet.js';import * as insights from '../insights.js';import * as learn from '../learn.js';import * as starsData from '../stars-data.js';import * as galaxyData from '../galaxy-data.js';import * as ladderMod from '../zoom-ladder.js';import * as galaxyMotion from '../galaxy-motion.js';import * as starMotion from '../star-motion.js';import * as starPairs from '../star-pairs.js';import * as localData from '../local-data.js';import * as lines from '../voice/lines.js';
 const space={log:[],dims:[],pickResult:null,selected:null,starsZoom:{d:26,min:0.4,max:120,busy:false},galaxyZoom:{d:215,min:8,max:260,busy:false}};
 async function setup(width=390,height=844,stored={}){
  space.log=[];space.pickResult=null;
@@ -13,9 +13,11 @@ async function setup(width=390,height=844,stored={}){
  const bodies=[SUN,...PLANETS,MOON,...DWARFS,...MOONS].map(data=>({data}));const controls={target:{},minDistance:0.6,maxDistance:900};const camera={position:{distanceTo:()=>space.solarD??300,clone:()=>({sub:()=>({normalize:()=>({x:0,y:0.5,z:0.86})})})}};
  const app={hooks,bodies,controls,camera,drawSolar(r){space.log.push('drawSolar:'+r.toFixed(2));},renderer:{},focus(b,opts={}){focuses.push([b.data.name,opts]);if(!opts.silent)hooks.onFocus?.(b);},unfocus(){focuses.push(['overview']);},setHomeScope(scope){hooks.homeScope=scope;focuses.push(['overview:'+scope]);}};
  const audio={createVoicePlayer:({onState})=>({unlock(){unlocks++;},stop(){stops++;onState('idle');},say(id){assert.ok(lines.LINES[id],id);played.push(id);onState('speaking');return Promise.resolve();}})};
- const mods={'./app.js':app,'./science.js':science,'./lab-state.js':state,'./sheet.js':sheetMod,'./insights.js':insights,'./voice/lines.js':lines,'./voice-player.js':audio,'./learn.js':learn,'./stars-data.js':starsData,'./galaxy-data.js':galaxyData,'./zoom-ladder.js':ladderMod,'./galaxy-motion.js':galaxyMotion,'./galaxy.js':{createGalaxy:()=>({landmarks:galaxyData.LANDMARKS,enter(){space.log.push('galaxy:enter');},leave(){space.log.push('galaxy:leave');},render(){},pick:()=>space.galaxyPick,select(m){space.galaxySel=m;},zoomToSun(done){space.log.push('galaxy:zoomToSun');done?.();},zoomState:()=>space.galaxyZoom,setView(dir,d){space.galaxyView=[dir,d];},time:()=>space.gt||0,playing:()=>!!space.gplaying,play(){space.gplaying=true;space.log.push('galaxy:play')},pause(){space.gplaying=false},setTime(t){space.gt=t;space.gplaying=false},rewind(done){space.log.push('galaxy:rewind');space.gt=0;space.gplaying=false;done?.()},atSun:()=>!space.gt,viewDir:()=>({x:0,y:1,z:0}),showLabels(v){space.log.push('galaxyLabels:'+v);},controls:{}})},'./stars.js':{createDimmer:()=>(o=>{space.dims.push(o);}),createStars:()=>{const entries=[starsData.SUN_ENTRY,...starsData.NEIGHBOURS];let mode='stars';const log=space.log;
-  return {entries,get mode(){return mode;},enter(){log.push('enter');},leave(){log.push('leave');},render(){log.push('render');},pick:()=>space.pickResult,select(e){space.selected=e;},
-   zoomBackIn(done){log.push('zoomIn');done();},zoomOut(done){log.push('starsOut');done();},zoomState:()=>space.starsZoom,setView(dir,d){space.starsView=[dir,d];},viewDir:()=>({x:0,y:1,z:0}),showLabels(v){log.push('starsLabels:'+v);},controls:{},openSystem(e){e.sysView=starsData.systemSummary(e);mode='system';log.push('open:'+e.name);return e.sysView;},closeSystem(){mode='stars';log.push('close');}};}},'./experiments.js':{createExperiments:()=>({update(s){updates.push(s);},render(w,h,v){renders.push([w,h,v]);}})}};
+ const V=(x=0,y=0,z=0)=>({x,y,z,clone(){return V(this.x,this.y,this.z)},divideScalar(k){return V(this.x/k,this.y/k,this.z/k)},multiplyScalar(k){return V(this.x*k,this.y*k,this.z*k)},toArray(){return [this.x,this.y,this.z]},fromArray(a){return V(...a)}});
+ const mods={'./app.js':app,'./science.js':science,'./lab-state.js':state,'./sheet.js':sheetMod,'./insights.js':insights,'./voice/lines.js':lines,'./voice-player.js':audio,'./learn.js':learn,'./stars-data.js':starsData,'./galaxy-data.js':galaxyData,'./zoom-ladder.js':ladderMod,'./galaxy-motion.js':galaxyMotion,'./star-motion.js':starMotion,'./star-pairs.js':starPairs,'./local-data.js':localData,'./local.js':{createLocal:()=>{const galaxies=[{name:'Milky Way',short:'Milky Way',kind:'Spiral galaxy',here:true,mly:0,pos:[0,0,0],rank:0},...localData.GALAXIES];return {galaxies,controls:{enabled:false,target:V(-2.7,0,0)},enter(at){space.log.push('local:enter');space.localAt=at},leave(){space.log.push('local:leave')},render(){},pick:()=>space.localPick,select(g){space.localSel=g},overview(){space.log.push('local:overview')},zoomBackIn(done){space.log.push('local:zoomBackIn');done?.()},zoomState:()=>space.localZoom||{d:60,min:60,max:1300,busy:false,atSun:true},setView(dir,d,t){space.localView=[dir,d,t]},viewDir:()=>({x:0,y:1,z:0}),showLabels(v){space.log.push('localLabels:'+v)}};}},'./galaxy.js':{createGalaxy:()=>({landmarks:galaxyData.LANDMARKS,enter(){space.log.push('galaxy:enter');},leave(){space.log.push('galaxy:leave');},render(){},pick:()=>space.galaxyPick,select(m){space.galaxySel=m;},zoomToSun(done){space.log.push('galaxy:zoomToSun');done?.();},zoomOut(done){space.log.push('galaxy:zoomOut');done?.();},controls:{enabled:false,target:V(-27,0,0)},zoomState:()=>space.galaxyZoom,setView(dir,d){space.galaxyView=[dir,d];},time:()=>space.gt||0,playing:()=>!!space.gplaying,play(){space.gplaying=true;space.log.push('galaxy:play')},pause(){space.gplaying=false},setTime(t){space.gt=t;space.gplaying=false},rewind(done){space.log.push('galaxy:rewind');space.gt=0;space.gplaying=false;done?.()},atSun:()=>!space.gt,viewDir:()=>({x:0,y:1,z:0}),showLabels(v){space.log.push('galaxyLabels:'+v);}})},'./stars.js':{createDimmer:()=>(o=>{space.dims.push(o);}),createStars:()=>{const entries=[starsData.SUN_ENTRY,...starsData.NEIGHBOURS,...starMotion.VISITORS.map(starsData.neighbourEntry)].map(starMotion.withMotion);let mode='stars';const log=space.log;
+  let pairOpen=null;
+  return {entries,openPair(e){pairOpen=e;log.push('pair:'+e.name);return {};},pairInfo:()=>pairOpen&&{year:2026.5,sep:18.1,pr:starPairs.pairOf(pairOpen.name)},time:()=>space.st||0,playing:()=>!!space.splaying,play(){space.splaying=true;log.push('stars:play')},pause(){space.splaying=false},setTime(t,f){space.st=t;space.sfocus=f;space.splaying=false},rewind(done){log.push('stars:rewind');space.st=0;space.splaying=false;done?.()},nearest:()=>starMotion.nearestAt(entries.filter(e=>!e.sun),space.st||0),get mode(){return mode;},enter(){log.push('enter');},leave(){log.push('leave');},render(){log.push('render');},pick:()=>space.pickResult,select(e){space.selected=e;},
+   zoomBackIn(done){log.push('zoomIn');done();},zoomOut(done){log.push('starsOut');done();},zoomState:()=>space.starsZoom,setView(dir,d){space.starsView=[dir,d];},viewDir:()=>({x:0,y:1,z:0}),showLabels(v){log.push('starsLabels:'+v);},controls:{},openSystem(e){e.sysView=starsData.systemSummary(e);mode='system';log.push('open:'+e.name);return e.sysView;},closeSystem(){mode='stars';pairOpen=null;log.push('close');}};}},'./experiments.js':{createExperiments:()=>({update(s){updates.push(s);},render(w,h,v){renders.push([w,h,v]);}})}};
  const context=vm.createContext({document,window:{},console,innerWidth:width,innerHeight:height,addEventListener(){},setTimeout,localStorage:{getItem:k=>storage[k]??null,setItem:(k,v)=>storage[k]=v}});
  const entry=new vm.SourceTextModule(fs.readFileSync('lab.js','utf8'),{context});await entry.link(s=>{const obj=mods[s];assert.ok(obj,s);return new vm.SyntheticModule(Object.keys(obj),function(){for(const[k,v]of Object.entries(obj))this.setExport(k,v);},{context});});await entry.evaluate();
  const tap=name=>app.focus(bodies.find(b=>b.data.name===name));
@@ -218,13 +220,13 @@ test('zoom out to the nearby stars: star map, star cards, planets, habitable zon
  assert.equal(a.document.querySelector('#ladder [aria-pressed="true"]').dataset.level,'solar');
  a.document.querySelector('#ladder [data-level="'+({explore:'stars',stars:'galaxy',system:'galaxy'}[a.lab.state.value.view]||'stars')+'"]').onclick();assert.equal(a.lab.state.value.view,'stars');assert.ok(space.log.includes('enter'));
  assert.equal(a.document.body.classList.contains('space-mode'),true);assert.equal(a.document.querySelector('#ladder [aria-pressed="true"]').dataset.level,'stars');
- assert.equal(a.sheet,'closed');assert.equal(a.$('hint').hidden,false);assert.equal(a.$('hint').textContent,'Tap a star');assert.equal(a.$('back').textContent,'← Solar System');
+ assert.equal(a.sheet,'closed');assert.equal(a.$('hint').hidden,true,'the time bar replaces the hint');assert.equal(a.$('gtime').hidden,false);assert.match(a.$('gnote').textContent,/Nearest star now: Alpha Centauri, 4\.2 light-years/);assert.equal(a.$('back').textContent,'← Solar System');
  assert.equal(typeof a.hooks.renderOverride,'function');assert.equal(a.app.controls.enabled,false,'Solar System controls off');
  // Tap a star on the map
  space.pickResult=starsData.NEIGHBOURS.find(e=>e.name==='Sirius');a.hooks.overrideTap(100,100);
  assert.equal(a.sheet,'peek');assert.equal(a.$('title').textContent,'Sirius');assert.match(a.$('kicker').textContent,/White star · A1V/);
  assert.match(a.$('fact').textContent,/brightest star in our night sky/);assert.match(a.$('star-facts').textContent,/8\.71 light-years/);assert.match(a.$('star-facts').textContent,/visible to the naked eye/);
- assert.match(a.$('star-companions').textContent,/double system: Sirius A \(star\), Sirius B \(white dwarf\)/);assert.equal(a.$('action').hidden,true,'no planets: no visit button');
+ assert.match(a.$('star-companions').textContent,/double system: Sirius A \(star\), Sirius B \(white dwarf\)/);assert.notEqual(a.$('action').textContent,'Visit its planets','no planets: no visit button');
  // A system with planets
  space.pickResult=starsData.NEIGHBOURS.find(e=>e.name==='Alpha Centauri');a.hooks.overrideTap(10,10);
  assert.match(a.$('star-planets').textContent,/2 known planets\. At least one orbits in the habitable zone/);assert.equal(a.$('action').textContent,'Visit its planets');
@@ -269,7 +271,60 @@ test('Milky Way clock: shown only in the Galaxy, plays and scrubs, names the mom
  a.$('gslider').value='120';a.$('gslider').oninput();assert.equal(space.gt,120);
  space.galaxyPick=galaxyData.LANDMARKS[0];a.hooks.overrideTap(5,5);assert.equal(a.$('gtime').hidden,true,'a card covers the clock');space.galaxyPick=null;a.hooks.overrideTap(5,5);assert.equal(a.$('gtime').hidden,false);
  space.galaxyZoom={d:12.1,min:12,max:260,busy:false};wheel(-120);assert.ok(space.log.includes('galaxy:rewind'),'zooming in from another time first returns to today');assert.equal(a.lab.state.value.view,'galaxy');
- space.gt=50;a.$('back').onclick();assert.equal(a.lab.state.value.view,'stars');assert.equal(space.gt,0);assert.equal(a.$('gtime').hidden,true);
+ space.gt=50;a.$('back').onclick();assert.equal(a.lab.state.value.view,'stars');assert.equal(space.gt,0);assert.equal(a.$('gtime').getAttribute('aria-label'),'Time among the nearby stars');
+});
+test('nearby stars in motion: the clock names the nearest star, cards give speed and closest approach, passing stars jump to their encounter, and zooming out returns to today',async()=>{
+ const a=await setup(),c=a.$('c'),wheel=dy=>c.dispatchEvent(Object.assign(new a.document.defaultView.Event('wheel'),{deltaY:dy}));
+ a.document.querySelector('#ladder [data-level="stars"]').onclick();if(a.lab.state.value.view!=='stars')a.document.querySelector('#ladder [data-level="stars"]').onclick();
+ assert.equal(a.lab.state.value.view,'stars');assert.equal(a.$('gclock').textContent,'Today');
+ a.$('gplay').onclick();assert.ok(space.log.includes('stars:play'));a.$('gplay').onclick();
+ a.$('gslider').value='38000';a.$('gslider').oninput();assert.equal(space.st,38000);assert.equal(a.$('gclock').textContent,'38,000 years from now');assert.match(a.$('gnote').textContent,/^Nearest star: Ross 248, 3\.\d light-years$/);
+ a.$('gslider').value='-80000';a.$('gslider').oninput();assert.match(a.$('gnote').textContent,/Scholz/);
+ // A passing star's card jumps the clock to its encounter: Gliese 710, about 1.3 million years ahead.
+ space.st=0;space.pickResult={name:'Gliese 710'};a.hooks.overrideTap(1,1);assert.match(a.$('kicker').textContent,/^Passing star/);assert.equal(a.$('action').textContent,'Show its close approach');
+ a.$('action').onclick();assert.ok(space.st>1.3e6&&space.st<1.4e6);assert.equal(space.sfocus.name,'Gliese 710');assert.equal(a.sheet,'closed');assert.equal(a.$('gclock').textContent,'1.34 million years from now');
+ space.st=0;
+ // Card: Ross 248 lists speed and its closest approach.
+ space.pickResult=starsData.NEIGHBOURS.find(e=>e.name==='Ross 248');a.hooks.overrideTap(1,1);
+ assert.match(a.$('star-facts').textContent,/Speed compared with the Sun.*km\/s/);assert.match(a.$('star-facts').textContent,/Closest to the Sun.*In 36,500 years, 3\.0 light-years away/);
+ // A brown dwarf with no measured radial speed says so.
+ space.pickResult=starsData.NEIGHBOURS.find(e=>e.name==='WISE 0855−0714');a.hooks.overrideTap(1,1);assert.match(a.$('star-facts').textContent,/not yet measured/);
+ // Back in the Solar System direction: from another time, the clock returns to today first.
+ a.hooks.overrideTap(1,1);space.pickResult=null;a.hooks.overrideTap(1,1);
+ space.st=-20000;space.starsZoom={d:0.41,min:0.4,max:120,busy:false};wheel(-120);assert.ok(space.log.includes('stars:rewind'));assert.equal(a.lab.state.value.view,'stars');
+});
+test('stars in pairs: a binary’s card offers to watch the pair orbit; the pair card gives lap, closest and farthest, masses and a Kepler check',async()=>{
+ const a=await setup();
+ a.document.querySelector('#ladder [data-level="stars"]').onclick();if(a.lab.state.value.view!=='stars')a.document.querySelector('#ladder [data-level="stars"]').onclick();
+ space.pickResult={name:'Sirius'};a.hooks.overrideTap(1,1);
+ const btn=a.$('action');assert.equal(btn.hidden,false,'Sirius offers its pair');assert.equal(btn.textContent,'Watch the two stars orbit each other');assert.equal(btn.getAttribute('aria-label'),'Watch Sirius A and Sirius B orbit each other');assert.equal(a.$('action2').hidden,true);
+ btn.onclick();assert.equal(a.lab.state.value.view,'pair');assert.ok(space.log.includes('pair:Sirius'));
+ assert.equal(a.$('title').textContent,'Sirius A and Sirius B');assert.match(a.$('fact').textContent,/once every 50\.1 years/);
+ assert.match(a.$('system-list').textContent,/Closest8\.1 AU apart · next in 2044/);assert.match(a.$('system-list').textContent,/Farthest31\.5 AU apart/);assert.match(a.$('system-list').textContent,/2\.06 and 1\.02 times the Sun/);
+ assert.match(a.$('system-depth').textContent,/Kepler’s third law gives a total of 3\.09 Suns/);assert.match(a.$('view-caption').textContent,/18\.1 AU apart/);
+ assert.equal(a.$('system-panel').hidden,false);assert.equal(a.$('gtime').hidden,true,'no star clock inside the pair view');
+ a.$('back').onclick();assert.equal(a.lab.state.value.view,'stars');
+ space.pickResult={name:'Barnard\'s Star'};a.hooks.overrideTap(1,1);assert.notEqual(a.$('action').textContent,'Watch the two stars orbit each other');assert.equal(a.$('action2').hidden,true,'single stars have no pair button');
+ space.pickResult={name:'Alpha Centauri'};a.hooks.overrideTap(1,1);assert.equal(a.$('action').textContent,'Visit its planets');assert.equal(a.$('action2').hidden,false);assert.equal(a.$('action2').textContent,'Watch the pair orbit');
+ space.pickResult={name:'Luhman 16'};a.hooks.overrideTap(1,1);a.$('action').onclick();assert.equal(a.$('kicker').textContent,'Two brown dwarfs');assert.match(a.$('system-list').textContent,/35 and 29 times Jupiter/);
+});
+test('the Local Group: a fourth scale past the Milky Way, metric seam, galaxy cards with Andromeda’s approach told honestly, Back steps in',async()=>{
+ const a=await setup(),c=a.$('c'),wheel=dy=>c.dispatchEvent(Object.assign(new a.document.defaultView.Event('wheel'),{deltaY:dy}));
+ assert.ok(a.document.querySelector('#ladder [data-level="local"]'),'ladder has Local Group');
+ for(let i=0;i<4&&a.lab.state.value.view!=='local';i++)a.document.querySelector('#ladder [data-level="local"]').onclick();
+ assert.equal(a.lab.state.value.view,'local');assert.ok(space.log.includes('local:enter'));assert.equal(a.document.querySelector('#ladder [aria-pressed="true"]').dataset.level,'local');
+ assert.equal(a.$('back').textContent,'← Milky Way');assert.equal(a.$('hint').textContent,'Tap a galaxy');assert.equal(a.$('gtime').hidden,true,'no clock at this scale');
+ assert.ok(space.localAt&&Math.abs(space.localAt.d-60)<1e-9,'arrives at the Local Group’s closest view');
+ space.localPick=localData.GALAXIES.find(g=>g.short==='Andromeda');a.hooks.overrideTap(3,3);
+ assert.equal(a.$('title').textContent,'Andromeda Galaxy');assert.match(a.$('star-facts').textContent,/about 2\.54 million light-years/);assert.match(a.$('star-facts').textContent,/Homo/);
+ assert.match(a.$('star-facts').textContent,/about 110 km\/s/);assert.match(a.$('star-facts').textContent,/Maybe\..*4\.5 billion.*even odds.*10 billion/);assert.match(a.$('star-depth').textContent,/Sawala et al\. \(2025\)/);
+ space.localPick=localData.GALAXIES.find(g=>g.short==='Triangulum');a.hooks.overrideTap(3,3);assert.match(a.$('star-facts').textContent,/Distance from Andromedaabout 0\.7 million light-years/);
+ space.localPick=null;a.hooks.overrideTap(3,3);assert.equal(a.sheet,'closed');
+ a.$('back').onclick();assert.equal(a.lab.state.value.view,'galaxy','Back steps in to the Milky Way');assert.ok(space.log.includes('local:zoomBackIn')&&space.log.includes('local:leave'));
+ // Gesture: zooming out past the Galaxy's edge bridges into the Local Group, and back.
+ space.galaxyZoom={d:258,min:12,max:260,busy:false};wheel(120);assert.equal(a.document.body.classList.contains('bridging'),true);for(let i=0;i<5;i++)wheel(120);assert.equal(a.lab.state.value.view,'local');
+ space.localZoom={d:60.5,min:60,max:1300,busy:false,atSun:false};wheel(-120);assert.ok(space.log.filter(x=>x==='local:zoomBackIn').length>=2,'first returns to the Sun');
+ space.localZoom={d:60.5,min:60,max:1300,busy:false,atSun:true};wheel(-120);assert.equal(a.document.body.classList.contains('bridging'),true);for(let i=0;i<5;i++)wheel(-120);assert.equal(a.lab.state.value.view,'galaxy');
 });
 test('seamless zoom: past a scene’s edge the gesture blends into the next scale; reversing slides back; settling arrives exactly',async()=>{
  const a=await setup(),c=a.$('c'),wheel=dy=>c.dispatchEvent(Object.assign(new a.document.defaultView.Event('wheel'),{deltaY:dy}));

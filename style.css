@@ -204,3 +204,6 @@ body.bridging #hint,body.bridging #sheet{visibility:hidden}
 #gtime .gread{margin:5px 2px 0;font-size:12px;line-height:1.35;color:#9fb0c9}
 #gtime .gread strong{color:#e8eef7;font-weight:600;margin-right:4px}
 body.bridging #gtime{visibility:hidden}
+.legend .sw.cm{width:8px;height:8px;border-radius:50%;background:#f3c887}
+#star-companions .pair-go{display:block;margin-top:8px;min-height:36px;padding:6px 12px;font-size:13px;text-align:left}
+.head-actions .action.alt{background:none;border:1px solid rgba(194,223,243,.45);color:#c2dff3}

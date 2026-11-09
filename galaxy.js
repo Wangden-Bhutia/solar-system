@@ -2,7 +2,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { R0, ARMS, armRadius, discPosition, galaxyParticles, LANDMARKS } from './galaxy-data.js';
-import { GALAXY_NEAR } from './zoom-ladder.js';
+import { GALAXY_NEAR, GALAXY_FAR } from './zoom-ladder.js';
 import { omega, ARMS_OMEGA, BAR_OMEGA, SUN_OMEGA, turn, sunPosition, tracerStars, TIME_RANGE, MYR_PER_SEC } from './galaxy-motion.js';
 
 // Each particle carries its own angular speed (radians per Myr); the vertex shader turns it about the
@@ -28,7 +28,7 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
   const scene = new THREE.Scene(), bg = new THREE.Color(0x000005); scene.background = bg; // same black at every scale
   const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 1e5);
   const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enabled = false; controls.enablePan = false;
-  controls.zoomSpeed = 1.8; controls.minDistance = GALAXY_NEAR; controls.maxDistance = 260; // zooming in past this hands back to the nearby stars
+  controls.zoomSpeed = 1.8; controls.minDistance = GALAXY_NEAR; controls.maxDistance = GALAXY_FAR; // zooming in past this hands back to the nearby stars
   // Distant background stars and other galaxies' faint glow are left out on purpose: this level is our Galaxy alone.
   { const n = 1500, p = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(3000); p.set([v.x, v.y, v.z], i * 3); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
@@ -117,9 +117,9 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
   function setLabels(v) { for (const x of [...marks, ...armLabels]) x.el.hidden = !v; }
   // Look at the Sun from direction dir at distance d (kly): the Galaxy bridge hands over at exactly
   // the star map's view, ÷ 1,000. The Sun stays the centre of rotation, so “You are here” never drifts.
-  function setView(dir, d) { fly.t = 1; fly.done = null; fly.dir.copy(dir).normalize(); controls.target.copy(SUN); camera.position.copy(SUN).addScaledVector(fly.dir, d); controls.update(); }
+  function setView(dir, d, tgt = SUN) { fly.t = 1; fly.done = null; fly.dir.copy(dir).normalize(); controls.target.copy(tgt); camera.position.copy(SUN).addScaledVector(fly.dir, d); controls.update(); }
   const viewDir = () => camera.position.clone().sub(controls.target).normalize();
-  function enter(at) { on = true; controls.enabled = true; setLabels(true); if (at) setView(at.dir, at.d); else fly.start(0.05, SUN, portrait() ? 215 : 125, SUN, 2.6); }
+  function enter(at) { on = true; controls.enabled = true; setLabels(true); if (at) setView(at.dir, at.d, at.tgt ? new THREE.Vector3(...at.tgt) : SUN); else fly.start(0.05, SUN, portrait() ? 215 : 125, SUN, 2.6); }
   function leave() { on = false; controls.enabled = false; setLabels(false); setTime(0, false); }
   // Time controls. Leaving the Galaxy always returns to today, so the zoom back into the nearby stars
   // (which are mapped as they are now) meets at the same Sun.
@@ -132,7 +132,10 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
   function play() { overview(); clock.rewind = null; if (clock.t >= TIME_RANGE[1]) clock.t = 0; clock.playing = true; place(); onTime?.(); }
   function pause() { clock.playing = false; onTime?.(); }
   function rewind(done) { clock.playing = false; if (clock.t === 0 || reduce()) { setTime(0, false); done?.(); return; } clock.rewind = { from: clock.t, k: 0, dur: Math.min(1.4, 0.5 + Math.abs(clock.t) / 250), done }; onTime?.(); }
+  // Out to the edge of this scale, keeping the same centre, where the Local Group takes over.
+  function zoomOut(done) { fly.dir.copy(viewDir()); fly.start(camera.position.distanceTo(controls.target) || 140, controls.target, GALAXY_FAR, controls.target, 1.1, done); }
+  const target = () => controls.target.toArray();
   function zoomToSun(done) { fly.dir.copy(viewDir()); fly.start(camera.position.distanceTo(controls.target) || 140, controls.target, GALAXY_NEAR, SUN, 1.1, done); }
   const zoomState = () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1 || !!clock.rewind });
-  return { render, pick, enter, leave, zoomToSun, zoomState, atSun, setTime, play, pause, rewind, time: () => clock.t, playing: () => clock.playing, setView, viewDir, showLabels: v => { on = v; setLabels(v); }, select(m) { selected = m; }, marks, camera, controls, scene, cloud, fly, landmarks: LANDMARKS };
+  return { render, pick, enter, leave, zoomToSun, zoomOut, target, zoomState, atSun, setTime, play, pause, rewind, time: () => clock.t, playing: () => clock.playing, setView, viewDir, showLabels: v => { on = v; setLabels(v); }, select(m) { selected = m; }, marks, camera, controls, scene, cloud, fly, landmarks: LANDMARKS };
 }

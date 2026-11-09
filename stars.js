@@ -3,7 +3,10 @@
 // switches between them through hooks.renderOverride, with a zoom-and-fade hand-off.
 import * as THREE from './vendor/three.module.min.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
-import { NEIGHBOURS, SUN_ENTRY, starPixels, starColor, systemSummary } from './stars-data.js';
+import { NEIGHBOURS, SUN_ENTRY, starPixels, starColor, systemSummary, neighbourEntry } from './stars-data.js';
+import { pairOf, pairState, compareOrbits, apastron } from './star-pairs.js';
+import { starKind } from './stars-data.js';
+import { VISITORS, withMotion, positionAt, nearestAt, STAR_TIME, YEARS_PER_SEC } from './star-motion.js';
 import { STAR_NEAR, STAR_FAR } from './zoom-ladder.js';
 
 const glowTex = (() => {
@@ -14,7 +17,7 @@ const glowTex = (() => {
   x.fillStyle = g; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c);
 })();
 
-export function createStars({ renderer, canvas, labelsEl, onPick }) {
+export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair }) {
   const scene = new THREE.Scene(), bg = new THREE.Color(0x000005); scene.background = bg; // same black as the Solar System, so the zoom has no colour seam
   const camera = new THREE.PerspectiveCamera(50, 1, 0.001, 1e5);
   const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enabled = false;
@@ -30,7 +33,8 @@ export function createStars({ renderer, canvas, labelsEl, onPick }) {
     rings.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x33415c, transparent: true, opacity: 0.5 })));
   }
   const ringLabels = [5, 10, 15].map(r => { const el = document.createElement('span'); el.className = 'lbl space ring-lbl'; el.textContent = `${r} ly`; el.hidden = true; labelsEl.appendChild(el); return { el, r }; });
-  const entries = [SUN_ENTRY, ...NEIGHBOURS], dots = [];
+  // Every star carries its measured motion (star-motion.js); three famous passing stars join the map.
+  const entries = [SUN_ENTRY, ...NEIGHBOURS, ...VISITORS.map(neighbourEntry)].map(withMotion), dots = [];
   for (const e of entries) {
     const color = new THREE.Color(...starColor(e.temp));
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, sizeAttenuation: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending }));
@@ -38,14 +42,20 @@ export function createStars({ renderer, canvas, labelsEl, onPick }) {
     // A thin line down to the Solar System's plane shows how far above or below it each star lies.
     const stem = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...e.pos), new THREE.Vector3(e.pos[0], 0, e.pos[2])]), new THREE.LineBasicMaterial({ color: 0x3a4a66, transparent: true, opacity: 0.22 }));
     if (!e.sun) scene.add(stem);
+    // Its path from today's position to where it is at the clock's time.
+    const trail = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...e.pos), new THREE.Vector3(...e.pos)]), new THREE.LineBasicMaterial({ color: new THREE.Color(...starColor(e.temp)), transparent: true, opacity: 0.28 }));
+    trail.visible = false; trail.frustumCulled = false; stem.frustumCulled = false; if (!e.sun) scene.add(trail);
     const el = document.createElement('button'); el.type = 'button'; el.className = 'lbl space'; el.textContent = e.name; el.tabIndex = -1; el.hidden = true;
     el.addEventListener('click', ev => { ev.stopPropagation(); onPick?.(e); }); labelsEl.appendChild(el);
-    dots.push({ e, sprite, stem, el });
+    dots.push({ e, sprite, stem, trail, el });
   }
   // Label priority: the Sun, systems with planets, the famous and the bright, then the rest.
   const FAMOUS = ['Alpha Centauri', 'Sirius', "Barnard's Star", 'Epsilon Eridani', 'Tau Ceti', 'Procyon', '61 Cygni', 'Luhman 16', 'TRAPPIST-1', 'Wolf 359'];
-  const rank = d => d.e.sun ? 0 : FAMOUS.includes(d.e.name) ? 1 + FAMOUS.indexOf(d.e.name) : d.e.planets ? 20 : 40 - Math.min(19, starPixels(d.e));
-  const ordered = [...dots].sort((a, b) => rank(a) - rank(b));
+  const rank = d => d.e.sun ? 0 : d === nearDot ? 0.5 : FAMOUS.includes(d.e.name) ? 1 + FAMOUS.indexOf(d.e.name) : d.e.planets ? 20 : 40 - Math.min(19, starPixels(d.e));
+  let nearDot = null; const byRank = () => [...dots].sort((a, b) => rank(a) - rank(b)); let ordered = byRank();
+  // A line from the Sun to whichever star is nearest at the clock's time: the thing that changes.
+  const nearLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(1, 0, 0)]), new THREE.LineDashedMaterial({ color: 0xf3c887, dashSize: 0.25, gapSize: 0.18, transparent: true, opacity: 0.75 }));
+  nearLine.frustumCulled = false; scene.add(nearLine);
 
   // ---- Planetary system view (AU) ----
   const sys = new THREE.Scene(); sys.background = new THREE.Color(0x02030a);
@@ -91,14 +101,48 @@ export function createStars({ renderer, canvas, labelsEl, onPick }) {
   const mats = []; scene.traverse(o => { if (o.material) { o.material.userData.base = o.material.opacity; o.material.transparent = true; mats.push(o.material); } });
   const setFade = f => { for (const m of mats) m.opacity = m.userData.base * f; };
   const tmp = new THREE.Vector3();
+  // ---- The clock (years from today): stars drift along their measured motions ----
+  // Far beyond ±100,000 years (the Gliese 710 flyby) straight-line paths stop being trustworthy for the
+  // others, so only the passing star the clock was sent to (and the Sun) are drawn there.
+  const clock = { t: 0, playing: false, rewind: null, focus: null };
+  const inRange = () => clock.t >= STAR_TIME[0] && clock.t <= STAR_TIME[1];
+  const shown = d => d.e.sun || inRange() || d.e === clock.focus;
+  function place() {
+    for (const d of dots) {
+      const p = clock.t ? positionAt(d.e, clock.t) : d.e.pos; d.sprite.position.fromArray(p); d.sprite.visible = shown(d);
+      const sp = d.stem.geometry.attributes.position; sp.setXYZ(0, p[0], p[1], p[2]); sp.setXYZ(1, p[0], 0, p[2]); sp.needsUpdate = true; d.stem.visible = d.sprite.visible;
+      const tp = d.trail.geometry.attributes.position; tp.setXYZ(1, p[0], p[1], p[2]); tp.needsUpdate = true; d.trail.visible = d.sprite.visible && Math.abs(clock.t) > 50;
+    }
+    markNearest();
+  }
+  function markNearest() {
+    const n = nearest(), d = dots.find(x => x.e === n.entry) || null;
+    if (d) { const p = d.sprite.position, a = nearLine.geometry.attributes.position; a.setXYZ(1, p.x, p.y, p.z); a.needsUpdate = true; nearLine.computeLineDistances(); }
+    nearLine.visible = !!d; if (d !== nearDot) { nearDot = d; ordered = byRank(); }
+  }
+  // Running the clock frames the neighbourhood (about 18 light-years out); a flyby frames the pair closely.
+  function frame(d) { if (fly.t < 1) return; const cur = camera.position.distanceTo(controls.target); if (Math.abs(cur / d - 1) < 0.15) return; fly.dir.copy(viewDir()); fly.start(cur, d, 1.3); }
+  const neighbourhood = () => { const cur = camera.position.distanceTo(controls.target); if (cur < 8 || cur > 40) frame(18); };
+  function tick(dt) {
+    const before = clock.t;
+    if (clock.rewind) { const r = clock.rewind; r.k = Math.min(1, r.k + dt / r.dur); clock.t = r.from * (1 - r.k) ** 3; if (r.k >= 1) { clock.t = 0; clock.rewind = null; r.done?.(); } }
+    else if (clock.playing) { clock.t = Math.min(STAR_TIME[1], clock.t + YEARS_PER_SEC * dt); if (clock.t >= STAR_TIME[1]) clock.playing = false; }
+    if (clock.t !== before) { place(); onTime?.(); }
+  }
+  function setTime(t, focus = null) { clock.rewind = null; clock.playing = false; clock.focus = focus; clock.t = t; place(); if (focus?.motion) frame(Math.max(STAR_NEAR * 1.05, focus.motion.close.ly * 9)); else if (t) neighbourhood(); onTime?.(); }
+  function play() { clock.rewind = null; clock.focus = null; if (clock.t >= STAR_TIME[1] || !inRange()) clock.t = 0; clock.playing = true; place(); neighbourhood(); onTime?.(); }
+  function pause() { clock.playing = false; onTime?.(); }
+  function rewind(done) { clock.playing = false; clock.focus = null; if (clock.t === 0 || reduceMotion()) { setTime(0); done?.(); return; } clock.rewind = { from: clock.t, k: 0, dur: 1.2, done }; onTime?.(); }
+  const nearest = () => nearestAt(dots.filter(d => !d.e.sun && shown(d)).map(d => d.e), clock.t);
+  markNearest();
   function placeLabels(cam, bounds, list) {
     const placed = [];
-    for (const { el, pos, px } of list) {
+    for (const { el, pos, px, mk } of list) {
       tmp.copy(pos).project(cam);
       const x = bounds.left + (tmp.x + 1) / 2 * bounds.width, y = bounds.top + (1 - tmp.y) / 2 * bounds.height;
       const w = el.textContent.length * 4.9 + 10, h = 13, off = (px || 6) / 2 + 4;
       const box = [x - w / 2, y - off - h, x + w / 2, y - off];
-      const ok = tmp.z < 1 && Math.abs(tmp.x) < 1.02 && Math.abs(tmp.y) < 1.02 && !placed.some(o => box[0] < o[2] && box[2] > o[0] && box[1] < o[3] && box[3] > o[1]);
+      const ok = (!mk || mk.sprite.visible) && tmp.z < 1 && Math.abs(tmp.x) < 1.02 && Math.abs(tmp.y) < 1.02 && !placed.some(o => box[0] < o[2] && box[2] > o[0] && box[1] < o[3] && box[3] > o[1]);
       el.hidden = !ok; el.style.visibility = ok ? 'visible' : 'hidden'; el.style.opacity = labelOpacity;
       if (ok) { placed.push(box); el.style.transform = `translate(${x}px,${y}px) translate(-50%,calc(-100% - ${off}px))`; }
     }
@@ -113,16 +157,17 @@ export function createStars({ renderer, canvas, labelsEl, onPick }) {
     const fullW = 2 * width - vw, fullH = 2 * height - vh; cam.aspect = fullW / fullH; cam.zoom = vh / fullH;
     if (vw === width && vh === height) cam.clearViewOffset(); else cam.setViewOffset(fullW, fullH, width - vw, height - vh, width, height);
     cam.updateProjectionMatrix();
-    fly.step(dt); ctl.update();
+    fly.step(dt); if (mode === 'stars') tick(dt); ctl.update();
     const bounds = canvas.getBoundingClientRect();
     if (mode === 'stars') {
       // Non-attenuated sprites: on-screen size ≈ scale × (1 / tan(fov/2)) × visible height / 2, so this keeps
       // each glow at about 2.2 × its nominal pixel size whatever the screen or sheet height.
       const k = 2.2 * Math.tan(camera.fov * Math.PI / 360) * 2 / vh;
-      for (const d of dots) d.sprite.scale.setScalar(d.sprite.userData.px * k * (d.e === selected ? 1.6 : 1));
-      placeLabels(camera, bounds, ordered.map(d => ({ el: d.el, pos: d.sprite.position, px: d.sprite.userData.px })).concat(ringLabels.map(r => ({ el: r.el, pos: new THREE.Vector3(r.r, 0, 0), px: 0 }))));
+      for (const d of dots) d.sprite.scale.setScalar(Math.max(d.sprite.userData.px, d === nearDot ? 9 : 0) * k * (d.e === selected ? 1.6 : 1));
+      placeLabels(camera, bounds, ordered.map(d => ({ el: d.el, pos: d.sprite.position, px: d.sprite.userData.px, mk: d })).concat(ringLabels.map(r => ({ el: r.el, pos: new THREE.Vector3(r.r, 0, 0), px: 0 }))));
       const clear = renderer.autoClear; renderer.autoClear = !overlay; renderer.render(scene, camera); renderer.autoClear = clear;
     } else {
+      if (pair) { pair.year += dt * pair.pr.P / 12; placePair(); onPair?.(); placeLabels(sysCam, bounds, [pair.A, pair.B].map(x => ({ el: x.el, pos: x.ball.position, px: 14 })).concat(pair.compare)); }
       sysT += dt; if (current?.sysView) for (const p of current.sysView.planets) { const w = Math.PI * 2 / Math.max(2.5, 2.5 * (p.period / current.sysView.planets[0].period) ** 0.5); p.pivot.rotation.y += w * dt; }
       if (current?.sysView) placeLabels(sysCam, bounds, current.sysView.planets.map(p => ({ el: p.el, pos: p.mesh.getWorldPosition(new THREE.Vector3()), px: 10 })).concat(current.sysView.compareEls));
       renderer.render(sys, sysCam);
@@ -137,7 +182,7 @@ export function createStars({ renderer, canvas, labelsEl, onPick }) {
   function pick(clientX, clientY) {
     if (mode !== 'stars') return null;
     const b = canvas.getBoundingClientRect(); let best = null, bestD = 44;
-    for (const d of dots) { tmp.copy(d.sprite.position).project(camera); if (tmp.z >= 1) continue; const x = b.left + (tmp.x + 1) / 2 * b.width, y = b.top + (1 - tmp.y) / 2 * b.height, dd = Math.hypot(x - clientX, y - clientY); if (dd < bestD) { bestD = dd; best = d.e; } }
+    for (const d of dots) { if (!d.sprite.visible) continue; tmp.copy(d.sprite.position).project(camera); if (tmp.z >= 1) continue; const x = b.left + (tmp.x + 1) / 2 * b.width, y = b.top + (1 - tmp.y) / 2 * b.height, dd = Math.hypot(x - clientX, y - clientY); if (dd < bestD) { bestD = dd; best = d.e; } }
     return best;
   }
   function select(e) { selected = e; }
@@ -148,22 +193,61 @@ export function createStars({ renderer, canvas, labelsEl, onPick }) {
   function enter(from = 'inside') {
     if (from && typeof from === 'object') { mode = 'stars'; setLabels('stars'); controls.enabled = true; sysControls.enabled = false; setView(from.dir, from.d); return; } mode = 'stars'; setLabels('stars'); controls.enabled = true; sysControls.enabled = false; const d0 = from === 'outside' ? 110 : 0.05; camera.position.copy(fly.dir).multiplyScalar(d0); fly.start(d0, 26, from === 'outside' ? 1.4 : 1.8); }
   function zoomOut(done) { if (mode === 'system') closeSystem(); fly.dir.copy(viewDir()); fly.start(Math.max(camera.position.length(), STAR_NEAR), STAR_FAR, 1.0, done); }
-  function leave() { setLabels(null); controls.enabled = false; sysControls.enabled = false; }
+  function leave() { setLabels(null); controls.enabled = false; sysControls.enabled = false; setTime(0); }
   function zoomBackIn(done) { fly.dir.copy(viewDir()); fly.start(Math.max(camera.position.length(), STAR_NEAR), STAR_NEAR, 1.1, done); }
   function openSystem(entry) {
+    for (const x of pair?.els || []) x.el.remove(); pair = null;
     for (const p of current?.sysView?.planets || []) p.el.remove(); for (const c of current?.sysView?.compareEls || []) c.el.remove();
     const view = showSystem(entry); if (!view) return null;
     for (const p of view.planets) { p.el = document.createElement('span'); p.el.className = 'lbl space'; p.el.textContent = p.name.replace(/^.* (\w)$/, '$1'); labelsEl.appendChild(p.el); }
     view.compareEls = view.compare.map(c => { const el = document.createElement('span'); el.className = 'lbl space ring-lbl'; el.textContent = c.label; labelsEl.appendChild(el); return { el, pos: new THREE.Vector3(c.r * 0.72, 0, c.r * 0.72), px: 0 }; });
     entry.sysView = view; current = entry; mode = 'system'; setLabels('system'); controls.enabled = false; sysControls.enabled = true; return view;
   }
-  function closeSystem() { for (const p of current?.sysView?.planets || []) p.el.hidden = true; for (const c of current?.sysView?.compareEls || []) c.el.hidden = true; mode = 'stars'; setLabels('stars'); controls.enabled = true; sysControls.enabled = false; }
+  // A pair of stars orbiting each other, drawn in the plane of their orbit (AU), face on. Both stars go
+  // round the centre of mass; one lap takes about 12 seconds. Our planets' orbits of similar size are dashed.
+  let pair = null;
+  function openPair(entry) {
+    for (const p of current?.sysView?.planets || []) p.el.remove(); for (const c of current?.sysView?.compareEls || []) c.el.remove(); for (const x of pair?.els || []) x.el.remove();
+    const pr = pairOf(entry.name); if (!pr) return null;
+    sysGroup.clear(); current = entry; entry.sysView = null;
+    const scale = 10 / apastron(pr), typeOf = n => (entry.stars.find(x => x.name === n) || entry.stars[0]).type;
+    const mk = (name, m, frac) => {
+      const k = starKind(typeOf(name)), color = new THREE.Color(...starColor(k.temp)).lerp(new THREE.Color(0xffd2b0), pr.brown ? 0.45 : 0), r = k.kind === 'White dwarf' ? 0.1 : pr.brown ? 0.28 : Math.max(0.22, Math.min(0.6, 0.38 * m ** 0.5)); // a white dwarf is about Earth-sized: drawn tiny
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 20), new THREE.MeshBasicMaterial({ color })); sysGroup.add(ball);
+      const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending })); halo.scale.setScalar(r * 6); ball.add(halo);
+      // This star's own ellipse about the centre of mass.
+      const pts = []; for (let i = 0; i <= 240; i++) { const E = i / 240 * Math.PI * 2; pts.push(new THREE.Vector3(frac * pr.a * (Math.cos(E) - pr.e) * scale, 0, -frac * pr.a * Math.sqrt(1 - pr.e ** 2) * Math.sin(E) * scale)); }
+      const sign = name === pr.A ? -1 : 1; const ell = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(v => v.multiplyScalar(sign))), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.45 })); sysGroup.add(ell);
+      const el = document.createElement('span'); el.className = 'lbl space'; el.textContent = name; labelsEl.appendChild(el);
+      return { name, ball, el, kind: k.kind };
+    };
+    const st = pairState(pr, 2026); // only the mass fractions are used here
+    const A = mk(pr.A, pr.mA, st.fA), B = mk(pr.B, pr.mB, st.fB);
+    const cm = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), new THREE.MeshBasicMaterial({ color: 0xf3c887 })); sysGroup.add(cm);
+    const link = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(1, 0, 0)]), new THREE.LineDashedMaterial({ color: 0x9aa7c2, dashSize: 0.18, gapSize: 0.14, transparent: true, opacity: 0.6 })); link.frustumCulled = false; sysGroup.add(link);
+    const compare = compareOrbits(pr).map(([label, au]) => { sysGroup.add(circle(au * scale, 0x9aa7c2, 0.4, true)); const el = document.createElement('span'); el.className = 'lbl space ring-lbl'; el.textContent = label; labelsEl.appendChild(el); return { el, pos: new THREE.Vector3(au * scale * 0.72, 0, au * scale * 0.72), px: 0 }; });
+    const now = new Date(), y0 = now.getFullYear() + (now - new Date(now.getFullYear(), 0, 1)) / 31557600000;
+    pair = { pr, A, B, link, scale, year: y0, compare, els: [A, B, ...compare] };
+    placePair();
+    { const r = canvas.getBoundingClientRect(), k = r.height > r.width ? 1.55 : 1; sysCam.position.set(0, 14 * k, 10 * k); } sysControls.target.set(0, 0, 0); sysControls.minDistance = 3; sysControls.maxDistance = 80; sysControls.update();
+    mode = 'system'; setLabels('system'); controls.enabled = false; sysControls.enabled = true;
+    return pair;
+  }
+  function placePair() {
+    const st = pairState(pair.pr, pair.year), k = pair.scale;
+    pair.A.ball.position.set(st.A[0] * k, 0, -st.A[1] * k); pair.B.ball.position.set(st.B[0] * k, 0, -st.B[1] * k);
+    const a = pair.link.geometry.attributes.position; a.setXYZ(0, st.A[0] * k, 0, -st.A[1] * k); a.setXYZ(1, st.B[0] * k, 0, -st.B[1] * k); a.needsUpdate = true; pair.link.computeLineDistances();
+    pair.sep = st.sep;
+  }
+  const pairInfo = () => pair && { year: pair.year, sep: pair.sep, pr: pair.pr };
+  function closeSystem() { for (const x of pair?.els || []) x.el.hidden = true; pair = null; for (const p of current?.sysView?.planets || []) p.el.hidden = true; for (const c of current?.sysView?.compareEls || []) c.el.hidden = true; mode = 'stars'; setLabels('stars'); controls.enabled = true; sysControls.enabled = false; }
   function setLabels(which) {
     for (const d of dots) d.el.hidden = which !== 'stars'; for (const r of ringLabels) r.el.hidden = which !== 'stars';
     for (const p of current?.sysView?.planets || []) p.el.hidden = which !== 'system'; for (const c of current?.sysView?.compareEls || []) c.el.hidden = which !== 'system';
+    for (const x of pair?.els || []) x.el.hidden = which !== 'system';
   }
-  const zoomState = () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1 || mode !== 'stars' });
-  return { render, pick, select, enter, leave, zoomBackIn, zoomOut, zoomState, setView, viewDir, showLabels: on => setLabels(on ? 'stars' : null), openSystem, closeSystem, get mode() { return mode; }, camera, controls, entries, scene, sys, fly };
+  const zoomState = () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1 || mode !== 'stars' || !!clock.rewind });
+  return { render, pick, select, enter, leave, setTime, play, pause, rewind, nearest, time: () => clock.t, playing: () => clock.playing, zoomBackIn, zoomOut, zoomState, setView, viewDir, showLabels: on => setLabels(on ? 'stars' : null), openSystem, openPair, pairInfo, closeSystem, get mode() { return mode; }, camera, controls, entries, scene, sys, fly };
 }
 
 // A full-screen black veil, drawn between two scenes during a zoom bridge to dim the inner one.
