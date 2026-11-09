@@ -63,5 +63,12 @@
  "stickers_6": "You have 6 stickers!",
  "stickers_7": "You have 7 stickers!",
  "stickers_8": "You have 8 stickers!",
- "stickers_0": "Play Find it to get stickers!"
+ "stickers_0": "Play Find it to get stickers!",
+ "lab_earth": "A blue home with a tilted axis. One side faces daylight; the other turns into night.",
+ "lab_moon": "One rocky companion, many changing shapes. The Moon reflects sunlight; it does not make its own.",
+ "lab_seasons": "Move Earth around the Sun. See how tilt changes daylight. Then try an Earth with no tilt.",
+ "lab_phases": "Move the Moon and watch from Earth. The Sun lights half the Moon. We see different amounts of that sunlit half.",
+ "lab_compare": "Compare two nearby worlds. Your mass stays the same, but gravity changes your weight.",
+ "lab_try": "Change one thing. Watch what happens. Then ask why.",
+ "lab_day": "Turn the globe to find the boundary between day and night. Earth spins into sunlight and out again. The axis guide tilts about 23.4 degrees."
 }

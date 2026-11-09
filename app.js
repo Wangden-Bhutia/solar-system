@@ -30,8 +30,8 @@ controls.enableDamping = true; controls.minDistance = 0.6; controls.maxDistance 
   scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 1.4, vertexColors: true, sizeAttenuation: false })));
 }
 
-scene.add(new THREE.AmbientLight(0x404660, 0.6));
-scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x2a1a10, 0.35));
+scene.add(new THREE.AmbientLight(0x404660, 0.08));
+scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x2a1a10, 0.12));
 scene.add(new THREE.PointLight(0xfff2dd, 3, 0, 0));
 
 function bandTex(hex) {
@@ -69,7 +69,7 @@ const TRAIL_N = 160;
 for (const d of PLANETS) {
   const pivot = new THREE.Object3D(); scene.add(pivot);
   const t = tex(d.name), tx = t.map ? t : { map: t };
-  const mat = new THREE.MeshStandardMaterial({ map: tx.map, bumpMap: tx.bump || null, bumpScale: tx.bump ? 2 : 0, roughness: 0.85, metalness: 0 });
+  const mat = new THREE.MeshStandardMaterial({ map: tx.map, bumpMap: tx.bump || null, bumpScale: tx.bump ? d.size * 0.04 : 0, roughness: 0.85, metalness: 0 });
   const mesh = new THREE.Mesh(new THREE.SphereGeometry(d.size, 48, 32), mat);
   // Real axial tilt: tilt group holds the spinning mesh (obliquity > 90° makes Venus/Uranus spin retrograde)
   const tiltG = new THREE.Object3D(); tiltG.rotation.z = THREE.MathUtils.degToRad(d.tilt);
@@ -78,6 +78,8 @@ for (const d of PLANETS) {
   if (d.name === 'Earth') {
     const cl = new THREE.Mesh(new THREE.SphereGeometry(d.size * 1.012, 48, 32), new THREE.MeshStandardMaterial({ map: tex('EarthClouds'), transparent: true, depthWrite: false, roughness: 1 }));
     mesh.add(cl); mesh.userData.clouds = cl;
+    const axis = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-d.size*1.5,0),new THREE.Vector3(0,d.size*1.5,0)]), new THREE.LineBasicMaterial({color:0xffd286}));
+    tiltG.add(axis); mesh.userData.axis = axis;
   }
   if (d.rings) {
     const R = d.name === 'Uranus' ? URANUS_RING : SATURN_RING;
@@ -97,21 +99,24 @@ for (const d of PLANETS) {
   const body = { data: d, pivot, mesh, trail, orbit, radius: d.size, angle: Math.random() * Math.PI * 2 };
   if (d.moon) {
     const mp = new THREE.Object3D(); pivot.add(mp);
-    const mm = new THREE.Mesh(new THREE.SphereGeometry(MOON.size, 20, 12), new THREE.MeshStandardMaterial({ map: tex('Moon').map, bumpMap: tex('Moon').bump, bumpScale: 1.5, roughness: 0.95 }));
+    const mm = new THREE.Mesh(new THREE.SphereGeometry(MOON.size, 20, 12), new THREE.MeshStandardMaterial({ map: tex('Moon').map, bumpMap: tex('Moon').bump, bumpScale: MOON.size * .04, roughness: 0.95 }));
     mm.position.x = MOON.dist; mp.add(mm); body.moonPivot = mp; body.moonMesh = mm;
   }
   bodies.push(body); addLabel(body);
 }
+const earthBody = bodies.find(b => b.data.name === 'Earth');
+const moonBody = { data: MOON, mesh: earthBody.moonMesh, radius: MOON.size, satellite: true };
+bodies.push(moonBody); addLabel(moonBody);
 // Markers: small glowing dots so tiny planets can be found (shown when the planet is under ~5 px on screen)
 const dotTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,255,255,.8)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
 for (const b of bodies) {
   const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: dotTex, color: b.data.color, sizeAttenuation: false, depthWrite: false, transparent: true }));
-  m.scale.setScalar(0.022); m.renderOrder = 5; (b.pivot || scene).add(m); b.marker = m;
+  m.scale.setScalar(0.022); m.renderOrder = 5; (b.satellite ? b.mesh : b.pivot || scene).add(m); b.marker = m;
 }
 
 // Simulation state
 let playing = true, speedExp = 0, trailsOn = true, focused = null;
-export const hooks = { kid: false, onFocus: null, intercept: null, focusMul: 0, here: false };
+export const hooks = { kid: false, onFocus: null, intercept: null, focusMul: 0, here: false, renderOverride: null, hold: false };
 const BASE_DAYS_PER_SEC = 365.26 / 20; // 1 Earth year per 20 s at 1x
 let simDays = 0;
 const fly = { t: 1, fromPos: new THREE.Vector3(), fromTgt: new THREE.Vector3(), dur: 1.2 };
@@ -144,7 +149,7 @@ function updateTrails() {
 const info = document.getElementById('info');
 function focus(b, opts = {}) {
   if (!opts.silent && hooks.intercept && hooks.intercept(b)) return;
-  focused = b; fly.dur = opts.dur || 1.2; hooks.focusMul = opts.mul || 0; hooks.outside = !!opts.outside;
+  focused = b; fly.dur = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? .01 : opts.dur || 1.2; hooks.focusMul = opts.mul || 0; hooks.outside = !!opts.outside;
   fly.fromPos.copy(camera.position); fly.fromTgt.copy(controls.target); fly.t = 0;
   document.getElementById('i-name').textContent = b.data.name;
   document.getElementById('i-blurb').textContent = b.data.blurb;
@@ -162,19 +167,21 @@ const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(); let down = null;
 canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
 canvas.addEventListener('pointerup', e => {
   if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;
-  ndc.set(e.clientX / innerWidth * 2 - 1, -e.clientY / innerHeight * 2 + 1);
+  if (hooks.renderOverride) return;
+  const bounds = canvas.getBoundingClientRect();
+  ndc.set((e.clientX-bounds.left) / bounds.width * 2 - 1, -(e.clientY-bounds.top) / bounds.height * 2 + 1);
   ray.setFromCamera(ndc, camera);
   // Generous hit test: nearest body whose screen-space distance is small
   let best = null, bestD = hooks.kid ? 60 : 28;
   for (const b of bodies) {
-    if (!b.pivot) continue; // the Sun is big: only a direct hit (raycast) selects it
+    if (!b.pivot && !b.satellite) continue; // the Sun is big: only a direct hit (raycast) selects it
     const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera);
-    const d = Math.hypot((p.x - ndc.x) * innerWidth / 2, (p.y - ndc.y) * innerHeight / 2);
+    const d = Math.hypot((p.x - ndc.x) * bounds.width / 2, (p.y - ndc.y) * bounds.height / 2);
     if (p.z < 1 && d < bestD) { bestD = d; best = b; }
   }
   const hit = ray.intersectObjects(bodies.map(b => b.mesh), false)[0];
   const hb = hit && bodies.find(b => b.mesh === hit.object);
-  if (hb && (hb.pivot || !best)) best = hb; // planets near the Sun win over the Sun disc
+  if (hb && (hb.pivot || hb.satellite || !best)) best = hb; // planets near the Sun win over the Sun disc
   if (best) focus(best);
 });
 
@@ -193,12 +200,13 @@ toggle('lbls', on => labelsEl.classList.toggle('off', !on));
 document.getElementById('reset').onclick = () => unfocus(true);
 
 function resize() {
-  const w = innerWidth, h = innerHeight;
+  const {width:w,height:h} = canvas.getBoundingClientRect();
   renderer.setSize(w, h, false); camera.aspect = w / h;
   // Frame the whole system (grown-up), the inner system out to Jupiter (kid), or true-scale orbits
-  const base = realScale ? new THREE.Vector3(0, 1.6e5, 2.9e5) : hooks.kid ? new THREE.Vector3(0, 38, 62) : new THREE.Vector3(0, 130, 215);
-  HOME.pos.copy(base).multiplyScalar(w / h < 1 ? 1.9 : 1);
-  controls.maxDistance = realScale ? 1.5e6 : 900;
+  const direction = new THREE.Vector3(0, .52, .85).normalize();
+  const outer = realScale ? Math.max(...PLANETS.map(p => p.realDist)) : Math.max(...PLANETS.map(p => p.dist));
+  HOME.pos.copy(direction).multiplyScalar((hooks.kid ? 150 : outer * 2.6) / Math.min(1, w/h));
+  controls.maxDistance = realScale ? Math.max(1.5e6,HOME.pos.length()*1.5) : Math.max(900,HOME.pos.length()*1.5);
   camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize); resize(); camera.position.copy(HOME.pos);
@@ -208,13 +216,17 @@ const tmp = new THREE.Vector3(), prevFocus = new THREE.Vector3();
 let last = performance.now();
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
+  if (hooks.renderOverride) { hooks.renderOverride(); requestAnimationFrame(frame); return; }
+  const bounds = canvas.getBoundingClientRect();
+  renderer.setSize(bounds.width,bounds.height,false);camera.aspect=bounds.width/bounds.height;camera.updateProjectionMatrix();
   const kidSlow = hooks.kid ? 0.25 : 1;
-  if (playing) simDays += dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidSlow;
+  if (playing && !hooks.hold) simDays += dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidSlow;
   placeBodies();
   for (const b of bodies) {
     const hours = Math.abs(b.data.rot); // direction comes from the tilt (Venus 177°, Uranus 98°)
-    const spin = playing ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidSlow * 24 / hours * 0.02 * Math.PI * 2 : 0;
-    b.mesh.rotation.y += spin;
+    const spin = playing && !hooks.hold ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidSlow * 24 / hours * 0.02 * Math.PI * 2 : 0;
+    if (!b.satellite) b.mesh.rotation.y += spin;
+    if (b.mesh.userData.axis) b.mesh.userData.axis.visible = focused === b;
     if (b.mesh.userData.clouds) b.mesh.userData.clouds.rotation.y += spin * 0.15 + dt * 0.01;
   }
   updateTrails();
@@ -226,7 +238,7 @@ function frame(now) {
       tgt = focused.mesh.getWorldPosition(tmp).clone();
       const dir = hooks.outside ? (() => { const sw = tgt.clone().setY(0).normalize().negate(); return sw.multiplyScalar(0.8).add(new THREE.Vector3(-sw.z / 0.8, 0, sw.x / 0.8).multiplyScalar(0.6)).normalize(); })() : fly.fromPos.clone().sub(tgt).normalize();
       dir.y = Math.max(dir.y, 0.35); dir.normalize();
-      pos = tgt.clone().add(dir.multiplyScalar(focused.radius * (hooks.focusMul || (innerWidth < innerHeight ? 9 : 6))));
+      pos = tgt.clone().add(dir.multiplyScalar(focused.radius * (hooks.focusMul || Math.max(focused.data.rings?5:4, (focused.data.rings ? 5.8 : 2.8) / camera.aspect))));
     } else { tgt = HOME.target; pos = HOME.pos; }
     controls.target.lerpVectors(fly.fromTgt, tgt, k);
     camera.position.lerpVectors(fly.fromPos, pos, k);
@@ -244,16 +256,16 @@ function frame(now) {
     const p = b.mesh.getWorldPosition(tmp).project(camera);
     const vis = p.z < 1 && Math.abs(p.x) < 1.1 && Math.abs(p.y) < 1.1;
     b.label.style.visibility = vis ? 'visible' : 'hidden';
-    if (vis) b.label.style.transform = `translate(${(p.x + 1) / 2 * innerWidth}px,${(1 - p.y) / 2 * innerHeight}px) translate(-50%,-150%)`;
+    if (vis) b.label.style.transform = `translate(${bounds.left + (p.x + 1) / 2 * bounds.width}px,${bounds.top + (1 - p.y) / 2 * bounds.height}px) translate(-50%,-150%)`;
   }
   // "You are here" marker on Earth (kid overview only)
   const earth = bodies.find(b => b.data.name === 'Earth');
   const hp = earth.mesh.getWorldPosition(tmp).project(camera);
   const showHere = hooks.kid && hooks.here && !focused && fly.t >= 1 && hp.z < 1;
   hereEl.hidden = !showHere;
-  if (showHere) hereEl.style.transform = `translate(${(hp.x + 1) / 2 * innerWidth}px,${(1 - hp.y) / 2 * innerHeight}px)`;
+  if (showHere) hereEl.style.transform = `translate(${bounds.left + (hp.x + 1) / 2 * bounds.width}px,${bounds.top + (1 - hp.y) / 2 * bounds.height}px)`;
   // Show markers only for bodies that are too small to see/tap
-  const pxPerUnit = innerHeight / 2 / Math.tan(camera.fov * Math.PI / 360);
+  const pxPerUnit = bounds.height / 2 / Math.tan(camera.fov * Math.PI / 360);
   for (const b of bodies) { const dd = camera.position.distanceTo(b.mesh.getWorldPosition(tmp)); b.marker.visible = b.radius * (b === bodies[0] && realScale ? SUN_SHRINK : 1) / dd * pxPerUnit < 5; }
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
@@ -265,9 +277,9 @@ export function setKid(on, opts = {}) {
   if (on && realScale) document.getElementById('realBtn').click();
   hooks.kid = on;
   document.body.classList.toggle('kid', on);
-  ambient.intensity = on ? 1.6 : 0.6;
+  ambient.intensity = on ? 1.6 : 0.08;
   for (const b of bodies) {
-    const k = on && b.pivot ? 2 : 1; // kid: planets x2 (same for all, ratios kept)
+    const k = on && (b.pivot || b.satellite) ? 2 : 1; // kid: planets x2 (same for all, ratios kept)
     b.mesh.scale.setScalar(k); b.radius = b.data.size * k;
     if (b.mesh.userData.ring) b.mesh.userData.ring.scale.setScalar(k);
     if (b.trail) b.trail.visible = !on && trailsOn;
@@ -286,6 +298,6 @@ export function setRealScale(on) {
 }
 document.getElementById('realBtn').onclick = e => { const on = !realScale; e.currentTarget.classList.toggle('on', on); e.currentTarget.setAttribute('aria-pressed', on); document.getElementById('scaleNote').textContent = on ? 'true sizes & distances' : 'sizes to scale (Sun 1/5) · distances shrunk'; setRealScale(on); };
 window.__face = (name, lonDeg) => { const b = bodies.find(x => x.data.name === name); const d = camera.position.clone().sub(b.mesh.getWorldPosition(new THREE.Vector3())); const tilt = b.mesh.parent; const local = tilt.worldToLocal(camera.position.clone()).sub(tilt.worldToLocal(b.mesh.getWorldPosition(new THREE.Vector3()))); b.mesh.rotation.y = Math.atan2(-local.z, local.x) - lonDeg * Math.PI / 180; void d; };
-export { bodies, focus, unfocus, camera, controls };
-window.__solar = { screenOf: n => { const b = bodies.find(x => x.data.name === n); const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera); return [(p.x + 1) / 2 * innerWidth, (1 - p.y) / 2 * innerHeight]; }, focusByName: n => focus(bodies.find(b => b.data.name === n)), setKid };
+export { bodies, focus, unfocus, camera, controls, renderer };
+window.__solar = { screenOf: n => { const bounds=canvas.getBoundingClientRect(); const b = bodies.find(x => x.data.name === n); const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera); return [bounds.left + (p.x + 1) / 2 * bounds.width, bounds.top + (1 - p.y) / 2 * bounds.height]; }, focusByName: n => focus(bodies.find(b => b.data.name === n)), setKid };
 window.__cam = () => [camera.position.toArray().map(v => +v.toFixed(3)), controls.target.toArray().map(v => +v.toFixed(3))];

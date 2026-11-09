@@ -323,5 +323,40 @@
   "hash": "60640585edd1",
   "dur": 2.2,
   "text": "Play Find it to get stickers!"
+ },
+ "lab_earth": {
+  "hash": "67e8546d640a",
+  "dur": 7.08,
+  "text": "A blue home with a tilted axis. One side faces daylight; the other turns into night."
+ },
+ "lab_moon": {
+  "hash": "b6b11ecafa48",
+  "dur": 7.57,
+  "text": "One rocky companion, many changing shapes. The Moon reflects sunlight; it does not make its own."
+ },
+ "lab_seasons": {
+  "hash": "059b6e42005a",
+  "dur": 6.78,
+  "text": "Move Earth around the Sun. See how tilt changes daylight. Then try an Earth with no tilt."
+ },
+ "lab_phases": {
+  "hash": "fdf7897b7738",
+  "dur": 7.94,
+  "text": "Move the Moon and watch from Earth. The Sun lights half the Moon. We see different amounts of that sunlit half."
+ },
+ "lab_compare": {
+  "hash": "f8dec1531389",
+  "dur": 6.68,
+  "text": "Compare two nearby worlds. Your mass stays the same, but gravity changes your weight."
+ },
+ "lab_try": {
+  "hash": "52f6e4958da7",
+  "dur": 4.22,
+  "text": "Change one thing. Watch what happens. Then ask why."
+ },
+ "lab_day": {
+  "hash": "4203f960f941",
+  "dur": 11.14,
+  "text": "Turn the globe to find the boundary between day and night. Earth spins into sunlight and out again. The axis guide tilts about 23.4 degrees."
  }
 }
