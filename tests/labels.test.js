@@ -14,6 +14,6 @@ test('placer: overlapping lower-priority labels are hidden; off-screen labels ar
   const items = [a, b, c, d], bounds = { left: 0, top: 0, width: 400, height: 800 };
   placeAll(items, 4, p, bounds, (it, o) => { o.x = it.x; o.y = it.y; o.z = 0; return true; });
   assert.equal(a.el.hidden, false); assert.equal(b.el.hidden, true); assert.equal(c.el.hidden, true); assert.equal(d.el.hidden, false); assert.equal(p.count, 2);
-  assert.equal(labelWidth(a), 'Sun'.length * 4.9 + 10);
+  assert.equal(labelWidth(a), 'Sun'.length * 5.4 + 12);
   placeAll(items, 4, p, bounds, () => true, { enabled: false }); assert.ok(items.every(i => i.el.hidden));
 });

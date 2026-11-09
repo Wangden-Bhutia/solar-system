@@ -3,7 +3,7 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 import { SUN, PLANETS, MOON, MOONS, DWARFS, keplerPosition, beltElements, SUN_SHRINK, DIST_K, DIST_P, UNITS_PER_AU } from './data.js';
 let realScale = false; const D = d => realScale ? d.realDist : d.dist;
 import { skyPoints, placeSky, glowTex, glowScale } from './sky.js';
-import { createLod, sizeFade } from './lod.js';
+import { createLod, sizeFade, PX } from './lod.js';
 import { SUN_ENTRY, starPixels, starColor } from './stars-data.js';
 import { hygPoints, oortPositions, pointCloud, wireShell, HELIO } from './transition.js';
 import { solarZ, metricBlend, auToUnits, AU_LY } from './zoom-ladder.js';
@@ -57,7 +57,7 @@ scene.add(sunMesh);
 // fading in as the Sun's disc shrinks below ~60 px, so the Sun leaving the Solar System is the Sun arriving in
 // the star map (lab.js swaps the two copies at the middle of the seam).
 const farSun = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(...starColor(SUN_ENTRY.temp)), sizeAttenuation: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending }));
-farSun.material.userData.base = 1; scene.add(farSun);
+farSun.material.userData.base = 1; farSun.material.depthTest = false; farSun.renderOrder = 5; scene.add(farSun); // drawn over the exaggerated planet discs that crowd onto the Sun from far away (QA: Sun missing at ~400 AU)
 export { farSun }; // read by tests: the Solar System's far-off Sun is the same glow as the star map's Sun dot
 sunMesh.material.transparent = true;
 const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: (() => {
@@ -407,7 +407,8 @@ const LABEL_ORDER = ['Earth', 'Mars', 'Venus', 'Mercury', 'Jupiter', 'Saturn', '
 // focused world changes.
 const labelOrder = [...bodies]; let labelOrderFor;
 const placedBoxes = new Float64Array(bodies.length * 4 + 8);
-const offset = new THREE.Vector3(), delta = new THREE.Vector3();
+const offset = new THREE.Vector3(), delta = new THREE.Vector3(), sunScr = new THREE.Vector3();
+const MERGE_PX = 16; // = lod.js PX.mergeHi
 let placed = 0;
 const free = (x0, y0, x1, y1) => { for (let i = 0; i < placed * 4; i += 4) if (x0 < placedBoxes[i + 2] && x1 > placedBoxes[i] && y0 < placedBoxes[i + 3] && y1 > placedBoxes[i + 1]) return false; return true; };
 function frame(now) {
@@ -465,14 +466,19 @@ function frame(now) {
   applyLod(view.height, null);
   // Labels: small tappable names; overlapping ones are hidden so the view stays uncluttered.
   if (labelOrderFor !== focused) { labelOrderFor = focused; labelOrder.sort((a, b) => (b === focused) - (a === focused) || labelRank(a) - labelRank(b)); }
-  placed = 0;
+  placed = 0; sunScr.copy(bodies[0].mesh.getWorldPosition(tmp)).project(camera);
+  const sunX = bounds.left + (sunScr.x + 1) / 2 * bounds.width, sunY = bounds.top + (1 - sunScr.y) / 2 * bounds.height;
   for (const b of labelOrder) {
     const p = b.mesh.getWorldPosition(tmp).project(camera);
     const x = bounds.left + (p.x + 1) / 2 * bounds.width, y = bounds.top + (1 - p.y) / 2 * bounds.height;
     const w = b.data.name.length * 4.9 + 10, h = 13; // matches the .lbl tag: 8px text, 5px side padding
     // Above the world if there is room, otherwise below it. Too small to matter (lod) → no label.
     let spot = 0, x0 = x - w / 2, x1 = x + w / 2, y0 = 0, y1 = 0;
-    if (p.z < 1 && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05 && !(b.satellite && !(b.host ? inSystem(b) : focused)) && !(hooks.labelsOff?.(b))) {
+    // A world closer than MERGE_PX to the Sun on screen has merged into it (lod.js 'marker' rule): no label, and
+    // unless it is focused its disc is not drawn either, so far out the Sun is not buried under stacked planets.
+    const merged = b !== bodies[0] && b !== focused && Math.hypot(x - sunX, y - sunY) < MERGE_PX;
+    if (b !== bodies[0] && !b.satellite) b.mesh.visible = !(merged && Math.hypot(x - sunX, y - sunY) < PX.mergeLo);
+    if (!merged && p.z < 1 && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05 && !(b.satellite && !(b.host ? inSystem(b) : focused)) && !(hooks.labelsOff?.(b))) {
       if (free(x0, y - 6 - h, x1, y - 6)) { spot = 1; y0 = y - 6 - h; y1 = y - 6; } else if (free(x0, y + 6, x1, y + 6 + h)) { spot = 2; y0 = y + 6; y1 = y + 6 + h; }
     }
     if (spot) { const i = placed * 4; placedBoxes[i] = x0; placedBoxes[i + 1] = y0; placedBoxes[i + 2] = x1; placedBoxes[i + 3] = y1; placed++; }
@@ -490,7 +496,7 @@ function frame(now) {
   if (showHere) hereEl.style.transform = `translate(${bounds.left + (hp.x + 1) / 2 * bounds.width}px,${bounds.top + (1 - hp.y) / 2 * bounds.height}px)`;
   // Show markers only for bodies that are too small to see/tap
   const pxPerUnit = view.height / 2 / Math.tan(camera.fov * Math.PI / 360);
-  for (const b of bodies) { const dd = camera.position.distanceTo(b.mesh.getWorldPosition(tmp)); b.marker.visible = inSystem(b) && b.radius * (b === bodies[0] && realScale ? SUN_SHRINK : 1) / dd * pxPerUnit < 5; if (b.moonRing) b.moonRing.visible = inSystem(b) && !realScale; }
+  for (const b of bodies) { const dd = camera.position.distanceTo(b.mesh.getWorldPosition(tmp)); b.marker.visible = inSystem(b) && (b === bodies[0] || b.satellite || b.mesh.visible) && b.radius * (b === bodies[0] && realScale ? SUN_SHRINK : 1) / dd * pxPerUnit < 5; if (b.moonRing) b.moonRing.visible = inSystem(b) && !realScale; }
   renderer.render(scene, camera); hooks.afterFrame?.();
   requestAnimationFrame(frame);
 }
@@ -531,7 +537,10 @@ export function drawSolar(seam = null) {
   renderer.setSize(bounds.width, bounds.height, false); lastSize = [bounds.width, bounds.height]; const view = applyVisibleRegion(camera, bounds.width, bounds.height, hooks.visible?.(bounds.width, bounds.height));
   setClip(); camera.lookAt(controls.target);
   applyLod(view.height, seam); renderer.render(scene, camera);
+  // In a seam the lab's anchor is the Sun's label: the Sun's own name label (left from the last full frame) gives way.
+  if (seam) hideSunLabel();
 }
+export function hideSunLabel() { const el = bodies[0].label; if (!el.hidden) { el.hidden = true; el.style.visibility = 'hidden'; if (el._c) el._c.spot = 0; } }
 // Per-object level of detail (lod.js). Orbits, belts and trails fade as they shrink while the zoom leaves the
 // Solar System; the sky is drawn once across the seam; the Sun's disc gives way to its far-away glow by its own
 // apparent size, and the glow swaps with the star map's identical Sun at mid-seam.

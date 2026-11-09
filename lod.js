@@ -31,6 +31,23 @@ export const DENSITY = [0.05, 0.5]; // points per px²
 // exactly the same factor as its source.
 export const FLUX_PX = 300;
 export const fluxFade = px => px >= FLUX_PX ? 1 : (px / FLUX_PX) ** 2;
+// Thinning (density LOD): a dense fixed-pixel cloud needs no more than THIN_RHO points per px² of its disc. Its
+// geometry gets, once, a fixed pseudorandom draw order (an index over the SAME attributes, shared by the source
+// and every proxy copy), and only the first n are drawn: n = THIN_RHO · π · px², never below THIN_MIN, never
+// above N, and never so few that the opacity compensation N/n would push opacity past 1. The opacity is scaled
+// by N/n, so the cloud's total drawn light (vertices × size² × opacity) is unchanged by thinning. n depends only
+// on the projected size, so a copy and its source draw the same n points with the same opacity at the same Z.
+export const THIN_RHO = 2, THIN_MIN = 256;
+export function thinOrder(geometry) {
+  if (geometry.index) return geometry.index; // already ordered (or indexed by its owner): shared as is
+  const N = geometry.attributes.position.count, idx = new Array(N);
+  for (let i = 0; i < N; i++) idx[i] = i;
+  let r = (N * 2654435761) >>> 0; // deterministic: the same cloud always gets the same order
+  for (let i = N - 1; i > 0; i--) { r = (r + 0x6D2B79F5) >>> 0; let t = Math.imul(r ^ r >>> 15, r | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); const j = ((t ^ t >>> 14) >>> 0) % (i + 1); const x = idx[i]; idx[i] = idx[j]; idx[j] = x; }
+  geometry.setIndex(idx); geometry.userData.thinOrder = true; // built once, at load, not per frame
+  return geometry.index;
+}
+export const thinCount = (N, px, opacityNeeded) => Math.min(N, Math.max(THIN_MIN, Math.ceil(THIN_RHO * Math.PI * px * px), Math.ceil(N * opacityNeeded)));
 const FLUX_AUTO = o => o.isPoints && o.material && o.material.sizeAttenuation === false && o.material.blending === 2; // THREE.AdditiveBlending
 export const densityFade = (N, px) => 1 - logStep(N / (Math.PI * px * px), DENSITY[0], DENSITY[1]);
 export { logStep };
@@ -62,7 +79,9 @@ export function createLod() {
     if (!e) { e = { mat, base: mat.userData.base ?? mat.opacity, rule, objs: [], fade: 1 }; mat.userData.base = e.base; mat.transparent = true; byMat.set(mat, e); entries.push(e); }
     let len = L, cen = centre;
     if (len == null || cen == null) { const g = o.geometry; if (g && !g.boundingSphere && g.computeBoundingSphere) g.computeBoundingSphere(); const bs = g?.boundingSphere; if (len == null) len = bs ? bs.radius : 0; if (cen == null) cen = bs ? bs.center : null; }
-    e.rule = rule; e.objs.push({ o, L: len, cen, at, appear, N, flux: flux ?? (!N && FLUX_AUTO(o)) });
+    const fx = flux ?? (!N && FLUX_AUTO(o)), Np = o.isPoints ? o.geometry.attributes.position.count : 0, thin = fx && Np > THIN_MIN && o.geometry.setIndex;
+    if (thin) thinOrder(o.geometry);
+    e.rule = rule; e.objs.push({ o, L: len, cen, at, appear, N, flux: fx, thin, Np });
   }
   const has = o => byMat.has(o.material);
   // cam: camera position; anchor: the anchor's world position; vh: visible height (px); fov: degrees.
@@ -85,7 +104,9 @@ export function createLod() {
         // N: a catalogue of N points gives way as it crowds on screen (mean spacing below a few px): its apparent
         // density, N over the area of its bounding disc, fades it from 0.05 to 0.5 points per px².
         if (it.N) { const c2x = p.x + (it.cen ? it.cen.x * k : 0), c2y = p.y + (it.cen ? it.cen.y * k : 0), c2z = p.z + (it.cen ? it.cen.z * k : 0), px = apparentPx(it.L * (o.scale?.x ?? 1), Math.hypot(c2x - cam.x, c2y - cam.y, c2z - cam.z), vh, fov); g *= densityFade(it.N, px); }
-        if (it.flux && g > 0) { const c3x = p.x + (it.cen ? it.cen.x * k : 0), c3y = p.y + (it.cen ? it.cen.y * k : 0), c3z = p.z + (it.cen ? it.cen.z * k : 0); g *= fluxFade(apparentPx(it.L * (o.scale?.x ?? 1), Math.hypot(c3x - cam.x, c3y - cam.y, c3z - cam.z), vh, fov)); }
+        if (it.flux && g > 0) { const c3x = p.x + (it.cen ? it.cen.x * k : 0), c3y = p.y + (it.cen ? it.cen.y * k : 0), c3z = p.z + (it.cen ? it.cen.z * k : 0); const px3 = apparentPx(it.L * (o.scale?.x ?? 1), Math.hypot(c3x - cam.x, c3y - cam.y, c3z - cam.z), vh, fov); g *= fluxFade(px3);
+          if (it.thin) { const n = thinCount(it.Np, px3, g * e.base); o.geometry.setDrawRange(0, n); g *= it.Np / n; } }
+        else if (it.thin) o.geometry.setDrawRange(0, it.Np);
         o.userData.fade = g; if (g > f) f = g;
       }
       // A material faded to nothing is not drawn at all (no vertex or fragment work for a hidden layer).

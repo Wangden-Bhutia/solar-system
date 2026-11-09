@@ -131,6 +131,7 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, min, max =
 }
 
 // One style for the NGC/IC catalogue at both scales that show it (so they are an exact proxy pair).
+let laniakeaNgc = null; // the Laniakea scene's NGC/IC layer: the Universe's copy of it names it as its source
 export const NGC_STYLE = { size: 1.5, opacity: 0.75 };
 export function ngcColours(g) { const col = new Float32Array(g.count * 3); for (let i = 0; i < g.count; i++) { const c = KIND_COLOURS[g.kind[i]], k = 0.6 + ((i * 2654435761) >>> 0) / 4294967296 * 0.4; col[i * 3] = c[0] * k; col[i * 3 + 1] = c[1] * k; col[i * 3 + 2] = c[2] * k; } return col; }
 const LOCAL_UNIT_MLY = 0.01; // the Local Group level's unit (10 kly) in Mly
@@ -141,7 +142,7 @@ export function createLaniakea(opts) {
   // The NGC/IC catalogue, drawn identically here and (shrunk 100×) in the universe: an exact proxy pair, swapped at
   // mid-seam; in both it gives way by on-screen density.
   const g = ngcGalaxies(1);
-  const ngcL = s.points(g.pos, ngcColours(g), NGC_STYLE.size, NGC_STYLE.opacity, 0xffffff, { inner: 'proxy', outer: 'size', alone: 'size' }); ngcL.userData.lodOpts = { N: g.count }; ngcL.userData.layer = 'ngc';
+  const ngcL = s.points(g.pos, ngcColours(g), NGC_STYLE.size, NGC_STYLE.opacity, 0xffffff, { inner: 'proxy', outer: 'size', alone: 'size' }); ngcL.userData.lodOpts = { N: g.count }; ngcL.userData.layer = 'ngc'; laniakeaNgc = ngcL;
   // The Local Sheet, the Local Void and the nearby giants' glows: exact copies of the Local Group level's (proxy pairs).
   if (opts.local?.proxyCopies) for (const c of opts.local.proxyCopies(LOCAL_UNIT_MLY)) s.adopt(c, c.isSprite ? { outer: 'proxy', inner: 'marker', alone: 'marker' } : { outer: 'proxy', inner: 'size', alone: 'size' }, { appear: [4, 15] });
   // The Local Group's own galaxies, shrunk from the level inside, drawn with the same glows (sizes, colours)
@@ -177,7 +178,7 @@ export function createUniverse(opts) {
   // Laniakea's galaxies, shrunk 100× from the level inside: a small bright knot at the centre.
   // The NGC/IC galaxies give way to the illustrated web as they crowd together on screen (lod.js density: N over
   // the area of the catalogue's disc on screen), so the catalogue is never drawn as one saturated blob.
-  const g = ngcGalaxies(100); const ngcU = s.points(g.pos, ngcColours(g), NGC_STYLE.size, NGC_STYLE.opacity, 0xffffff, { outer: 'proxy', inner: 'size', alone: 'size' }); ngcU.userData.lodOpts = { N: g.count }; ngcU.userData.layer = 'ngc';
+  const g = ngcGalaxies(100); const ngcU = s.points(g.pos, ngcColours(g), NGC_STYLE.size, NGC_STYLE.opacity, 0xffffff, { outer: 'proxy', inner: 'size', alone: 'size' }); ngcU.userData.lodOpts = { N: g.count }; ngcU.userData.layer = 'ngc'; if (laniakeaNgc) ngcU.userData.proxyOf = laniakeaNgc; // the same catalogue and style: the seam pair
   const web = cosmicWeb(R * 0.98); s.points(web.pos, web.col, 1.2, 0.35);
   // The cosmic microwave background: the oldest light, from the edge of what we can see. Drawn as a shell of
   // points whose warm/cool speckle is an illustration of the tiny temperature ripples in the real maps.

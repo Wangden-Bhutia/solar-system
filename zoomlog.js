@@ -8,6 +8,7 @@
 //   __zoomlog.rows()                 the rows: { t, dt, Z, dZ, level, seam, blend, ...extra }
 //   __zoomlog.summary()              frame-time and dZ/dt statistics, worst dZ/dt step and where it happened
 //   __zoomlog.csv()                  the rows as CSV text (copy from the console)
+//   __zoomlog.json()                 the rows and summary as JSON text (copy(__zoomlog.json()) in DevTools)
 // extra(row) (optional) adds fields per row, e.g. anchor position and screen brightness (lab.js supplies it).
 export function createZoomLog({ input, z, extra, cap = 36000 } = {}) {
   const q = globalThis.location?.search || '';
@@ -31,6 +32,7 @@ export function createZoomLog({ input, z, extra, cap = 36000 } = {}) {
     },
     drive({ rate = 0.6, to = null } = {}) { drive = { rate, to, last: 0 }; if (!on) api.start(); return 'driving'; },
     rows: () => rows,
+    json() { return JSON.stringify({ cap, rows, summary: api.summary?.() ?? null }); },
     csv() { if (!rows.length) return ''; const k = Object.keys(rows[rows.length - 1]); return [k.join(','), ...rows.map(r => k.map(x => r[x] ?? '').join(','))].join('\n'); },
     summary() {
       const ms = rows.slice(1).map(r => r.frameMs).sort((a, b) => a - b), pct = p => ms.length ? ms[Math.min(ms.length - 1, Math.floor(p * ms.length))] : null;

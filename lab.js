@@ -13,7 +13,8 @@ import { STAR_TIME, yearsLabel, approachLabel } from './star-motion.js';
 import { pairOf, periastron, apastron, nextPeriastron, keplerMass } from './star-pairs.js';
 import { TIME_RANGE, timeLabel, lapsLabel, milestone, VC_SUN, OMEGA_ARMS, OMEGA_BAR, SUN_PERIOD } from './galaxy-motion.js';
 import { LEVELS, levelIndex, PAIRS, pairFor, SEAMS, SEAM_Z, LEVEL_NAMES, layoutAt, zOf, dOf, UNIT_LY, AU_LY, solarZ, solarUnits, viewRate, smooth } from './zoom-ladder.js';
-import { camera, drawSolar, setSolarDistance, solarDistance, solarBusy, isRealScale, solarFocused, solarEdge,solarHome, solarOffCentre, solarDrift, solarAnchor, solarCamera } from './app.js';
+import { SAFE as LABEL_SAFE } from './labels.js';
+import { camera, drawSolar, setSolarDistance, solarDistance, solarBusy, isRealScale, solarFocused, solarEdge,solarHome, solarOffCentre, solarDrift, solarAnchor, solarCamera, hideSunLabel } from './app.js';
 import { createZoomController, wheelZ, pinchZ } from './zoom.js';
 import { createZoomLog } from './zoomlog.js';
 import { STAR_FACTS, habitableZone, sizeFromMass, lightLeftYear } from './stars-data.js';
@@ -127,6 +128,7 @@ function bridgeTarget(pair,cur){
  const [i,o]=PAIRS[pair],k=SEAMS[pair].k;return cur===i?sceneOf(i).controls.target.clone():sceneOf(o).controls.target.clone().multiplyScalar(k);
 }
 function beginBridge(pair){
+ if(pair==='solar>stars')hideSunLabel(); // the anchor opens at the Sun's label on this same frame
  const cur=levelOf(state.value.view);if(ORBITS.has(state.value.view)){starsView.closeSystem();state.update({view:'stars'});}
  const tgt=bridgeTarget(pair,cur),k=SEAMS[pair]?.k;
  bridge={pair,t:0,dir:viewDirOf(cur),frame:frameOf(cur),tgt,tgtOuter:tgt&&k?tgt.clone().divideScalar(k):null,dom:cur};state.update({sheet:'closed',star:null,landmark:null});
@@ -193,13 +195,18 @@ function arrivalZ(target,out){
  const p=pairFor(target,out?-1:1);return out?SEAM_Z[p][1]+1e-6:SEAM_Z[p][0]-1e-6;
 }
 // after (optional): called once the target scale is reached (the voyage uses it to act on arrival).
+// A ladder tap (or a voyage step) during a trip is not dropped: the latest one is kept and run when the trip in
+// progress arrives (one pending trip; a newer tap replaces it). The target pill shows data-going until arrival.
+let pendingTrip=null;
+const markGoing=t=>{for(const b of $('ladder').querySelectorAll('button'))if((b.dataset.level===t)!==(b.dataset.going==='true'))b.dataset.going=String(b.dataset.level===t);};
+function runPending(){if(!pendingTrip||bridge||animating)return;const p=pendingTrip;pendingTrip=null;goLevel(p.target,p.after);}
 function goLevel(target,after){
- const cur=levelOf(state.value.view);if(target===cur){after?.();return;}if(bridge||animating)return;stopAudio();$('settings').open=false;zoom.stop();
+ const cur=levelOf(state.value.view);if(bridge||animating){pendingTrip={target,after};markGoing(target);return;}if(target===cur){markGoing(null);after?.();return;}markGoing(target);stopAudio();$('settings').open=false;zoom.stop();
  const out=levelIndex(target)>levelIndex(cur);
- const ck=clockOf(cur);if(ck&&ck.time()!==0){animating=true;ck.rewind(()=>{animating=false;goLevel(target,after);});return;} // back to today first: every map is drawn as the sky is now
+ const ck=clockOf(cur);if(ck&&ck.time()!==0){animating=true;ck.rewind(()=>{animating=false;if(pendingTrip)runPending();else goLevel(target,after);});return;} // back to today first: every map is drawn as the sky is now
  if(ORBITS.has(state.value.view)){starsView.closeSystem();state.update({view:'stars',sheet:'closed'});render();}
  if(state.value.sheet!=='closed'){state.update({sheet:'closed',star:null,landmark:null});render();}
- const then=()=>{if(levelOf(state.value.view)!==target)return; // stopped on the way (a gate): nothing more
+ const then=()=>{markGoing(pendingTrip?.target??null);if(pendingTrip){runPending();return;}if(levelOf(state.value.view)!==target)return; // stopped on the way (a gate): nothing more
   if(after)after();else if(target==='solar')unfocus(true,0.8);else if(target==='local'||target==='super'||target==='universe')sceneOf(target).overview();};
  const play=()=>{Zc=zOfLevel(levelOf(state.value.view));animateTo(arrivalZ(target,out),then);};
  // Only a few views need a move first: a selected world (let go and centre the Sun) and a view zoomed in so far
@@ -246,7 +253,7 @@ function zoomTick(dt,instant){
 const bright={centre:null,anchor:null},px48=new Uint8Array(48*48*4),px16=new Uint8Array(16*16*4);
 const lum=(buf)=>{let s=0;for(let i=0;i<buf.length;i+=4)s+=0.2126*buf[i]+0.7152*buf[i+1]+0.0722*buf[i+2];return +(s/(buf.length/4)/255).toFixed(4);};
 const zlog=createZoomLog({input:dz=>zoomInput(dz,'pinch',globalThis.performance?.now?.()??Date.now()),z:()=>Zc,
- extra:()=>({anchorX:Number.isFinite(anchorNow.x)?+anchorNow.x.toFixed(1):'',anchorY:Number.isFinite(anchorNow.y)?+anchorNow.y.toFixed(1):'',anchorText:anchorNow.text,lumCentre:bright.centre,lumAnchor:bright.anchor})});
+ extra:()=>({anchorX:Number.isFinite(anchorNow.x)?+anchorNow.x.toFixed(1):'',anchorY:Number.isFinite(anchorNow.y)?+anchorNow.y.toFixed(1):'',anchorText:anchorNow.text,lumCentre:bright.centre,lumAnchor:bright.anchor,points:renderer.info?.render?.points??'',calls:renderer.info?.render?.calls??''})}); // points/calls: three.js counters of the frame's last render call (the outer scene in a seam)
 if(zlog?.mode==='bright')hooks.afterFrameLog=()=>{const gl=renderer.getContext?.();if(!gl?.readPixels)return;const W=gl.drawingBufferWidth,H=gl.drawingBufferHeight,cb=$('c').getBoundingClientRect(),sx=W/(cb.width||W),sy=H/(cb.height||H);
  gl.readPixels(Math.max(0,(W>>1)-24),Math.max(0,(H>>1)-24),48,48,gl.RGBA,gl.UNSIGNED_BYTE,px48);bright.centre=lum(px48);
  if(Number.isFinite(anchorNow.x)){const ax=Math.round((anchorNow.x-cb.left)*sx)-8,ay=Math.round(H-(anchorNow.y-cb.top)*sy)-8;if(ax>=0&&ay>=0&&ax+16<=W&&ay+16<=H){gl.readPixels(ax,ay,16,16,gl.RGBA,gl.UNSIGNED_BYTE,px16);bright.anchor=lum(px16);}else bright.anchor=null;}else bright.anchor=null;};
@@ -268,6 +275,10 @@ function updateHud(){
  hudSet(hudA,h.lines[0]);hudSet(hudB,h.lines[1]);hudSet(hudC,h.lines[2]);hudSet(hudN,h.note);
 }
 hooks.afterFrame=()=>{updateHud();hooks.afterFrameLog?.();};
+// Inside a seam the "you are here" anchor stands at the Sun's label: the Sun's own label gives way (one label, not two).
+hooks.labelsOff=b=>!!bridge&&b.data.name==='Sun';
+// Labels never sit under the top controls: the band down to the scale ladder's bottom edge (read on layout only).
+const safeTop=()=>{const r=$('ladder')?.getBoundingClientRect?.();LABEL_SAFE.top=r&&r.bottom>0?r.bottom+4:0;};safeTop();globalThis.addEventListener?.('resize',safeTop);
 hooks.beforeFrame=dt=>{zoomTick(dt);zlog?.frame(dt,currentZ(),bridge,levelOf(state.value.view));};
 // dz: a change of Z from a gesture (zoom.js gains). Zooming out of a selected world lets go of it.
 function zoomInput(dz,kind,now){
@@ -888,4 +899,4 @@ paintOffline();
 if(sw&&standalone()&&typeof setTimeout==='function')setTimeout(saveOffline,4000);
 // Offline: cache what has been loaded, so the app opens again without a connection (sw.js).
 if(globalThis.isSecureContext&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(reg=>setTimeout(()=>reg.active?.postMessage({cache:[location.href.split('#')[0],...performance.getEntriesByType('resource').map(e=>e.name)]}),3000)).catch(()=>{});
-window.__lab={state,go,experiments,player,setSheet,starsView,galaxyView,localView,zoom,placeZ,get Z(){return Zc;},get bridge(){return bridge;},get animating(){return animating;},get Zcam(){return currentZ();},get anchor(){return anchorNow;},sceneOf:l=>(l==='super'||l==='universe')&&!built(l)?null:sceneOf(l)};
+window.__lab={state,go,experiments,player,setSheet,starsView,galaxyView,localView,zoom,placeZ,get Z(){return Zc;},get bridge(){return bridge;},get animating(){return animating;},get Zcam(){return currentZ();},get anchor(){return anchorNow;},get pendingTrip(){return pendingTrip?.target??null;},sceneOf:l=>(l==='super'||l==='universe')&&!built(l)?null:sceneOf(l)};

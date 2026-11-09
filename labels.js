@@ -13,7 +13,11 @@ export function createPlacer(capacity = 512) {
   };
 }
 // Width of a label tag (matches .lbl: 8 px text, 5 px side padding), cached per text.
-export function labelWidth(item) { const t = item.el.textContent; if (item.wText !== t) { item.wText = t; item.w = t.length * 4.9 + 10; } return item.w; }
+// 5.4 px per character (bold 8 px text, measured wider than the old 4.9 estimate: QA saw faint Universe labels touch)
+// plus 2 px clearance, so boxes that test free do not overlap on screen.
+export function labelWidth(item) { const t = item.el.textContent; if (item.wText !== t) { item.wText = t; item.w = t.length * 5.4 + 12; } return item.w; }
+// Screen band kept clear of labels: the top controls (Journeys, menu, scale ladder). Set by lab.js on layout.
+export const SAFE = { top: 0 };
 // Show or hide one label; translate it so it sits `off` px above (x, y). Writes only what changed.
 export function showLabel(item, on, x = 0, y = 0, off = 0, opacity = 1) {
   const el = item.el, c = item.c || (item.c = { on: null, x: NaN, y: NaN, off: NaN, op: NaN });
@@ -36,7 +40,7 @@ export function placeAll(items, count, placer, bounds, project, { enabled = true
     if (!enabled || (visible && !visible(it)) || !project(it, ndc) || ndc.z >= 1 || Math.abs(ndc.x) >= 1.02 || Math.abs(ndc.y) >= 1.02) { showLabel(it, false); continue; }
     const x = bounds.left + (ndc.x + 1) / 2 * bounds.width, y = bounds.top + (1 - ndc.y) / 2 * bounds.height;
     const w = labelWidth(it), off = (it.px || 0) / 2 + 4, x0 = x - w / 2, y0 = y - off - 13, x1 = x + w / 2, y1 = y - off;
-    if (!placer.free(x0, y0, x1, y1)) { showLabel(it, false); continue; }
+    if (y0 < SAFE.top || !placer.free(x0, y0, x1, y1)) { showLabel(it, false); continue; }
     placer.add(x0, y0, x1, y1); showLabel(it, true, x, y, off, opacity ? opacity(it) : 1);
   }
 }
