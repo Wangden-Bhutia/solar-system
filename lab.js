@@ -39,6 +39,12 @@ const built=l=>l==='super'?laniakeaView.built():l==='universe'?universeView.buil
 const laniakeaView=lazy(()=>createLaniakea({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:x=>pickCosmos('super',x)}));
 const universeView=lazy(()=>createUniverse({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:x=>pickCosmos('universe',x)}));
 const sceneOf=l=>l==='stars'?starsView:l==='galaxy'?galaxyView:l==='local'?localView:l==='super'?laniakeaView():l==='universe'?universeView():null;
+// Once the app has settled, build the far scales and compile every scene's shaders in idle moments, one
+// step at a time, so the first zoom into a new scale never stalls on that work mid-gesture.
+const idle=f=>(globalThis.requestIdleCallback?requestIdleCallback(f,{timeout:3000}):setTimeout(f,120));
+function prewarm(){const steps=[()=>laniakeaView(),()=>universeView(),...['stars','galaxy','local','super','universe'].map(l=>()=>{const v=sceneOf(l);try{renderer.compile(v.scene,v.camera);}catch{}})];
+ const run=()=>{const f=steps.shift();if(!f)return;f();idle(run);};idle(run);}
+if(typeof globalThis.requestAnimationFrame==='function'&&typeof setTimeout==='function')setTimeout(prewarm,2500);
 const galaxyView=createGalaxy({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:m=>pickLandmark(m),onTime:()=>paintTime()});
 // ---- Time at the big scales: one clock bar, in thousands of years for the stars (star-motion.js)
 // and millions for the Milky Way (galaxy-motion.js). Each scene keeps its own clock; leaving a scale
@@ -49,7 +55,7 @@ const clockLevel=()=>{const v=state.value.view;return v==='galaxy'?'galaxy':v===
 const clockOf=l=>l==='galaxy'?galaxyView:l==='stars'?starsView:null;
 function paintTime(){const l=clockLevel(),c=clockOf(l);if(!c)return;const t=c.time(),p=c.playing(),g=l==='galaxy';
  let clock,note;
- if(g){clock=timeLabel(t);note=milestone(t)||(Math.abs(t)<0.5?'Press play to watch the Galaxy turn. Tap a landmark for its card.':lapsLabel(t));}
+ if(g){clock=timeLabel(t);note=milestone(t)||(Math.abs(t)<0.5?'Press play to watch the Galaxy turn.':lapsLabel(t));}
  else{clock=yearsLabel(t);const n=c.nearest();note=n.entry?`${Math.abs(t)<50?'Nearest star now':'Nearest star'}: ${n.entry.name}, ${fmt(n.ly,1)} light-years`+(Math.abs(t)<50&&!p?' · press play to watch the stars drift':''):'';}
  const range=g?TIME_RANGE:STAR_TIME;gslider.min=range[0];gslider.max=range[1];gslider.step=g?1:100;
  gslider.setAttribute('aria-label',g?'Time, in millions of years from today':'Time, in years from today');
@@ -68,6 +74,7 @@ let bridge=null,animating=false;
 const views={solar:{view:'explore',feature:'orbit'},stars:{view:'stars'},galaxy:{view:'galaxy'},local:{view:'local'},super:{view:'super'},universe:{view:'universe'}};
 const viewDirOf=l=>l==='solar'?camera.position.clone().sub(controls.target).normalize():sceneOf(l).viewDir();
 function drawBridge(){
+ easeBridge();if(!bridge)return;
  const r=$('stage').getBoundingClientRect(),f=bridgeFrame(bridge.pair,bridge.t);
  if(bridge.pair==='solar>stars'){drawSolar(f.inner.recede);dim(f.inner.dim);starsView.setView(bridge.dir,f.outer.d);starsView.render(r.width,r.height,null,{overlay:true,opacity:f.outer.opacity});return;}
  // Metric seams: the inner scene recedes and dims; the outer one, ÷ k around the same centre, dissolves in.
@@ -87,7 +94,12 @@ function beginBridge(pair,t){
  for(const l of PAIRS[pair])showLabelsOf(l,true);
  document.body.classList.add('bridging');render();
 }
-function moveBridge(amount){const {t,settled}=stepBridge(bridge.t,amount);bridge.t=t;if(settled)settle(settled);}
+// The gesture sets where the blend is heading (goal); each frame eases towards it, so a pinch or a notched
+// scroll wheel glides instead of stepping. Without animation frames (tests) it moves at once.
+const smoothFrames=()=>typeof globalThis.requestAnimationFrame==='function'&&!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+function moveBridge(amount){const g=stepBridge(bridge.goal??bridge.t,amount);bridge.goal=g.t;if(!smoothFrames()){bridge.t=g.t;if(g.settled)settle(g.settled);}}
+function easeBridge(){if(!bridge||bridge.goal==null||animating)return;const now=globalThis.performance?.now?.()??Date.now(),dt=Math.min(.05,(now-(bridge.last||now))/1000);bridge.last=now;
+ const k=1-Math.exp(-dt*9);bridge.t+=(bridge.goal-bridge.t)*k;if(Math.abs(bridge.goal-bridge.t)<.004){bridge.t=bridge.goal;if(bridge.t>=1)return settle('outer');if(bridge.t<=0)return settle('inner');}}
 function settle(end){
  const b=bridge,[inner,outer]=PAIRS[b.pair],target=end==='outer'?outer:inner,cur=levelOf(state.value.view);bridge=null;document.body.classList.remove('bridging');
  const other=target===inner?outer:inner;showLabelsOf(other,false);
@@ -110,7 +122,7 @@ function animateBridge(to,done){
 // after (optional): called once the target scale is reached (the voyage uses it to act on arrival).
 function goLevel(target,after){
  const cur=levelOf(state.value.view);if(target===cur){after?.();return;}if(bridge||animating)return;stopAudio();$('settings').open=false;
- const out=levelIndex(target)>levelIndex(cur),pair=pairFor(cur,out?1:-1),then=()=>{if(levelOf(state.value.view)!==target)goLevel(target,after);else if(after)after();else if(target==='local'||target==='super'||target==='universe')sceneOf(target).overview();};
+ const out=levelIndex(target)>levelIndex(cur),pair=pairFor(cur,out?1:-1),then=()=>{if(levelOf(state.value.view)!==target)goLevel(target,after);else if(after)after();else if(target==='solar')unfocus(true,1.4);else if(target==='local'||target==='super'||target==='universe')sceneOf(target).overview();};
  const play=()=>{beginBridge(pair,out?0:1);animateBridge(out?1:0,then);};
  const ck=clockOf(cur);if(ck&&ck.time()!==0){animating=true;ck.rewind(()=>{animating=false;goLevel(target,after);});return;} // back to today first: the star map is as the sky is now
  if(ORBITS.has(state.value.view)){starsView.closeSystem();state.update({view:'stars',sheet:'closed'});render();}
@@ -178,17 +190,14 @@ function setSheet(patch){if(!patch)return;if(patch.view&&patch.view!==state.valu
 function dismissHint(){hintSeen=true;}
 // Back: previous card/lab; with no history it returns to the whole Solar System.
 // At the overview (sheet closed) the same chip switches between the inner planets and all planets.
-$('back').onclick=()=>{stopAudio();const s=state.value;
- if(s.voyage!=null){if(!voyageBusy)endVoyage();return;}
- if(s.sheet!=='closed'&&state.canBack)state.back();
- else if(['local','super','universe'].includes(s.view)&&s.sheet==='closed'){goLevel(LEVELS[levelIndex(s.view)-1]);return;}
- else if(s.view==='galaxy'&&s.sheet==='closed'){leaveGalaxy();return;}
- else if(SPACE.has(s.view)&&s.sheet==='closed'){leaveStars();return;}
- else if(['galaxy','local','super','universe'].includes(s.view))state.update({landmark:null,sheet:'closed'});
- else if(SPACE.has(s.view))state.update({view:'stars',star:null,sheet:'closed'});
- else if(s.sheet!=='closed')state.update({view:'explore',experiment:null,feature:'orbit',sheet:'closed'});
- else setHomeScope(hooks.homeScope==='inner'?'all':'inner');
- render();};
+// ‹ Back (in the card header): returns to the previous card, only when that card belongs to the same scale.
+// Moving between scales is the scale ladder's job, and closing a card is ✕.
+const levelOfState=v=>v&&levelOf(v.view);
+function canGoBack(s=state.value){const p=state.previous;return s.voyage==null&&s.sheet!=='closed'&&!!p&&p.sheet!=='closed'&&levelOfState(p)===levelOf(s.view);}
+$('back').onclick=()=>{stopAudio();if(!canGoBack())return;state.back();render();};
+// Planets in view (menu): the inner planets or all of them, in the Solar System overview.
+for(const [id,scope] of [['scope-inner','inner'],['scope-all','all']])$(id).onclick=()=>{setHomeScope(scope);paintScope();if(levelOf(state.value.view)!=='solar')goLevel('solar');};
+function paintScope(){for(const [id,scope] of [['scope-inner','inner'],['scope-all','all']])$(id).setAttribute('aria-pressed',String(hooks.homeScope===scope));}
 for(const button of document.querySelectorAll('[data-view]'))button.onclick=()=>{const view=button.dataset.view,s=state.value;
  const patch={view,experiment:null};
  if(view==='compare'&&NEARBY[s.world]){patch.compareA=s.world;if(s.compareB===s.world)patch.compareB=s.world==='Earth'?'Moon':'Earth';}
@@ -202,7 +211,12 @@ hooks.onFocus=b=>{dismissHint();go({view:'explore',world:b.data.name,feature:'ov
 hooks.onEmpty=()=>setSheet(state.value.sheet==='closed'?null:emptyTap(state.value));
 hooks.visible=(w,h)=>{if(state.value.sheet==='closed')return {width:w,height:h};const r=sheet.getBoundingClientRect();return visibleRegion(w,h,r);};
 
-$('close').onclick=()=>setSheet({view:'explore',experiment:null,sheet:'closed'});
+// ✕ closes the card and stays at the same scale (in the voyage, it ends the voyage).
+$('close').onclick=()=>{stopAudio();const s=state.value;
+ if(s.voyage!=null){if(!voyageBusy)endVoyage();return;}
+ const lv=levelOf(s.view);
+ if(lv==='solar')setSheet({view:'explore',experiment:null,sheet:'closed'});
+ else setSheet({view:ORBITS.has(s.view)?'stars':s.view,star:null,landmark:null,sheet:'closed'});};
 // Grip: buttons, keys and swipes all drive the same state machine.
 $('grip').onclick=()=>setSheet(state.value.sheet==='full'?swipe(state.value,'down'):swipe(state.value,'up'));
 sheet.addEventListener('keydown',e=>{
@@ -688,11 +702,8 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system'||starsV
  const voyage=s.voyage!=null;for(const v of ['explore','try','compare','journey'])$(v+'-panel').hidden=voyage?v!=='journey':s.view!==v;
  $('star-panel').hidden=voyage||!['stars','galaxy','local','super','universe'].includes(s.view);$('system-panel').hidden=voyage||!ORBITS.has(s.view);
  for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-pressed',String(b.dataset.view===s.view));
- if(!open&&space){const innerName={solar:'Solar System',stars:'Nearby stars',galaxy:'Milky Way',local:'Local Group',super:'Laniakea'}[LEVELS[levelIndex(level)-1]];$('back').textContent=`← ${innerName}`;$('back').setAttribute('aria-label',`Zoom back in to the ${innerName==='Nearby stars'?'nearby stars':innerName}`);}
- else if(!open){const all=hooks.homeScope!=='inner';$('back').textContent=all?'Show inner planets':'Show all planets';$('back').setAttribute('aria-label',all?'Zoom in on the inner planets, Mercury to Mars':'Zoom out to show all eight planets');}
- else{const atOverview=!state.canBack;$('back').textContent=atOverview?'Overview':'← Back';$('back').setAttribute('aria-label',atOverview?'Close the card and show the Solar System':'Go back');}
- if(voyage){$('back').textContent='✕ End voyage';$('back').setAttribute('aria-label','End the voyage and explore from here');}
- $('hint').hidden=(hintSeen&&!space)||open||!!clockLevel()||voyage;gtime.hidden=!clockLevel()||open||voyage;if(!gtime.hidden)paintTime();$('hint').textContent=level==='universe'?'Tap a marker':level==='super'?'Tap a cluster':level==='local'?'Tap a galaxy':level==='galaxy'?'Tap a landmark':space?'Tap a star':'Tap a planet, the Sun or the Moon';
+ $('back').hidden=!canGoBack(s);paintScope();
+ gtime.hidden=!clockLevel()||open||voyage;if(!gtime.hidden)paintTime();
  $('world-depth').open=false;
  sheet.querySelector('.tabs').hidden=experiment||s.view==='journey'||space||voyage; // labs: controls first, Back returns to the tabs
  $('experiment-chooser').hidden=experiment;$('experiment').hidden=!scene;$('scale-lab').hidden=!(experiment&&s.experiment==='scale');$('experiment-reset').hidden=!experiment;
@@ -719,6 +730,29 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system'||starsV
 }
 addEventListener('resize',()=>{if(state.value.view==='compare')paintCompare();});
 render();
+// ---- Install and offline ----
+// "Install app" uses the browser's own install prompt where it offers one (Android, desktop Chrome/Edge); on
+// iPhone and iPad the note explains Share → Add to Home Screen. Installing, or "Save for offline", stores the
+// whole app on the device (sw.js saveAll), so it opens fast and works with no signal. An installed app
+// refreshes its saved copy on each launch (only changed files are downloaded).
+let installEvent=null,offline=null;
+const nav=globalThis.navigator||{},sw=globalThis.isSecureContext&&nav.serviceWorker;
+const standalone=()=>!!globalThis.matchMedia?.('(display-mode: standalone)').matches||nav.standalone===true;
+const appleTouch=/iphone|ipad|ipod/i.test(nav.userAgent||'')||(/macintosh/i.test(nav.userAgent||'')&&(nav.maxTouchPoints||0)>1);
+const savedBefore=()=>{try{return localStorage.getItem('offline-saved');}catch{return null;}};
+function saveOffline(){if(!sw)return;offline={done:0,total:0};paintOffline();sw.ready.then(reg=>reg.active?.postMessage({saveAll:true}));}
+function paintOffline(){
+ $('install').hidden=!installEvent;$('save-offline').hidden=!sw;$('save-offline').disabled=!!offline&&!offline.finished&&!offline.error;
+ const note=offline?.error?'Couldn’t save just now. Check the connection and try again.':offline&&!offline.finished?`Saving… ${offline.done} of ${offline.total||'…'} files`:offline?.finished?(offline.failed?`Saved, except ${offline.failed} files. Try again with a better connection.`:'Saved ✓ The whole app is on this device and opens even with no signal.'):savedBefore()?'Saved for offline ✓ New versions are saved as you use them.':!sw?'Offline use needs the secure (https) version of the site.':appleTouch&&!standalone()?'To install on iPhone or iPad: tap Share, then “Add to Home Screen”. Or save for offline here.':'Keeps the whole app (about 4.5 MB) on this device so it opens fast, even with no signal.';
+ $('offline-note').textContent=note;$('save-offline').textContent=offline?.finished&&!offline.failed||savedBefore()?'Save again':'Save for offline';
+}
+globalThis.addEventListener?.('beforeinstallprompt',e=>{e.preventDefault();installEvent=e;paintOffline();});
+globalThis.addEventListener?.('appinstalled',()=>{installEvent=null;saveOffline();});
+if(sw)sw.addEventListener('message',e=>{const m=e.data?.offline;if(!m)return;offline=m;if(m.finished&&!m.failed){try{localStorage.setItem('offline-saved',m.version||'1');}catch{}}paintOffline();});
+$('install').onclick=async()=>{if(!installEvent)return;const e=installEvent;e.prompt();const r=await e.userChoice.catch(()=>({}));installEvent=null;if(r.outcome==='accepted')saveOffline();paintOffline();};
+$('save-offline').onclick=saveOffline;
+paintOffline();
+if(sw&&standalone()&&typeof setTimeout==='function')setTimeout(saveOffline,4000);
 // Offline: cache what has been loaded, so the app opens again without a connection (sw.js).
 if(globalThis.isSecureContext&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(reg=>setTimeout(()=>reg.active?.postMessage({cache:[location.href.split('#')[0],...performance.getEntriesByType('resource').map(e=>e.name)]}),3000)).catch(()=>{});
 window.__lab={state,go,experiments,player,setSheet,starsView,galaxyView,localView};

@@ -368,7 +368,9 @@ function resize() {
   hooks.homeScope = realScale ? 'all' : chosenScope || (portrait ? 'inner' : 'all');
   if (hooks.kid) HOME.pos.copy(HOME_DIRECTION).multiplyScalar(150 / Math.min(1, w/h));
   else { const dir = homeDirection(w / h); HOME.pos.copy(dir).multiplyScalar(fitHomeDistance(homeRadius(hooks.homeScope), camera.fov, w / h, dir)); }
-  controls.maxDistance = realScale ? Math.max(1.5e6,HOME.pos.length()*1.5) : Math.max(900, fitHomeDistance(homeRadius('all'), camera.fov, w / h, homeDirection(w / h)) * 1.5);
+  // The edge of this scale is the all-planets view: zooming further hands over to the stars, so you never pass
+  // through a far view where the Sun shrinks and the enlarged inner planets pile up on top of each other.
+  controls.maxDistance = realScale ? Math.max(1.5e6,HOME.pos.length()*1.5) : fitHomeDistance(homeRadius('all'), camera.fov, w / h, homeDirection(w / h)) * 1.06;
   camera.updateProjectionMatrix();
   // In the overview, re-frame when the framing changes noticeably: rotation, or a page first laid
   // out at another size (DevTools device emulation, split screen). Small changes such as the

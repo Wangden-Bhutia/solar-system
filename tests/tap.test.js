@@ -7,9 +7,9 @@ const ready=async(o)=>{const a=await bootApp(o);a.step(40);return a;};
 test('touch tap on Earth (real event path, OrbitControls attached) opens its sheet',async()=>{
   const a=await ready();const [x,y]=a.screenOf('Earth');
   assert.ok(x>0&&x<412&&y>0&&y<915,`Earth on screen at ${x.toFixed(0)},${y.toFixed(0)}`);
-  assert.equal(a.sheet,'closed');assert.equal(a.$('hint').hidden,false,'first-visit hint is shown');
+  assert.equal(a.sheet,'closed');assert.equal(a.document.getElementById('hint'),null,'no hint chip: the scene speaks for itself');
   a.tapAt(x,y,{type:'touch'});
-  assert.equal(a.sheet,'peek');assert.equal(a.$('title').textContent,'Earth');assert.equal(a.$('hint').hidden,true);
+  assert.equal(a.sheet,'peek');assert.equal(a.$('title').textContent,'Earth');
   assert.equal(a.errors.length,0);
 });
 test('repeated taps: select, empty tap closes and flies back out, select again (touch and mouse)',async()=>{

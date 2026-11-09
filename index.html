@@ -7,16 +7,17 @@
  <div id="labels"></div><div id="here" hidden></div><div id="orbit-map" hidden></div>
 </main>
 <nav id="topbar" aria-label="Navigation">
- <button id="back" class="chip" aria-label="Back to overview">Overview</button>
- <div class="top-right"><button id="journeys" class="chip" aria-label="Guided journeys"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1.5l1.6 4.4 4.4 1.6-4.4 1.6L8 13.5 6.4 9.1 2 7.5l4.4-1.6z"/></svg>Journeys</button><details id="settings"><summary class="chip" aria-label="Menu"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg></summary><div class="menu" role="group" aria-label="Scene controls">
+ <button id="journeys" class="chip" aria-label="Guided journeys"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1.5l1.6 4.4 4.4 1.6-4.4 1.6L8 13.5 6.4 9.1 2 7.5l4.4-1.6z"/></svg>Journeys</button>
+ <div class="top-right"><details id="settings"><summary class="chip" aria-label="Menu"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg></summary><div class="menu" role="group" aria-label="Scene controls">
+  <div class="mrow"><span class="mlabel">Planets in view</span><div class="seg" role="group" aria-label="Planets in view"><button id="scope-inner" aria-pressed="false">Inner</button><button id="scope-all" aria-pressed="false">All</button></div></div>
   <div class="mrow mrow-stack"><span class="mlabel">Real scale</span><button id="realBtn" class="switch" aria-pressed="false" aria-label="Real scale"><span></span></button><p class="mnote">True sizes and distances, not today’s positions.</p></div>
   <div class="mrow"><button id="play" class="icon-btn" aria-label="Pause" data-state="playing"><svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9M11 3.5v9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L13 8z" fill="currentColor"/></svg></button><input id="speed" type="range" min="-2" max="2" step="0.01" value="0" aria-label="Simulation speed"><span id="speedTxt" class="mvalue"></span></div>
   <div class="mrow"><span class="mlabel">Planet names</span><button id="lbls" class="switch on" aria-pressed="true" aria-label="Planet names"><span></span></button></div>
   <div class="mrow"><span class="mlabel">Voice <small>plays only when you tap ♫</small></span><label class="switch-wrap"><input id="sound" type="checkbox" role="switch" aria-label="Voice"><span class="switch" aria-hidden="true"><span></span></span></label></div>
+  <div class="mrow mrow-stack" id="offline-row"><span class="mlabel">Use it offline</span><div class="mbuttons"><button id="install" class="mbtn primary" hidden>Install app</button><button id="save-offline" class="mbtn">Save for offline</button></div><p class="mnote" id="offline-note" aria-live="polite">Keeps the whole app (about 4.5 MB) on this device so it opens fast, even with no signal.</p></div>
  </div></details></div>
 </nav>
 <nav id="ladder" aria-label="Scale: pinch or scroll out past the edge to travel outward, or choose a level"><button data-level="solar" aria-pressed="true" aria-label="Solar System"><span class="full">Solar System</span><span class="short" aria-hidden="true">Solar</span></button><button data-level="stars" aria-pressed="false" aria-label="Stars"><span class="full">Stars</span><span class="short" aria-hidden="true">Stars</span></button><button data-level="galaxy" aria-pressed="false" aria-label="Milky Way"><span class="full">Milky Way</span><span class="short" aria-hidden="true">Galaxy</span></button><button data-level="local" aria-pressed="false" aria-label="Local Group"><span class="full">Local Group</span><span class="short" aria-hidden="true">Group</span></button><button data-level="super" aria-pressed="false" aria-label="Laniakea"><span class="full">Laniakea</span><span class="short" aria-hidden="true">Laniakea</span></button><button data-level="universe" aria-pressed="false" aria-label="Universe"><span class="full">Universe</span><span class="short" aria-hidden="true">Universe</span></button></nav>
-<p id="hint" role="status">Tap a planet, the Sun or the Moon</p>
 <section id="gtime" aria-label="Time in the Milky Way" hidden>
  <div class="grow"><button id="gplay" class="icon-btn" aria-label="Play time: watch the Galaxy turn" data-state="paused"><svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9M11 3.5v9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L13 8z" fill="currentColor"/></svg></button>
  <input id="gslider" type="range" min="-250" max="250" step="1" value="0" aria-label="Time, in millions of years from today"><button id="gnow" class="gnow" hidden>Today</button></div>
@@ -27,9 +28,9 @@
   <button id="grip" aria-controls="sheet-body" aria-expanded="false" aria-label="Show more"><span></span></button>
   <header class="sheet-head">
    <div class="head-text"><p class="eyebrow" id="kicker"></p><h1 id="title"></h1><p id="fact"></p></div>
-   <div class="head-tools"><button id="experiment-reset" class="icon" aria-label="Reset experiment" hidden>↺</button><button id="listen" class="icon" aria-label="Listen">♫</button><button id="close" class="icon" aria-label="Close card">✕</button></div>
+   <div class="head-tools"><button id="back" class="icon" aria-label="Back" hidden>‹</button><button id="experiment-reset" class="icon" aria-label="Reset experiment" hidden>↺</button><button id="close" class="icon" aria-label="Close card">✕</button></div>
   </header>
-  <div class="head-actions"><button id="action" class="action"></button><button id="action2" class="action alt" hidden></button></div>
+  <div class="head-actions"><button id="action" class="action"></button><button id="action2" class="action alt" hidden></button><button id="listen" class="action alt listen" aria-label="Listen">♫ Listen</button></div>
   <p id="audio-status" class="fine" role="status"></p>
  </div>
  <div id="sheet-body">

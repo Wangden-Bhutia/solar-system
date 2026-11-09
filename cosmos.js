@@ -48,6 +48,15 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, home, over
       controls.target.lerpVectors(this.from.tgt, this.to.tgt, k); this.dir.lerpVectors(this.from.dir, this.to.dir, k).normalize(); camera.position.copy(controls.target).addScaledVector(this.dir, d);
       if (this.t >= 1) { const f = this.done; this.done = null; f?.(); } } };
   const viewDir = () => { const v = camera.position.clone().sub(controls.target); return v.lengthSq() ? v.normalize() : fly.dir.clone(); };
+  // Zooming in re-centres gently on HOME as the camera nears this scale's inner edge, so the hand-over to the
+  // scale inside needs no automatic flight: it is just the zoom you are already doing.
+  const driftStep = new THREE.Vector3();
+  function drift(dt) {
+    if (fly.t < 1 || !controls.enabled) return;
+    const d = camera.position.distanceTo(controls.target), f = Math.min(1, Math.max(0, (near * 5 - d) / (near * 4)));
+    if (f <= 0 || controls.target.distanceTo(HOME) < 1e-9) return;
+    driftStep.copy(HOME).sub(controls.target).multiplyScalar(Math.min(1, f * dt * 3.5)); controls.target.add(driftStep); camera.position.add(driftStep);
+  }
   function placeLabels(bounds) {
     const placed = [], list = [...[...marks].sort((a, b) => (a.item.rank ?? 9) - (b.item.rank ?? 9)).map(x => ({ el: x.el, pos: x.sprite.position, px: x.sprite.userData.px })), ...extras.map(r => ({ el: r.el, pos: r.pos, px: 0 }))];
     for (const { el, pos, px } of list) {
@@ -66,7 +75,7 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, home, over
     const vw = Math.min(width, visible?.width ?? width), vh = Math.min(height, visible?.height ?? height), fullW = 2 * width - vw, fullH = 2 * height - vh;
     camera.aspect = fullW / fullH; camera.zoom = vh / fullH;
     if (vw === width && vh === height) camera.clearViewOffset(); else camera.setViewOffset(fullW, fullH, width - vw, height - vh, width, height);
-    camera.far = Math.max(1e4, camera.position.length() * 6); camera.updateProjectionMatrix(); fly.step(dt); controls.update();
+    camera.far = Math.max(1e4, camera.position.length() * 6); camera.updateProjectionMatrix(); fly.step(dt); drift(dt); controls.update();
     const k = 2 * Math.tan(camera.fov * Math.PI / 360) * 2 / vh;
     for (const x of marks) x.sprite.scale.setScalar(x.sprite.userData.px * k * (x.item === selected ? 1.7 : 1));
     placeLabels(canvas.getBoundingClientRect());
