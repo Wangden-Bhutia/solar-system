@@ -2,6 +2,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { R0, ARMS, armRadius, discPosition, galaxyParticles, LANDMARKS } from './galaxy-data.js';
+import { GALAXY_NEAR } from './zoom-ladder.js';
 
 const glow = (() => {
   if (typeof document === 'undefined' || !document.createElement) return null;
@@ -11,10 +12,10 @@ const glow = (() => {
 })();
 
 export function createGalaxy({ renderer, canvas, labelsEl, onPick }) {
-  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x010207);
+  const scene = new THREE.Scene(), bg = new THREE.Color(0x000005); scene.background = bg; // same black at every scale
   const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 1e5);
   const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enabled = false; controls.enablePan = false;
-  controls.zoomSpeed = 1.8; controls.minDistance = 8; controls.maxDistance = 260; // zooming in past 8 kly hands back to the nearby stars
+  controls.zoomSpeed = 1.8; controls.minDistance = GALAXY_NEAR; controls.maxDistance = 260; // zooming in past this hands back to the nearby stars
   // Distant background stars and other galaxies' faint glow are left out on purpose: this level is our Galaxy alone.
   { const n = 1500, p = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(3000); p.set([v.x, v.y, v.z], i * 3); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
@@ -36,7 +37,9 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick }) {
     return { m, sprite, el };
   });
   const armLabels = ARMS.map(a => { const b = a.spur ? 22 : 60; const el = document.createElement('span'); el.className = 'lbl space galaxy arm-lbl'; el.textContent = a.name; el.hidden = true; labelsEl.appendChild(el); return { el, pos: new THREE.Vector3(...discPosition(armRadius(a, b), b)) }; });
-  const tmp = new THREE.Vector3(); let last = 0, selected = null, on = false;
+  const tmp = new THREE.Vector3(); let last = 0, selected = null, on = false, labelOpacity = 1;
+  const mats = []; scene.traverse(o => { if (o.material) { o.material.userData.base = o.material.opacity; o.material.transparent = true; mats.push(o.material); } });
+  const setFade = f => { for (const m of mats) m.opacity = m.userData.base * f; };
   // Camera glides along a fixed viewing direction, centred on a target (the Sun, then the whole Galaxy).
   const fly = { t: 1, dur: 1.6, from: { d: 1, tgt: new THREE.Vector3() }, to: { d: 1, tgt: new THREE.Vector3() }, dir: new THREE.Vector3(0.15, 0.85, 0.5).normalize(), done: null,
     start(fromD, fromT, toD, toT, dur, done) { this.from = { d: fromD, tgt: fromT.clone() }; this.to = { d: toD, tgt: toT.clone() }; this.t = 0; this.dur = reduce() ? 0.01 : dur; this.done = done; },
@@ -54,11 +57,12 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick }) {
       const x = bounds.left + (tmp.x + 1) / 2 * bounds.width, y = bounds.top + (1 - tmp.y) / 2 * bounds.height, w = el.textContent.length * 4.9 + 10, h = 13, off = px / 2 + 4;
       const box = [x - w / 2, y - off - h, x + w / 2, y - off];
       const ok = on && tmp.z < 1 && Math.abs(tmp.x) < 1.02 && Math.abs(tmp.y) < 1.02 && !placed.some(o => box[0] < o[2] && box[2] > o[0] && box[1] < o[3] && box[3] > o[1]);
-      el.hidden = !ok; el.style.visibility = ok ? 'visible' : 'hidden';
+      el.hidden = !ok; el.style.visibility = ok ? 'visible' : 'hidden'; el.style.opacity = labelOpacity;
       if (ok) { placed.push(box); el.style.transform = `translate(${x}px,${y}px) translate(-50%,calc(-100% - ${off}px))`; }
     }
   }
-  function render(width, height, visible) {
+  function render(width, height, visible, { overlay = false, opacity = 1 } = {}) {
+    scene.background = overlay ? null : bg; setFade(opacity); labelOpacity = opacity;
     const now = performance.now(), dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     renderer.setSize(width, height, false);
     const vw = Math.min(width, visible?.width ?? width), vh = Math.min(height, visible?.height ?? height), fullW = 2 * width - vw, fullH = 2 * height - vh;
@@ -69,7 +73,7 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick }) {
     for (const x of marks) x.sprite.scale.setScalar((x.m.name === 'Sun' ? 14 : x.m.name === 'Sagittarius A*' ? 12 : 9) * k * (x.m === selected ? 1.7 : 1));
     // Sun-sized glow scales with distance from the camera so the bulge reads as a glow, not a disc.
     placeLabels(canvas.getBoundingClientRect());
-    renderer.render(scene, camera);
+    const clear = renderer.autoClear; renderer.autoClear = !overlay; renderer.render(scene, camera); renderer.autoClear = clear;
   }
   function pick(cx, cy) {
     const b = canvas.getBoundingClientRect(); let best = null, bestD = 44;
@@ -77,10 +81,13 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick }) {
     return best;
   }
   function setLabels(v) { for (const x of [...marks, ...armLabels]) x.el.hidden = !v; }
-  // Arriving from the star map: start right at the Sun and pull back until the whole Galaxy fits.
-  function enter() { on = true; controls.enabled = true; setLabels(true); controls.minDistance = 0.01; fly.start(0.05, SUN, portrait() ? 215 : 125, CENTRE, 2.6, () => { controls.minDistance = 8; }); }
+  // Look at the Sun from direction dir at distance d (kly): the Galaxy bridge hands over at exactly
+  // the star map's view, ÷ 1,000. The Sun stays the centre of rotation, so “You are here” never drifts.
+  function setView(dir, d) { fly.t = 1; fly.done = null; fly.dir.copy(dir).normalize(); controls.target.copy(SUN); camera.position.copy(SUN).addScaledVector(fly.dir, d); controls.update(); }
+  const viewDir = () => camera.position.clone().sub(controls.target).normalize();
+  function enter(at) { on = true; controls.enabled = true; setLabels(true); if (at) setView(at.dir, at.d); else fly.start(0.05, SUN, portrait() ? 215 : 125, SUN, 2.6); }
   function leave() { on = false; controls.enabled = false; setLabels(false); }
-  function zoomToSun(done) { controls.minDistance = 0.01; const d0 = done; done = () => { controls.minDistance = 8; d0?.(); }; fly.start(camera.position.distanceTo(controls.target) || 140, controls.target, 0.05, SUN, 1.3, done); }
+  function zoomToSun(done) { fly.dir.copy(viewDir()); fly.start(camera.position.distanceTo(controls.target) || 140, controls.target, GALAXY_NEAR, SUN, 1.1, done); }
   const zoomState = () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1 });
-  return { render, pick, enter, leave, zoomToSun, zoomState, select(m) { selected = m; }, marks, camera, controls, scene, cloud, fly, landmarks: LANDMARKS };
+  return { render, pick, enter, leave, zoomToSun, zoomState, setView, viewDir, showLabels: v => { on = v; setLabels(v); }, select(m) { selected = m; }, marks, camera, controls, scene, cloud, fly, landmarks: LANDMARKS };
 }

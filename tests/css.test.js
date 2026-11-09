@@ -6,5 +6,5 @@ test('style.css is well-formed: braces balance, no block left open, space-mode r
   let depth = 0, min = 0; for (const ch of css) { if (ch === '{') depth++; else if (ch === '}') { depth--; min = Math.min(min, depth); } }
   assert.equal(depth, 0, 'every { has a }'); assert.equal(min, 0, 'no } without a {');
   const depthAt = sel => { const i = css.indexOf(sel); assert.ok(i >= 0, sel); let d = 0; for (const ch of css.slice(0, i)) { if (ch === '{') d++; else if (ch === '}') d--; } return d; };
-  for (const sel of ['body.space-mode #labels .lbl:not(.space)', '#ladder{', '#edge-hint{', '#fade{']) assert.equal(depthAt(sel), 0, `${sel} is not inside another block`);
+  for (const sel of ['body.space-mode #labels .lbl:not(.space)', '#ladder{', 'body.bridging #labels .lbl:not(.space)']) assert.equal(depthAt(sel), 0, `${sel} is not inside another block`);
 });
