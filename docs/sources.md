@@ -50,3 +50,6 @@ Definitions used:
 ## Voice
 - Kokoro-82M v1.0 TTS model, voice `bm_george` — Apache-2.0 — https://huggingface.co/hexgrad/Kokoro-82M
 - kokoro-onnx runtime — MIT — https://github.com/thewh1teagle/kokoro-onnx
+
+## Earth–Moon lab redesign
+See [lab-science.md](lab-science.md) for public NASA pages read 9 November 2026, calculations, definitions, in-app source policy and explicit limitations. Existing Natural Earth and surface-generation credits above remain in force. Seven new optional lab narrations use the same Apache-2.0 Kokoro bm_george voice and MIT runtime already credited. No new surface imagery or external runtime dependency is added.
