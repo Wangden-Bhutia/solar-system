@@ -8,7 +8,8 @@ import { GALAXIES } from './local-data.js';
 import { ngcGalaxies, skyPosition, CLUSTERS, SHELLS, FAR_GALAXY, CMB_GLY } from './cosmos-data.js';
 import { SUPER_NEAR, SUPER_FAR, UNIVERSE_NEAR, UNIVERSE_FAR, SCENE_RANGE } from './zoom-ladder.js';
 import { createPlacer, placeAll, forgetLabel } from './labels.js';
-import { skyPoints } from './sky.js';
+import { skyPoints, placeSky } from './sky.js';
+import { createLod, seamWindow } from './lod.js';
 
 const glow = (() => {
   if (typeof document === 'undefined' || !document.createElement) return null;
@@ -26,24 +27,32 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, min, max =
   // Zoom: zoom.js via lab.js (OrbitControls only rotates). Limits: the whole range, seams included.
   controls.enableZoom = false; controls.minDistance = min; controls.maxDistance = max;
   const marks = [], extras = [], glows = []; let labelsDirty = true, labelItems = []; const placer = createPlacer(256);
-  const points = (pos, col, size, opacity, color = 0xffffff) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos instanceof Float32Array ? pos : new Float32Array(pos), 3)); if (col) g.setAttribute('color', new THREE.BufferAttribute(col instanceof Float32Array ? col : new Float32Array(col), 3));
-    const p = new THREE.Points(g, new THREE.PointsMaterial({ size, sizeAttenuation: false, vertexColors: !!col, color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false })); p.frustumCulled = false; scene.add(p); return p; };
-  function mark(item, { px = 8, color = 0xdfe8ff, opacity = 0.8, label = item.name } = {}) {
+  // Each drawn object carries its level-of-detail rule (lod.js); see rules below.
+  const rules = new Map(), HERE = { inner: 'model', outer: 'model', alone: 'fixed' };
+  const points = (pos, col, size, opacity, color = 0xffffff, rule = 'size') => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos instanceof Float32Array ? pos : new Float32Array(pos), 3)); if (col) g.setAttribute('color', new THREE.BufferAttribute(col instanceof Float32Array ? col : new Float32Array(col), 3));
+    const p = new THREE.Points(g, new THREE.PointsMaterial({ size, sizeAttenuation: false, vertexColors: !!col, color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false })); p.frustumCulled = false; scene.add(p); rules.set(p, rule); return p; };
+  function mark(item, { px = 8, color = 0xdfe8ff, opacity = 0.8, label = item.name, rule = item.here ? HERE : 'marker' } = {}) {
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color, sizeAttenuation: false, depthWrite: false, transparent: true, opacity, blending: THREE.AdditiveBlending }));
-    sprite.position.fromArray(item.pos); sprite.userData.px = px; scene.add(sprite);
+    sprite.position.fromArray(item.pos); sprite.userData.px = px; scene.add(sprite); rules.set(sprite, rule);
     const el = document.createElement('button'); el.type = 'button'; el.className = 'lbl space galaxy' + (item.here ? ' here' : ''); el.textContent = label; el.tabIndex = -1; el.hidden = true;
     el.addEventListener('click', ev => { ev.stopPropagation(); onPick?.(item); }); labelsEl.appendChild(el);
-    marks.push({ item, sprite, el, pos: sprite.position, px }); labelsDirty = true; return sprite;
+    marks.push({ item, sprite, el, pos: sprite.position, px, here: !!item.here }); labelsDirty = true; return sprite;
   }
   // A glow without a label (constant size on screen, like the marks).
-  function glowAt(pos, px, color, opacity) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color, sizeAttenuation: false, depthWrite: false, transparent: true, opacity, blending: THREE.AdditiveBlending })); sp.position.fromArray(pos); sp.userData.px = px; scene.add(sp); glows.push(sp); return sp; }
+  function glowAt(pos, px, color, opacity, rule = 'marker') { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color, sizeAttenuation: false, depthWrite: false, transparent: true, opacity, blending: THREE.AdditiveBlending })); sp.position.fromArray(pos); sp.userData.px = px; scene.add(sp); glows.push(sp); rules.set(sp, rule); return sp; }
   function ring(r, text, color = 0x33415c, opacity = 0.45) {
     const pts = []; for (let i = 0; i <= 200; i++) { const a = i / 200 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r)); }
-    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color, transparent: true, opacity })));
-    if (text) { const el = document.createElement('span'); el.className = 'lbl space ring-lbl'; el.textContent = text; el.hidden = true; labelsEl.appendChild(el); extras.push({ el, pos: new THREE.Vector3(r * 0.7071, 0, r * 0.7071), px: 0 }); labelsDirty = true; }
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color, transparent: true, opacity })); scene.add(line); rules.set(line, 'size');
+    if (text) { const el = document.createElement('span'); el.className = 'lbl space ring-lbl'; el.textContent = text; el.hidden = true; labelsEl.appendChild(el); extras.push({ el, pos: new THREE.Vector3(r * 0.7071, 0, r * 0.7071), px: 0, ring: line }); labelsDirty = true; }
   }
-  let fitMax = max; const tmp = new THREE.Vector3(); let last = 0, selected = null, on = false, labelOpacity = 1, mats = null;
-  const setFade = f => { if (!mats) { mats = []; scene.traverse(o => { if (o.material) { o.material.userData.base = o.material.opacity; o.material.transparent = true; mats.push(o.material); } }); } for (const m of mats) m.opacity = m.userData.base * f; };
+  let fitMax = max; const tmp = new THREE.Vector3(); let last = 0, selected = null, on = false, hideHere = false, seamNow = null, lod = null;
+  // Per-object level of detail (lod.js), built on first draw from each object's rule: the sky is drawn once across
+  // a seam; point clouds and rings fade as they shrink; markers fade as they merge into "you are here"; the
+  // "you are here" marker cross-fades with the scale next to it; copies of the next scale's objects (rule 'proxy')
+  // swap with them at mid-seam.
+  const ANCHOR = new THREE.Vector3(...home);
+  const buildLod = () => { lod = createLod(); scene.traverse(o => { if (o.material) lod.add(o, o.userData.sky ? 'proxy' : rules.get(o) ?? 'size'); }); };
+  const fadeOf = it => it.sprite ? it.sprite.userData.fade ?? 1 : it.ring ? it.ring.userData.fade ?? 1 : seamWindow(seamNow);
   const reduce = () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const portrait = () => { const r = canvas.getBoundingClientRect(); return r.height > r.width; };
   const HOME = new THREE.Vector3(...home);
@@ -70,14 +79,15 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, min, max =
   }
   // Allocation-free label placement (labels.js); the priority list is rebuilt only when marks are added.
   const project = (it, out) => { tmp.copy(it.pos).project(camera); out.x = tmp.x; out.y = tmp.y; out.z = tmp.z; return true; };
-  const labelOpts = { enabled: true, visible: null, opacity: () => labelOpacity };
+  const labelOpts = { enabled: true, visible: it => !(hideHere && it.here) && fadeOf(it) > 0.02, opacity: it => fadeOf(it) };
   let labelsLive = true;
   function placeLabels(bounds) {
     if (labelsDirty) { labelItems = [...[...marks].sort((a, b) => (a.item.rank ?? 9) - (b.item.rank ?? 9)), ...extras]; labelsDirty = false; }
     labelOpts.enabled = on && labelsLive; placeAll(labelItems, labelItems.length, placer, bounds, project, labelOpts);
   }
-  function render(width, height, visible, { overlay = false, opacity = 1 } = {}) {
-    scene.background = overlay ? null : bg; setFade(opacity); labelOpacity = opacity;
+  // seam: null, or { role, t } inside a seam: every object fades by its own rule (lod.js).
+  function render(width, height, visible, { overlay = false, seam = null } = {}) {
+    scene.background = overlay ? null : bg; seamNow = seam; if (!lod) buildLod();
     const now = performance.now(), dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     renderer.setSize(width, height, false);
     const vw = Math.min(width, visible?.width ?? width), vh = Math.min(height, visible?.height ?? height), fullW = 2 * width - vw, fullH = 2 * height - vh;
@@ -88,6 +98,8 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, min, max =
     const k = 2 * Math.tan(camera.fov * Math.PI / 360) * 2 / vh;
     for (const x of marks) x.sprite.scale.setScalar(x.sprite.userData.px * k * (x.item === selected ? 1.7 : 1));
     for (const sp of glows) sp.scale.setScalar(sp.userData.px * k);
+    for (const o of scene.children) if (o.userData.sky) placeSky(o, camera);
+    lod.update(camera.position, ANCHOR, vh, camera.fov, seam);
     placeLabels(canvas.getBoundingClientRect());
     const clear = renderer.autoClear; renderer.autoClear = !overlay; renderer.render(scene, camera); renderer.autoClear = clear;
   }
@@ -98,7 +110,13 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, min, max =
   }
   function setLabels(v) { on = v; for (const x of marks) { forgetLabel(x); x.el.hidden = !v; } for (const x of extras) { forgetLabel(x); x.el.hidden = !v; } }
   function setView(dir, d, tgt = HOME) { fly.t = 1; fly.done = null; fly.dir.copy(dir).normalize(); controls.target.copy(tgt); camera.position.copy(controls.target).addScaledVector(fly.dir, d); controls.update(); }
-  const api = { scene, points, mark, ring, glowAt, render, pick, setView, viewDir, camera, controls, fly, setDistance, distance: () => camera.position.distanceTo(controls.target), liveLabels(v) { labelsLive = v; },
+  // The "you are here" anchor at this scale (its marker, placed as its own label would be).
+  function anchor(out, bounds) {
+    const h = marks.find(m => m.here); if (!h) return false;
+    tmp.copy(h.sprite.position).project(camera); if (tmp.z >= 1) return false;
+    out.x = bounds.left + (tmp.x + 1) / 2 * bounds.width; out.y = bounds.top + (1 - tmp.y) / 2 * bounds.height; out.off = h.px / 2 + 4; out.text = h.el.textContent; return true;
+  }
+  const api = { scene, points, mark, ring, glowAt, render, anchor, hideHere(v) { hideHere = v; if (v) for (const it of marks) if (it.here) { it.el.hidden = true; forgetLabel(it); } }, pick, setView, viewDir, camera, controls, fly, setDistance, distance: () => camera.position.distanceTo(controls.target), liveLabels(v) { labelsLive = v; },
     enter(at) { setLabels(true); controls.enabled = true; if (at) setView(at.dir, at.d, at.tgt ? new THREE.Vector3(...at.tgt) : HOME); },
     leave() { setLabels(false); controls.enabled = false; },
     overviewDistance: () => fitRadius ? fitDistance() : portrait() ? overviewD * 1.5 : overviewD,
@@ -113,14 +131,16 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, min, max =
 // ---- Laniakea: 1 unit = 1 million light-years ----
 export function createLaniakea(opts) {
   const s = createScene({ ...opts, near: SUPER_NEAR, far: SUPER_FAR, min: SCENE_RANGE.super[0], max: SCENE_RANGE.super[1], home: [0, 0, 0], overviewD: 520, overviewDir: new THREE.Vector3(0.3, 0.8, 0.5) });
-  s.scene.add(skyPoints(9000)); // the shared sky (sky.js)
+  s.scene.add(skyPoints(0)); // the shared sky (sky.js), galactic frame
   const g = ngcGalaxies(1), col = new Float32Array(g.count * 3);
   for (let i = 0; i < g.count; i++) { const c = KIND_COLOURS[g.kind[i]], k = 0.6 + ((i * 2654435761) >>> 0) / 4294967296 * 0.4; col.set([c[0] * k, c[1] * k, c[2] * k], i * 3); }
-  s.points(g.pos, col, 1.5, 0.75);
+  s.points(g.pos, col, 1.5, 0.75, 0xffffff, { inner: 'model', outer: 'size', alone: 'size' }); // the same catalogue the universe shows shrunk 100×: cross-faded
   // The Local Group's own galaxies, shrunk from the level inside, drawn with the same glows (sizes, colours)
   // as the Local Group level, so they don't collapse into dots as one scale fades into the other.
-  s.glowAt([0, 0, 0], 16, 0xffe38a, 0.35);
-  for (const g of GALAXIES) { const big = g.i != null || g.blob; s.glowAt(g.pos.map(v => v / 100), g.rank === 1 ? 25.6 : big ? 16 : 5, big ? 0xdfe8ff : 0xb9c4dc, g.rank === 1 ? 0.75 : g.rank === 2 ? 0.55 : big ? 0.35 : 0.9); }
+  // These copies are identical on screen to the Local Group's own markers at the seam (rule 'proxy': swapped at mid-seam).
+  const COPY = { outer: 'proxy', inner: 'marker', alone: 'marker' };
+  s.glowAt([0, 0, 0], 16, 0xffe38a, 0.35, COPY);
+  for (const g of GALAXIES) { const big = g.i != null || g.blob; s.glowAt(g.pos.map(v => v / 100), g.rank === 1 ? 25.6 : big ? 16 : 5, big ? 0xdfe8ff : 0xb9c4dc, g.rank === 1 ? 0.75 : g.rank === 2 ? 0.55 : big ? 0.35 : 0.9, COPY); }
   s.mark({ name: 'Local Group', kind: 'Our group of galaxies', here: true, rank: 0, pos: [0, 0, 0] }, { px: 12, color: 0xffe38a, opacity: 0.25, label: 'Local Group · you are here' });
   for (const c of CLUSTERS) s.mark({ ...c, pos: skyPosition(c.ra, c.dec, c.mly, 1) }, { px: c.rank <= 2 ? 12 : 8, color: c.attractor ? 0xffc890 : 0xdfe8ff, label: c.attractor ? 'Norma · Great Attractor' : c.name });
   for (const r of [100, 200, 300]) s.ring(r, `${r} million ly`);
@@ -144,9 +164,9 @@ export function cosmicWeb(radius, nodes = 900, perEdge = 12, seed = 4) {
 export function createUniverse(opts) {
   const R = CMB_GLY * 10; // units of 100 million ly
   const s = createScene({ ...opts, near: UNIVERSE_NEAR, far: UNIVERSE_FAR, min: SCENE_RANGE.universe[0], max: UNIVERSE_FAR, home: [0, 0, 0], overviewD: 960, fitRadius: R, overviewDir: new THREE.Vector3(0.35, 0.6, 0.72) });
-  s.scene.add(skyPoints(9000)); // the shared sky (sky.js)
+  s.scene.add(skyPoints(0)); // the shared sky (sky.js), galactic frame
   // Laniakea's galaxies, shrunk 100× from the level inside: a small bright knot at the centre.
-  const g = ngcGalaxies(100); s.points(g.pos, null, 1.3, 0.8, 0xdfe8ff);
+  const g = ngcGalaxies(100); s.points(g.pos, null, 1.3, 0.8, 0xdfe8ff, { outer: 'model', inner: 'size', alone: 'size' });
   const web = cosmicWeb(R * 0.98); s.points(web.pos, web.col, 1.2, 0.35);
   // The cosmic microwave background: the oldest light, from the edge of what we can see. Drawn as a shell of
   // points whose warm/cool speckle is an illustration of the tiny temperature ripples in the real maps.

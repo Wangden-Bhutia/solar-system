@@ -1,5 +1,7 @@
 import { bodies, focus, unfocus, hooks, renderer, controls, setHomeScope } from './app.js';
-import { createStars, createDimmer } from './stars.js';
+import { createStars } from './stars.js';
+import { frameOf, eclToGal, galToEcl, seamUp } from './frames.js';
+import { showLabel } from './labels.js';
 import { createGalaxy } from './galaxy.js';
 import { createLocal } from './local.js';
 import { createLaniakea, createUniverse } from './cosmos.js';
@@ -10,7 +12,7 @@ import { STAR_TIME, yearsLabel, approachLabel } from './star-motion.js';
 import { pairOf, periastron, apastron, nextPeriastron, keplerMass } from './star-pairs.js';
 import { TIME_RANGE, timeLabel, lapsLabel, milestone, VC_SUN, OMEGA_ARMS, OMEGA_BAR, SUN_PERIOD } from './galaxy-motion.js';
 import { LEVELS, levelIndex, PAIRS, pairFor, SEAMS, SEAM_Z, LEVEL_NAMES, layoutAt, zOf, dOf, solarZ, solarUnits, viewRate, smooth } from './zoom-ladder.js';
-import { camera, drawSolar, setSolarDistance, solarDistance, solarBusy, isRealScale, solarFocused, solarEdge,solarHome, solarOffCentre, solarDrift } from './app.js';
+import { camera, drawSolar, setSolarDistance, solarDistance, solarBusy, isRealScale, solarFocused, solarEdge,solarHome, solarOffCentre, solarDrift, solarAnchor } from './app.js';
 import { createZoomController, wheelZ, pinchZ } from './zoom.js';
 import { createZoomLog } from './zoomlog.js';
 import { STAR_FACTS, habitableZone, sizeFromMass, lightLeftYear } from './stars-data.js';
@@ -76,7 +78,6 @@ $('gnow').onclick=()=>{clockOf(clockLevel())?.rewind();paintTime();};
 const reduceMotion=()=>!!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const smoothFrames=()=>typeof globalThis.requestAnimationFrame==='function'&&!reduceMotion();
 const zoom=createZoomController({reduced:reduceMotion});
-const dim=createDimmer(renderer);
 let bridge=null,animating=false,Zc=0;
 const views={solar:{view:'explore',feature:'orbit'},stars:{view:'stars'},galaxy:{view:'galaxy'},local:{view:'local'},super:{view:'super'},universe:{view:'universe'}};
 const viewDirOf=l=>l==='solar'?camera.position.clone().sub(controls.target).normalize():sceneOf(l).viewDir();
@@ -86,14 +87,37 @@ const distOf=l=>l==='solar'?solarDistance():sceneOf(l).zoomState().d;
 const zOfLevel=(l,d=distOf(l))=>l==='solar'?solarZ(d,real()):zOf(l,d);
 function placeLevel(l,Z){const d=unitsOf(l,Z);if(l==='solar')setSolarDistance(d);else sceneOf(l).setDistance(d);}
 function setLive(l,v){if(l!=='solar')sceneOf(l).liveLabels?.(v);}
+// Inside a seam both scales are drawn, each object fading by its own rule (lod.js): no veil, no whole-scene fade.
+// Stars ⇄ Milky Way also turns frames: the star map is drawn in ecliptic coordinates and the Galaxy in galactic ones
+// (frames.js), so the viewing direction is converted and both cameras share one "up" that turns from the
+// ecliptic pole to the Galactic pole across the seam; the two pictures stay aligned on screen.
+const seamIn={role:'inner',t:0},seamOut={role:'outer',t:0},upTmp={x:0,y:0,z:0},upEcl={x:0,y:0,z:0};
+// bridge.dir is in the frame of the scale the bridge started from; this gives it in level l's frame.
+const dirTmp={x:0,y:0,z:0};
+function dirFor(l){const out=dirTmp,d=bridge.dir;out.x=d.x;out.y=d.y;out.z=d.z;if(frameOf(l)!==bridge.frame){if(frameOf(l)==='gal')eclToGal(out,out);else galToEcl(out,out);}return out;}
 function drawBridge(){
  if(!bridge)return;
- const r=$('stage').getBoundingClientRect(),[i,o]=PAIRS[bridge.pair],f=smooth(bridge.t);
- if(i==='solar'){setSolarDistance(unitsOf('solar',Zc));drawSolar();}
- else{sceneOf(i).setView(bridge.dir,unitsOf(i,Zc),bridge.tgt||undefined);sceneOf(i).render(r.width,r.height,null,{opacity:1-f});}
- dim(f);
- sceneOf(o).setView(bridge.dir,unitsOf(o,Zc),bridge.tgtOuter||undefined);sceneOf(o).render(r.width,r.height,null,{overlay:true,opacity:f});
+ const r=$('stage').getBoundingClientRect(),[i,o]=PAIRS[bridge.pair],t=bridge.t;seamIn.t=t;seamOut.t=t;
+ if(bridge.pair==='stars>galaxy'){seamUp(t,upTmp);galToEcl(upTmp,upEcl);starsView.setUp(upEcl);galaxyView.setUp(upTmp);}
+ if(i==='solar'){setSolarDistance(unitsOf('solar',Zc));drawSolar(seamIn);}
+ else{sceneOf(i).setView(dirFor(i),unitsOf(i,Zc),bridge.tgt||undefined);sceneOf(i).render(r.width,r.height,null,{seam:seamIn});}
+ sceneOf(o).setView(dirFor(o),unitsOf(o,Zc),bridge.tgtOuter||undefined);sceneOf(o).render(r.width,r.height,null,{overlay:true,seam:seamOut});
+ placeAnchor(i,o,t);
 }
+// One "you are here" anchor across a seam: it moves from one scale's anchor to the other's (the Sun, then the Milky
+// Way's centre at the Local Group seam) and changes its words at the middle; each scale's own anchor label is
+// hidden meanwhile, and the anchor sits exactly on it at either end.
+const anchorEl=document.createElement('span');anchorEl.className='lbl space anchor';anchorEl.setAttribute('aria-hidden','true');anchorEl.hidden=true;$('labels').appendChild(anchorEl);
+const anchorItem={el:anchorEl},aIn={x:0,y:0,off:0,text:''},aOut={x:0,y:0,off:0,text:''},anchorNow={x:NaN,y:NaN,text:''};
+const anchorOf=(l,out,b)=>l==='solar'?!!solarAnchor?.(out,b):!!sceneOf(l).anchor?.(out,b);
+function placeAnchor(i,o,t){
+ const b=$('c').getBoundingClientRect(),okI=anchorOf(i,aIn,b),okO=anchorOf(o,aOut,b);
+ if(!okI&&!okO){showLabel(anchorItem,false);anchorNow.x=NaN;return;}
+ const k=smooth(t),A=okI?aIn:aOut,B=okO?aOut:aIn,x=A.x+(B.x-A.x)*k,y=A.y+(B.y-A.y)*k,off=A.off+(B.off-A.off)*k,text=t<0.5?A.text:B.text;
+ if(anchorEl.textContent!==text)anchorEl.textContent=text;
+ showLabel(anchorItem,true,x,y,Math.round(off*10)/10,1);anchorNow.x=x;anchorNow.y=y;anchorNow.text=text;
+}
+function hideAnchor(){showLabel(anchorItem,false);anchorNow.x=NaN;anchorNow.text='';}
 // Each scale's centre of view crosses the seam with it (the Galaxy may be centred on the Sun or on its own centre).
 // Stars ⇄ Galaxy always meets at the Sun, so it carries no centre.
 function bridgeTarget(pair,cur){
@@ -103,19 +127,21 @@ function bridgeTarget(pair,cur){
 function beginBridge(pair){
  const cur=levelOf(state.value.view);if(ORBITS.has(state.value.view)){starsView.closeSystem();state.update({view:'stars'});}
  const tgt=bridgeTarget(pair,cur),k=SEAMS[pair]?.k;
- bridge={pair,t:0,dir:viewDirOf(cur),tgt,tgtOuter:tgt&&k?tgt.clone().divideScalar(k):null,dom:cur};state.update({sheet:'closed',star:null,landmark:null});
+ bridge={pair,t:0,dir:viewDirOf(cur),frame:frameOf(cur),tgt,tgtOuter:tgt&&k?tgt.clone().divideScalar(k):null,dom:cur};state.update({sheet:'closed',star:null,landmark:null});
  // Only the dominant scale's names are placed while both are drawn; they swap at the middle of the seam.
- for(const l of PAIRS[pair]){showLabelsOf(l,true);setLive(l,l===cur);}
+ for(const l of PAIRS[pair]){showLabelsOf(l,true);setLive(l,l===cur);if(l!=='solar')sceneOf(l).hideHere?.(true);}
  document.body.classList.add('bridging');render();
 }
 function settle(end){
  const b=bridge,[inner,outer]=PAIRS[b.pair],target=end==='outer'?outer:inner,cur=levelOf(state.value.view);bridge=null;document.body.classList.remove('bridging');
- const other=target===inner?outer:inner;showLabelsOf(other,false);setLive(target,true);
+ const other=target===inner?outer:inner;showLabelsOf(other,false);setLive(target,true);hideAnchor();
+ for(const l of PAIRS[b.pair])if(l!=='solar'){sceneOf(l).hideHere?.(false);sceneOf(l).setUp?.(null);}
+ const dir=frameOf(target)===b.frame?b.dir:(frameOf(target)==='gal'?eclToGal(b.dir):galToEcl(b.dir));
  // Arrive with the camera exactly where the seam left it.
  const d=unitsOf(target,Zc),tg=target===inner?b.tgt:b.tgtOuter;
- arrival=target==='solar'?{solar:true}:{dir:b.dir,d,tgt:tg?.toArray()};
+ arrival=target==='solar'?{solar:true}:{dir,d,tgt:tg?.toArray()};
  if(target!==cur)state.navigate({...views[target],star:null,landmark:null,experiment:null,sheet:'closed'});
- else{arrival=null;if(target!=='solar')sceneOf(target).setView(b.dir,d,tg||undefined);}
+ else{arrival=null;if(target!=='solar')sceneOf(target).setView(dir,d,tg||undefined);}
  render();
 }
 // Put the camera at Z: inside one scale, or inside a seam (opening it, or settling out of it, as needed).
@@ -209,7 +235,16 @@ function zoomTick(dt,instant){
  if(r.hitMax&&b.gateOut){zoom.stop();b.gateOut();render();}else if(r.hitMin&&b.gateIn){zoom.stop();b.gateIn();render();}
 }
 // Opt-in diagnostics (?zoomlog in the URL): a per-frame log of Z for real-browser checks (zoomlog.js).
-const zlog=createZoomLog({input:dz=>zoomInput(dz,'pinch',globalThis.performance?.now?.()??Date.now()),z:()=>Zc});
+// Each row also carries the anchor (screen position and words; empty outside a seam) and, with ?zoomlog=bright, the
+// mean luminance (0–1) of a 48 × 48 px patch at the screen centre and of a 16 × 16 px patch on the anchor, read back
+// from the frame just drawn (one frame behind the row's Z). Reading pixels stalls the GPU: diagnostics only.
+const bright={centre:null,anchor:null},px48=new Uint8Array(48*48*4),px16=new Uint8Array(16*16*4);
+const lum=(buf)=>{let s=0;for(let i=0;i<buf.length;i+=4)s+=0.2126*buf[i]+0.7152*buf[i+1]+0.0722*buf[i+2];return +(s/(buf.length/4)/255).toFixed(4);};
+const zlog=createZoomLog({input:dz=>zoomInput(dz,'pinch',globalThis.performance?.now?.()??Date.now()),z:()=>Zc,
+ extra:()=>({anchorX:Number.isFinite(anchorNow.x)?+anchorNow.x.toFixed(1):'',anchorY:Number.isFinite(anchorNow.y)?+anchorNow.y.toFixed(1):'',anchorText:anchorNow.text,lumCentre:bright.centre,lumAnchor:bright.anchor})});
+if(zlog?.mode==='bright')hooks.afterFrame=()=>{const gl=renderer.getContext?.();if(!gl?.readPixels)return;const W=gl.drawingBufferWidth,H=gl.drawingBufferHeight,cb=$('c').getBoundingClientRect(),sx=W/(cb.width||W),sy=H/(cb.height||H);
+ gl.readPixels(Math.max(0,(W>>1)-24),Math.max(0,(H>>1)-24),48,48,gl.RGBA,gl.UNSIGNED_BYTE,px48);bright.centre=lum(px48);
+ if(Number.isFinite(anchorNow.x)){const ax=Math.round((anchorNow.x-cb.left)*sx)-8,ay=Math.round(H-(anchorNow.y-cb.top)*sy)-8;if(ax>=0&&ay>=0&&ax+16<=W&&ay+16<=H){gl.readPixels(ax,ay,16,16,gl.RGBA,gl.UNSIGNED_BYTE,px16);bright.anchor=lum(px16);}else bright.anchor=null;}else bright.anchor=null;};
 const currentZ=()=>{if(bridge||zoom.moving)return Zc;const l=levelOf(state.value.view),z=zoomState();return z?zOfLevel(l,z.d):NaN;};
 hooks.beforeFrame=dt=>{zoomTick(dt);zlog?.frame(dt,currentZ(),bridge,levelOf(state.value.view));};
 // dz: a change of Z from a gesture (zoom.js gains). Zooming out of a selected world lets go of it.
@@ -831,4 +866,4 @@ paintOffline();
 if(sw&&standalone()&&typeof setTimeout==='function')setTimeout(saveOffline,4000);
 // Offline: cache what has been loaded, so the app opens again without a connection (sw.js).
 if(globalThis.isSecureContext&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(reg=>setTimeout(()=>reg.active?.postMessage({cache:[location.href.split('#')[0],...performance.getEntriesByType('resource').map(e=>e.name)]}),3000)).catch(()=>{});
-window.__lab={state,go,experiments,player,setSheet,starsView,galaxyView,localView,zoom,placeZ,get Z(){return Zc;},get bridge(){return bridge;},get animating(){return animating;},get Zcam(){return currentZ();}};
+window.__lab={state,go,experiments,player,setSheet,starsView,galaxyView,localView,zoom,placeZ,get Z(){return Zc;},get bridge(){return bridge;},get animating(){return animating;},get Zcam(){return currentZ();},get anchor(){return anchorNow;}};

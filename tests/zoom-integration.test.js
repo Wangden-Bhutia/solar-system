@@ -38,3 +38,42 @@ test('the scale ladder plays the same zoom through every seam, out to the univer
  for(let i=0;i<60;i++)a.step(1);
  assert.equal(a.errors.length,0);
 });
+test('one anchor label across every seam: shown only inside seams, text swaps once at the middle, never two “here” labels',async()=>{
+ const a=await ready(),btn=l=>a.document.querySelector(`#ladder [data-level="${l}"]`);
+ const el=()=>a.document.querySelector('#labels .anchor'),HERE=/^(Sun|You are here|Milky Way · you are here|Local Group · you are here|Laniakea · you are here)$/;
+ const texts=[],perSeam=new Map(),gaps=new Map();let frames=0,maxMove=0,last=null;
+ btn('universe').onclick();
+ for(let i=0;i<4000&&(a.lab.state.value.view!=='universe'||a.lab.bridge||a.lab.animating);i++){
+  a.step(1);const b=a.lab.bridge,an=a.lab.anchor,e=el();
+  if(!b){assert.ok(!e||e.hidden,'no lab anchor outside a seam');last=null;continue;}
+  // Never two “here” labels. A seam is first drawn on the frame after it opens: on that one frame the scene's own
+  // label (if it had one) is still up and the lab's anchor is not yet; from then on the anchor alone.
+  const dups=[...a.document.querySelectorAll('#labels .lbl')].filter(l=>l!==e&&!l.hidden&&l.style.visibility!=='hidden'&&HERE.test(l.textContent.trim()));
+  const shown=!!e&&!e.hidden;assert.ok(dups.length+(shown?1:0)<=1,`one “here” label in ${b.pair} at t=${b.t.toFixed(3)}: anchor ${shown}, others ${dups.map(l=>l.textContent).join(', ')}`);
+  if(!shown){const n=(gaps.get(b.pair)||0)+1;gaps.set(b.pair,n);assert.ok(n<=1,`${b.pair}: the anchor is missing only on the frame the seam opens`);last=null;continue;}
+  frames++;assert.equal(e.getAttribute('aria-hidden'),'true');
+  assert.match(an.text,HERE);if(texts.at(-1)!==an.text)texts.push(an.text);
+  const seen=perSeam.get(b.pair)||[];if(seen.at(-1)!==an.text)seen.push(an.text);perSeam.set(b.pair,seen);
+  if(last&&last.pair===b.pair)maxMove=Math.max(maxMove,Math.hypot(an.x-last.x,an.y-last.y));last={pair:b.pair,x:an.x,y:an.y};
+ }
+ assert.equal(a.lab.state.value.view,'universe');assert.ok(frames>20,'seams were drawn');
+ assert.ok(el().hidden,'the anchor goes once the zoom settles');
+ for(const [pair,seen] of perSeam)assert.ok(seen.length<=2,`${pair}: the text changes at most once (${seen.join(' → ')})`);
+ for(const want of ['Sun','You are here','Milky Way · you are here','Local Group · you are here','Laniakea · you are here'])assert.ok(texts.includes(want),`anchor read “${want}” (${texts.join(' → ')})`);
+ assert.ok(maxMove<120,`the anchor glides (largest move ${maxMove.toFixed(1)} px per 50 ms frame in a 412-px-wide view)`);
+ assert.equal(a.errors.length,0);
+});
+test('the Solar System’s far-off Sun is the star map’s Sun dot (same nominal pixel size and colour), swapped at the middle of the seam',async()=>{
+ const a=await ready(),{farSun}=a.app,{glowScale}=await import('../sky.js'),{SUN_ENTRY,starPixels,starColor}=await import('../stars-data.js');
+ let before=null,after=null;
+ for(let i=0;i<600&&a.lab.state.value.view!=='stars';i++){wheel(a,120);a.step(1);const b=a.lab.bridge;if(b?.pair==='solar>stars'){if(b.t>0.05&&b.t<0.45&&!before)before={vis:farSun.visible,op:farSun.material.opacity,s:farSun.scale.x,fov:a.app.camera.fov};if(b.t>0.55&&!after)after={vis:farSun.visible};}}
+ assert.ok(before&&after,'sampled both halves of the seam');
+ assert.equal(a.lab.starsView.sunPx(),starPixels(SUN_ENTRY));
+ assert.ok(before.vis&&before.op>0.9,`inner half: the far-off Sun glow is drawn (opacity ${before.op})`);
+ // Same formula as the star map's sprites (stars.js: px × glowScale(1, fov, vh)): the visible height it implies is
+ // the view's, so on screen both are ≈ 2.2 × starPixels(Sun) px.
+ const vh=glowScale(starPixels(SUN_ENTRY),before.fov,1)/before.s;assert.ok(vh>300&&vh<=915+1e-9,`implied visible height ${vh}`);
+ assert.deepEqual(farSun.material.color.toArray().map(v=>+v.toFixed(6)),starColor(SUN_ENTRY.temp).map(v=>+v.toFixed(6)));
+ assert.equal(after.vis,false,'outer half: only the star map’s own Sun dot');
+ assert.equal(a.errors.length,0);
+});

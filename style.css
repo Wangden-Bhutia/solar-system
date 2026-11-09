@@ -172,6 +172,7 @@ dl{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px}dt{color:va
 body.space-mode #labels .lbl:not(.space){display:none}
 body.space-mode #labels .lbl.space:not([hidden]){display:block}
 .lbl.ring-lbl{background:transparent;color:#7d8aa6;pointer-events:none;font-weight:500}
+.lbl.anchor{pointer-events:none}/* the one "you are here" label carried across a seam (lab.js) */
 #star-facts{margin-top:6px}
 #star-companions{font-size:13px}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin:4px 0 8px}

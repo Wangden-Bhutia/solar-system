@@ -7,7 +7,8 @@ import { galaxyParticles, R0 } from './galaxy-data.js';
 import { GALAXIES, LOCAL_UNIT, discAxes, spiralParticles } from './local-data.js';
 import { LOCAL_NEAR, LOCAL_FAR, SCENE_RANGE } from './zoom-ladder.js';
 import { createPlacer, placeAll, forgetLabel } from './labels.js';
-import { skyPoints } from './sky.js';
+import { skyPoints, placeSky } from './sky.js';
+import { createLod, seamWindow } from './lod.js';
 
 const glow = (() => {
   if (typeof document === 'undefined' || !document.createElement) return null;
@@ -26,9 +27,9 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
   const points = (pos, col, size, opacity) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); if (col) g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     const p = new THREE.Points(g, new THREE.PointsMaterial({ size, sizeAttenuation: false, vertexColors: !!col, color: col ? 0xffffff : 0x8a93a8, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false })); p.frustumCulled = false; scene.add(p); return p; };
   // Far background galaxies' glow is left out: this level is the Local Group alone. A faint star field for depth.
-  scene.add(skyPoints(20000)); // the shared sky (sky.js)
+  const sky = skyPoints(0); scene.add(sky); // the shared sky (sky.js), galactic frame
   // The Milky Way: the Galaxy scene's own particles, shrunk 10×.
-  { const { positions, colors } = galaxyParticles({ bulge: 1800, disc: 2600, arm: 4200, seed: 11 }); points(Array.from(positions, v => v / LOCAL_UNIT), Array.from(colors), 1.3, 0.55); }
+  let mwCloud; { const { positions, colors } = galaxyParticles({ bulge: 1800, disc: 2600, arm: 4200, seed: 11 }); mwCloud = points(Array.from(positions, v => v / LOCAL_UNIT), Array.from(colors), 1.3, 0.55); }
   // Spirals and clouds, each in its real place and orientation.
   const placeDisc = (g, n, seed, opts) => {
     const { positions, colors } = spiralParticles(g.size / 2 / LOCAL_UNIT, n, seed, opts), { major, normal } = discAxes(g);
@@ -43,8 +44,8 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
   // Distance rings in the Milky Way's plane: 1, 2 and 3 million light-years from its centre.
   const ringLabels = [1, 2, 3].map(m => {
     const r = m * 1000 / LOCAL_UNIT, pts = []; for (let i = 0; i <= 160; i++) { const a = i / 160 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r)); }
-    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x33415c, transparent: true, opacity: 0.45 })));
-    const el = document.createElement('span'); el.className = 'lbl space ring-lbl'; el.textContent = `${m} million ly`; el.hidden = true; labelsEl.appendChild(el); return { el, pos: new THREE.Vector3(r, 0, 0), px: 0 };
+    const ring = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x33415c, transparent: true, opacity: 0.45 })); scene.add(ring);
+    const el = document.createElement('span'); el.className = 'lbl space ring-lbl'; el.textContent = `${m} million ly`; el.hidden = true; labelsEl.appendChild(el); return { el, pos: new THREE.Vector3(r, 0, 0), px: 0, ring };
   });
   // Every galaxy gets a marker (dwarfs are only a glow at this scale) and a name.
   const all = [MW, ...GALAXIES];
@@ -53,12 +54,18 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
     sprite.position.fromArray(g.pos); sprite.userData.px = g.rank === 1 ? 16 : big ? 10 : 5; scene.add(sprite);
     const el = document.createElement('button'); el.type = 'button'; el.className = 'lbl space galaxy' + (g.here ? ' here' : ''); el.textContent = g.here ? 'Milky Way · you are here' : g.short || g.name; el.tabIndex = -1; el.hidden = true;
     el.addEventListener('click', ev => { ev.stopPropagation(); onPick?.(g); }); labelsEl.appendChild(el);
-    return { g, sprite, el, pos: sprite.position, px: sprite.userData.px };
+    return { g, sprite, el, pos: sprite.position, px: sprite.userData.px, here: !!g.here };
   });
   const ordered = [...marks].sort((a, b) => a.g.rank - b.g.rank), labelItems = [...ordered, ...ringLabels], placer = createPlacer(labelItems.length + 8);
-  const tmp = new THREE.Vector3(); let last = 0, selected = null, on = false, labelOpacity = 1;
-  const mats = []; scene.traverse(o => { if (o.material) { o.material.userData.base = o.material.opacity; o.material.transparent = true; mats.push(o.material); } });
-  const setFade = f => { for (const m of mats) m.opacity = m.userData.base * f; };
+  const tmp = new THREE.Vector3(); let last = 0, selected = null, on = false, hideHere = false, seamNow = null;
+  // Per-object level of detail (lod.js): the Milky Way's particles and marker cross-fade with the Galaxy scene's
+  // model of it; other galaxies fade as they shrink (discs, clouds) or merge into the Milky Way on screen (markers).
+  const lod = createLod(), mwMark = marks[0], ORIGIN = new THREE.Vector3();
+  lod.add(sky, 'proxy');
+  scene.traverse(o => { if (!o.material || o === sky || o.isSprite) return; lod.add(o, o === mwCloud ? { outer: 'model', inner: 'size', alone: 'size' } : 'size'); });
+  // Going out, every marker swaps with Laniakea's identical copy of it (cosmos.js) at mid-seam.
+  for (const x of marks) lod.add(x.sprite, x.here ? { outer: 'model', inner: 'proxy', alone: 'fixed' } : { inner: 'proxy', outer: 'marker', alone: 'marker' });
+  const fadeOf = it => it.sprite ? it.sprite.userData.fade ?? 1 : it.ring ? it.ring.userData.fade ?? 1 : seamWindow(seamNow);
   const reduce = () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const portrait = () => { const r = canvas.getBoundingClientRect(); return r.height > r.width; };
   const SUN = new THREE.Vector3(-R0 / LOCAL_UNIT, 0, 0), M31 = new THREE.Vector3(...GALAXIES[0].pos);
@@ -84,11 +91,12 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
   }
   // Allocation-free label placement (labels.js).
   const project = (it, out) => { tmp.copy(it.pos).project(camera); out.x = tmp.x; out.y = tmp.y; out.z = tmp.z; return true; };
-  const labelOpts = { enabled: true, visible: null, opacity: () => labelOpacity };
+  const labelOpts = { enabled: true, visible: it => !(hideHere && it.here) && fadeOf(it) > 0.02, opacity: it => fadeOf(it) };
   let labelsLive = true;
   function placeLabels(bounds) { labelOpts.enabled = on && labelsLive; placeAll(labelItems, labelItems.length, placer, bounds, project, labelOpts); }
-  function render(width, height, visible, { overlay = false, opacity = 1 } = {}) {
-    scene.background = overlay ? null : bg; setFade(opacity); labelOpacity = opacity;
+  // seam: null, or { role, t } inside a seam: every object fades by its own rule (lod.js).
+  function render(width, height, visible, { overlay = false, seam = null } = {}) {
+    scene.background = overlay ? null : bg; seamNow = seam;
     const now = performance.now(), dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     renderer.setSize(width, height, false);
     const vw = Math.min(width, visible?.width ?? width), vh = Math.min(height, visible?.height ?? height), fullW = 2 * width - vw, fullH = 2 * height - vh;
@@ -97,8 +105,9 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
     camera.updateProjectionMatrix(); fly.step(dt); drift(dt); controls.update();
     const k = 2 * Math.tan(camera.fov * Math.PI / 360) * 2 / vh;
     for (const x of marks) x.sprite.scale.setScalar(x.sprite.userData.px * (x.g.i != null || x.g.blob || x.g.here ? 1.6 : 1) * k * (x.g === selected ? 1.7 : 1));
+    camera.far = Math.max(1e5, camera.position.length() * 4); camera.updateProjectionMatrix();
+    placeSky(sky, camera); lod.update(camera.position, ORIGIN, vh, camera.fov, seam);
     placeLabels(canvas.getBoundingClientRect());
-    camera.far = Math.max(1e5, camera.position.length() * 4);
     const clear = renderer.autoClear; renderer.autoClear = !overlay; renderer.render(scene, camera); renderer.autoClear = clear;
   }
   function pick(cx, cy) {
@@ -121,5 +130,10 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
   // Out to the edge of this scale, keeping the centre of view, where Laniakea takes over.
   function zoomOut(done) { fly.start(LOCAL_FAR, controls.target, 1.2, done); }
   const zoomState = () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1, atSun: controls.target.distanceTo(SUN) < LOCAL_NEAR * 0.01 });
-  return { render, pick, enter, leave, setView, viewDir, overview, overviewDistance, towardSun, zoomBackIn, zoomOut, zoomState, showLabels: setLabels, liveLabels(v) { labelsLive = v; }, setDistance, distance, select(g) { selected = g; }, galaxies: all, camera, controls, scene, fly };
+  // The "you are here" anchor at this scale: the Milky Way's marker, placed as its own label would be.
+  function anchor(out, bounds) {
+    tmp.copy(mwMark.sprite.position).project(camera); if (tmp.z >= 1) return false;
+    out.x = bounds.left + (tmp.x + 1) / 2 * bounds.width; out.y = bounds.top + (1 - tmp.y) / 2 * bounds.height; out.off = mwMark.px / 2 + 4; out.text = mwMark.el.textContent; return true;
+  }
+  return { render, anchor, hideHere(v) { hideHere = v; if (v) for (const it of labelItems) if (it.here) { it.el.hidden = true; forgetLabel(it); } }, pick, enter, leave, setView, viewDir, overview, overviewDistance, towardSun, zoomBackIn, zoomOut, zoomState, showLabels: setLabels, liveLabels(v) { labelsLive = v; }, setDistance, distance, select(g) { selected = g; }, galaxies: all, camera, controls, scene, fly };
 }

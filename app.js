@@ -2,6 +2,9 @@ import * as THREE from './vendor/three.module.min.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { SUN, PLANETS, MOON, MOONS, DWARFS, keplerPosition, beltElements, SUN_SHRINK, DIST_K, DIST_P, UNITS_PER_AU } from './data.js';
 let realScale = false; const D = d => realScale ? d.realDist : d.dist;
+import { skyPoints, placeSky, glowTex, glowScale } from './sky.js';
+import { createLod, sizeFade } from './lod.js';
+import { SUN_ENTRY, starPixels, starColor } from './stars-data.js';
 import { tex, rimShell, ringGeometry, saturnRingTex, uranusRingTex, SATURN_RING, URANUS_RING, photo, canPhoto, swatch } from './textures.js';
 
 const canvas = document.getElementById('c');
@@ -16,21 +19,9 @@ const controls = new OrbitControls(camera, canvas);
 // Zoom belongs to the one zoom controller (zoom.js, driven by lab.js); OrbitControls only rotates and pans here.
 controls.enableDamping = true; controls.enableZoom = false; controls.minDistance = 0.6; controls.maxDistance = Infinity;
 
-// Starfield (re-centred on the camera every frame, so it always surrounds the view)
-let stars;
-{
-  const n = 4000, p = new Float32Array(n * 3), c = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) {
-    const v = new THREE.Vector3().randomDirection().multiplyScalar(400 + Math.random() * 400);
-    p.set([v.x, v.y, v.z], i * 3);
-    const b = 0.5 + Math.random() * 0.5, t = Math.random();
-    c.set([b * (t < .15 ? 1 : .85), b * .9, b * (t > .85 ? 1 : .95)], i * 3);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
-  g.setAttribute('color', new THREE.BufferAttribute(c, 3));
-  stars = new THREE.Points(g, new THREE.PointsMaterial({ size: 1.4, vertexColors: true, sizeAttenuation: false })); scene.add(stars);
-}
+// The shared sky (sky.js): the same background stars as every other scale, in this scene's ecliptic frame,
+// re-centred on the camera every frame.
+const stars = skyPoints(0, { frame: 'ecl' }); scene.add(stars);
 
 scene.add(new THREE.AmbientLight(0x404660, 0.08));
 scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x2a1a10, 0.12));
@@ -60,6 +51,13 @@ const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(SUN.size, 48, 32), new T
 photo(sunMesh.material, 'sun', { fallback: () => tex('Sun') });
 sunMesh.add(rimShell(SUN.size * 1.03, 0xffb347, 1.6, 1.2));
 scene.add(sunMesh);
+// The Sun seen from far away: the very glow the star map draws for it (same texture, colour and size on screen),
+// fading in as the Sun's disc shrinks below ~60 px, so the Sun leaving the Solar System is the Sun arriving in
+// the star map (lab.js swaps the two copies at the middle of the seam).
+const farSun = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(...starColor(SUN_ENTRY.temp)), sizeAttenuation: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending }));
+farSun.material.userData.base = 1; scene.add(farSun);
+export { farSun }; // read by tests: the Solar System's far-off Sun is the same glow as the star map's Sun dot
+sunMesh.material.transparent = true;
 const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: (() => {
   const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d');
   const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
@@ -413,7 +411,7 @@ const free = (x0, y0, x1, y1) => { for (let i = 0; i < placed * 4; i += 4) if (x
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
   hooks.beforeFrame?.(dt); // the zoom controller moves the camera (or a seam) first
-  if (hooks.renderOverride) { hooks.renderOverride(); requestAnimationFrame(frame); return; }
+  if (hooks.renderOverride) { hooks.renderOverride(); hooks.afterFrame?.(); requestAnimationFrame(frame); return; }
   const bounds = canvas.getBoundingClientRect();
   if (bounds.width !== lastSize[0] || bounds.height !== lastSize[1]) { renderer.setSize(bounds.width, bounds.height, false); lastSize = [bounds.width, bounds.height]; } // resizing every frame reallocates the drawing buffer
   const view = applyVisibleRegion(camera, bounds.width, bounds.height, hooks.visible?.(bounds.width, bounds.height));
@@ -462,7 +460,7 @@ function frame(now) {
   controls.update();
   { const far = Math.max(5e6, camera.position.distanceTo(controls.target) * 4); if (far !== camera.far) { camera.far = far; camera.updateProjectionMatrix(); } }
 
-  stars.position.copy(camera.position);
+  applyLod(view.height, null);
   // Labels: small tappable names; overlapping ones are hidden so the view stays uncluttered.
   if (labelOrderFor !== focused) { labelOrderFor = focused; labelOrder.sort((a, b) => (b === focused) - (a === focused) || labelRank(a) - labelRank(b)); }
   placed = 0;
@@ -483,7 +481,7 @@ function frame(now) {
     c.spot = spot;
   }
   // "You are here" marker on Earth (kid overview only)
-  const earth = bodies.find(b => b.data.name === 'Earth');
+  const earth = earthBody;
   const hp = earth.mesh.getWorldPosition(tmp).project(camera);
   const showHere = hooks.kid && hooks.here && !focused && fly.t >= 1 && hp.z < 1;
   hereEl.hidden = !showHere;
@@ -491,7 +489,7 @@ function frame(now) {
   // Show markers only for bodies that are too small to see/tap
   const pxPerUnit = view.height / 2 / Math.tan(camera.fov * Math.PI / 360);
   for (const b of bodies) { const dd = camera.position.distanceTo(b.mesh.getWorldPosition(tmp)); b.marker.visible = inSystem(b) && b.radius * (b === bodies[0] && realScale ? SUN_SHRINK : 1) / dd * pxPerUnit < 5; if (b.moonRing) b.moonRing.visible = inSystem(b) && !realScale; }
-  renderer.render(scene, camera);
+  renderer.render(scene, camera); hooks.afterFrame?.();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -525,12 +523,34 @@ document.getElementById('realBtn').onclick = e => { const on = !realScale; e.cur
 window.__face = (name, lonDeg) => { const b = bodies.find(x => x.data.name === name); const d = camera.position.clone().sub(b.mesh.getWorldPosition(new THREE.Vector3())); const tilt = b.mesh.parent; const local = tilt.worldToLocal(camera.position.clone()).sub(tilt.worldToLocal(b.mesh.getWorldPosition(new THREE.Vector3()))); b.mesh.rotation.y = Math.atan2(-local.z, local.x) - lonDeg * Math.PI / 180; void d; };
 // Draw the Solar System once from where the camera is now, without moving the simulation (used inside a zoom
 // seam, while the zoom controller places the camera).
-export function drawSolar() {
+// seam: null, or { role: 'inner', t } while the zoom crosses into the star map (lod.js rules for each object).
+export function drawSolar(seam = null) {
   const bounds = canvas.getBoundingClientRect(); if (!bounds.width || !bounds.height) return;
-  renderer.setSize(bounds.width, bounds.height, false); lastSize = [bounds.width, bounds.height]; applyVisibleRegion(camera, bounds.width, bounds.height, hooks.visible?.(bounds.width, bounds.height));
+  renderer.setSize(bounds.width, bounds.height, false); lastSize = [bounds.width, bounds.height]; const view = applyVisibleRegion(camera, bounds.width, bounds.height, hooks.visible?.(bounds.width, bounds.height));
   camera.far = Math.max(5e6, camera.position.distanceTo(controls.target) * 4); camera.updateProjectionMatrix(); camera.lookAt(controls.target);
-  stars.position.copy(camera.position); renderer.render(scene, camera);
+  applyLod(view.height, seam); renderer.render(scene, camera);
 }
+// Per-object level of detail (lod.js). Orbits, belts and trails fade as they shrink while the zoom leaves the
+// Solar System; the sky is drawn once across the seam; the Sun's disc gives way to its far-away glow by its own
+// apparent size, and the glow swaps with the star map's identical Sun at mid-seam.
+const lod = createLod(), ORIGIN = new THREE.Vector3(), LEAVING = { inner: 'size', alone: 'fixed' };
+lod.add(stars, 'proxy');
+for (const b of bodies) { if (b.orbit) lod.add(b.orbit, LEAVING, { L: 1 }); if (b.ellipse) lod.add(b.ellipse, LEAVING); if (b.trail) lod.add(b.trail, LEAVING, { L: Math.max(1, D(b.data)) }); }
+for (const belt of belts) lod.add(belt.pts, LEAVING);
+let sunGlow = 0;
+function applyLod(vh, seam) {
+  placeSky(stars, camera); lod.update(camera.position, ORIGIN, vh, camera.fov, seam);
+  const pxPer = vh / 2 / Math.tan(camera.fov * Math.PI / 360), D0 = camera.position.length() || 1, disc = 2 * bodies[0].radius / D0 * pxPer;
+  sunGlow = 1 - logStep(disc, 12, 60); // 1 when the disc is under 12 px across, 0 above 60 px
+  const inSeam = seam ? (seam.t < 0.5 ? 1 : 0) : 1;
+  farSun.material.opacity = sunGlow * inSeam; farSun.visible = farSun.material.opacity > 0;
+  farSun.scale.setScalar(glowScale(starPixels(SUN_ENTRY), camera.fov, vh));
+  sunMesh.material.opacity = (1 - sunGlow) * (seam ? sizeFade(disc) * (seam.t < 0.5 ? 1 : 0) : 1); sunMesh.visible = sunMesh.material.opacity > 0.002;
+}
+const logStep = (x, a, b) => x <= a ? 0 : x >= b ? 1 : (k => k * k * (3 - 2 * k))(Math.log(x / a) / Math.log(b / a));
+// The "you are here" anchor at this scale: the Sun's label position (above the Sun, as its own label sits).
+const anchorTmp = new THREE.Vector3();
+export function solarAnchor(out, bounds) { anchorTmp.set(0, 0, 0).project(camera); if (anchorTmp.z >= 1) return false; out.x = bounds.left + (anchorTmp.x + 1) / 2 * bounds.width; out.y = bounds.top + (1 - anchorTmp.y) / 2 * bounds.height; out.off = 6; out.text = 'Sun'; return true; }
 // ---- Hooks for the zoom controller (lab.js) ----
 // Same direction and centre, new distance (scene units). Zooming out while a world is selected lets go of
 // it (the card closes) and the centre of view drifts back to the Sun, where the star map is centred.

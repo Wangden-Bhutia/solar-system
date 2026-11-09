@@ -1,7 +1,10 @@
 // Real Three.js scene graph/math with renderer, textures, controls, and DOM replaced.
 // This deliberately does not test WebGL rendering or drive a browser.
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import fs from 'node:fs';
-import * as THREE from '../vendor/three.module.min.js';import * as data from '../data.js';
+import * as THREE from '../vendor/three.module.min.js';import * as data from '../data.js';import path from 'node:path';
+// app.js with three, OrbitControls, data.js and textures.js replaced; its other modules (sky, lod, stars data…) are
+// the real files, loaded into the same context.
+function linker(context,fake,swap){const cache=new Map();return (spec,ref)=>{const f=swap(spec);if(f)return fake(f);const file=path.normalize(path.join(ref?.identifier?path.dirname(ref.identifier):'.',spec));if(!cache.has(file))cache.set(file,new vm.SourceTextModule(fs.readFileSync(file,'utf8'),{context,identifier:file}));return cache.get(file);};}
 test('Moon is independently focusable; kid/default/real scale keep radius ratios and correct parent distances',async()=>{
   function element(){return {style:{},dataset:{},getBoundingClientRect(){return {width:320,height:311,left:12,top:120};},value:'0',classList:{add(){},toggle(){}},addEventListener(){},appendChild(){},setAttribute(){},getContext(){return {createRadialGradient(){return {addColorStop(){}};},fillRect(){}};}};}
   const els={};let frame;
@@ -11,8 +14,8 @@ test('Moon is independently focusable; kid/default/real scale keep radius ratios
   const three={...THREE,WebGLRenderer:Renderer};
   const textures={photo:()=>false,canPhoto:()=>false,swatch:()=>new THREE.Texture(),tex:name=>['Moon','Earth','Mars','Mercury'].includes(name)?{map:new THREE.Texture(),bump:new THREE.Texture()}:new THREE.Texture(),rimShell:()=>new THREE.Object3D(),ringGeometry:()=>new THREE.RingGeometry(1,2),saturnRingTex:()=>new THREE.Texture(),uranusRingTex:()=>new THREE.Texture(),SATURN_RING:{inner:1.2,outer:2.3},URANUS_RING:{inner:1.5,outer:2}};
   const fake=(obj)=>new vm.SyntheticModule(Object.keys(obj),function(){for(const [k,v] of Object.entries(obj))this.setExport(k,v);},{context});
-  const entry=new vm.SourceTextModule(fs.readFileSync('app.js','utf8'),{context});
-  await entry.link(spec=>fake(spec.includes('three.module')?three:spec.includes('OrbitControls')?{OrbitControls:Controls}:spec.includes('data.js')?data:textures));await entry.evaluate();
+  const entry=new vm.SourceTextModule(fs.readFileSync('app.js','utf8'),{context,identifier:'app.js'});
+  await entry.link(linker(context,fake,spec=>spec.includes('three.module')?three:spec.includes('OrbitControls')?{OrbitControls:Controls}:spec==='./data.js'?data:spec.includes('textures.js')?textures:null));await entry.evaluate();
   const {bodies,setKid,setRealScale,focus,hooks}=entry.namespace;
   const earth=bodies.find(b=>b.data.name==='Earth'),moon=bodies.find(b=>b.data.name==='Moon');
   assert.equal(bodies.length,10+data.DWARFS.length+data.MOONS.length);assert.equal(moon.mesh,earth.moonMesh);assert.equal(moon.satellite,true);
@@ -58,8 +61,8 @@ async function loadScene(width=390,height=844){
   class Controls{constructor(camera){this.camera=camera;this.target=new THREE.Vector3();}update(){this.camera.lookAt(this.target);}}
   const textures={photo:()=>false,canPhoto:()=>false,swatch:()=>new THREE.Texture(),tex:name=>['Moon','Earth','Mars','Mercury'].includes(name)?{map:new THREE.Texture(),bump:new THREE.Texture()}:new THREE.Texture(),rimShell:()=>new THREE.Object3D(),ringGeometry:()=>new THREE.RingGeometry(1,2),saturnRingTex:()=>new THREE.Texture(),uranusRingTex:()=>new THREE.Texture(),SATURN_RING:{inner:1.2,outer:2.3},URANUS_RING:{inner:1.5,outer:2}};
   const fake=(obj)=>new vm.SyntheticModule(Object.keys(obj),function(){for(const [k,v] of Object.entries(obj))this.setExport(k,v);},{context});
-  const entry=new vm.SourceTextModule(fs.readFileSync('app.js','utf8'),{context});
-  await entry.link(spec=>fake(spec.includes('three.module')?{...THREE,WebGLRenderer:Renderer}:spec.includes('OrbitControls')?{OrbitControls:Controls}:spec.includes('data.js')?data:textures));await entry.evaluate();
+  const entry=new vm.SourceTextModule(fs.readFileSync('app.js','utf8'),{context,identifier:'app.js'});
+  await entry.link(linker(context,fake,spec=>spec.includes('three.module')?{...THREE,WebGLRenderer:Renderer}:spec.includes('OrbitControls')?{OrbitControls:Controls}:spec==='./data.js'?data:spec.includes('textures.js')?textures:null));await entry.evaluate();
   let t=performance.now();const step=(n=1)=>{for(let i=0;i<n;i++)frame(t+=50);};
   const resizeTo=(w,h)=>{size.width=w;size.height=h;for(const fn of listeners.resize||[])fn();};
   return {...entry.namespace,step,context,resizeTo};

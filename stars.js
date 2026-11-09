@@ -9,15 +9,10 @@ import { starKind } from './stars-data.js';
 import { VISITORS, withMotion, positionAt, nearestAt, STAR_TIME, YEARS_PER_SEC } from './star-motion.js';
 import { STAR_NEAR, STAR_FAR, SCENE_RANGE } from './zoom-ladder.js';
 import { createPlacer, placeAll, forgetLabel } from './labels.js';
-import { skyPoints } from './sky.js';
+import { skyPoints, placeSky, glowTex, glowScale } from './sky.js';
+import { createLod, seamWindow } from './lod.js';
 
-const glowTex = (() => {
-  if (typeof document === 'undefined' || !document.createElement) return null;
-  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext?.('2d'); if (!x) return null;
-  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
-  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.12, 'rgba(255,255,255,0.95)'); g.addColorStop(0.3, 'rgba(255,255,255,0.35)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-  x.fillStyle = g; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c);
-})();
+// glowTex: the shared glow (sky.js), so the Sun here and the Solar System's far-away Sun are drawn identically.
 
 export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair }) {
   const scene = new THREE.Scene(), bg = new THREE.Color(0x000005); scene.background = bg; // same black as the Solar System, so the zoom has no colour seam
@@ -27,14 +22,14 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
   // scene's whole range, seams included, so it never clamps a distance the zoom has set.
   controls.enableZoom = false; controls.minDistance = SCENE_RANGE.stars[0]; controls.maxDistance = SCENE_RANGE.stars[1]; controls.enablePan = false;
   // Faint background stars far beyond the neighbourhood.
-  scene.add(skyPoints(5000)); // the shared sky (sky.js)
+  const sky = skyPoints(0, { frame: 'ecl' }); scene.add(sky); // the shared sky (sky.js), in this scene's ecliptic frame
   // Distance rings in the plane of the Solar System: 5, 10 and 15 light-years from the Sun.
   const rings = new THREE.Group(); scene.add(rings);
   for (const r of [5, 10, 15]) {
     const pts = []; for (let i = 0; i <= 128; i++) { const a = i / 128 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r)); }
     rings.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x33415c, transparent: true, opacity: 0.5 })));
   }
-  const ringLabels = [5, 10, 15].map(r => { const el = document.createElement('span'); el.className = 'lbl space ring-lbl'; el.textContent = `${r} ly`; el.hidden = true; labelsEl.appendChild(el); return { el, r, pos: new THREE.Vector3(r, 0, 0), px: 0 }; });
+  const ringLabels = [5, 10, 15].map(r => { const el = document.createElement('span'); el.className = 'lbl space ring-lbl'; el.textContent = `${r} ly`; el.hidden = true; labelsEl.appendChild(el); return { el, r, pos: new THREE.Vector3(r, 0, 0), px: 0, ring: rings.children[[5, 10, 15].indexOf(r)] }; });
   // Every star carries its measured motion (star-motion.js); three famous passing stars join the map.
   const entries = [SUN_ENTRY, ...NEIGHBOURS, ...VISITORS.map(neighbourEntry)].map(withMotion), dots = [];
   for (const e of entries) {
@@ -49,7 +44,7 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
     trail.visible = false; trail.frustumCulled = false; stem.frustumCulled = false; if (!e.sun) scene.add(trail);
     const el = document.createElement('button'); el.type = 'button'; el.className = 'lbl space'; el.textContent = e.name; el.tabIndex = -1; el.hidden = true;
     el.addEventListener('click', ev => { ev.stopPropagation(); onPick?.(e); }); labelsEl.appendChild(el);
-    dots.push({ e, sprite, stem, trail, el, pos: sprite.position, px: sprite.userData.px, mk: null });
+    dots.push({ e, sprite, stem, trail, el, pos: sprite.position, px: sprite.userData.px, mk: null, here: !!e.sun });
   }
   // Label priority: the Sun, systems with planets, the famous and the bright, then the rest.
   const FAMOUS = ['Alpha Centauri', 'Sirius', "Barnard's Star", 'Epsilon Eridani', 'Tau Ceti', 'Procyon', '61 Cygni', 'Luhman 16', 'TRAPPIST-1', 'Wolf 359'];
@@ -57,10 +52,24 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
   let nearDot = null; const byRank = () => [...dots].sort((a, b) => rank(a) - rank(b)); let ordered = byRank();
   // The label list (stars in priority order, then the ring distances), rebuilt only when the order changes.
   let starItems = []; const relist = () => { starItems = [...ordered, ...ringLabels]; }; relist();
-  const placer = createPlacer(dots.length + 64), labelOpts = { enabled: true, visible: it => !it.sprite || it.sprite.visible, opacity: () => labelOpacity };
+  const placer = createPlacer(dots.length + 64), labelOpts = { enabled: true, visible: it => (!it.sprite || it.sprite.visible) && !(hideHere && it.here) && fadeOf(it) > 0.02, opacity: it => fadeOf(it) };
+  // A label is as visible as the thing it names (lod.js); ring labels follow their ring.
+  const fadeOf = it => it.sprite ? it.sprite.userData.fade ?? 1 : it.ring ? it.ring.userData.fade ?? 1 : seamWindow(seamNow);
+  let hideHere = false, seamNow = null;
   // A line from the Sun to whichever star is nearest at the clock's time: the thing that changes.
   const nearLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(1, 0, 0)]), new THREE.LineDashedMaterial({ color: 0xf3c887, dashSize: 0.25, gapSize: 0.18, transparent: true, opacity: 0.75 }));
   nearLine.frustumCulled = false; scene.add(nearLine);
+  // Per-object level of detail (lod.js): stars fade as they merge into the Sun on screen, rings and lines as they
+  // shrink; the sky is drawn once across a seam; the Sun is the same glow as the Solar System's far-away Sun
+  // (swapped at mid-seam) and cross-fades with the Milky Way map's "You are here" marker.
+  const ORIGIN = new THREE.Vector3(), lod = createLod();
+  lod.add(sky, 'proxy');
+  for (const ring of rings.children) lod.add(ring, 'size');
+  for (const d of dots) {
+    if (d.e.sun) { lod.add(d.sprite, { outer: 'proxy', inner: 'model', alone: 'fixed' }); continue; }
+    lod.add(d.sprite, 'marker'); lod.add(d.stem, 'marker', { at: d.sprite.position }); lod.add(d.trail, 'marker', { at: d.sprite.position });
+  }
+  lod.add(nearLine, 'fixed');
 
   // ---- Planetary system view (AU) ----
   const sys = new THREE.Scene(); sys.background = new THREE.Color(0x02030a);
@@ -101,10 +110,7 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
   }
 
   // ---- Rendering ----
-  let mode = 'stars', last = 0, labelOpacity = 1;
-  // Every material remembers its own opacity so the whole map can dissolve in or out during a zoom bridge.
-  const mats = []; scene.traverse(o => { if (o.material) { o.material.userData.base = o.material.opacity; o.material.transparent = true; mats.push(o.material); } });
-  const setFade = f => { for (const m of mats) m.opacity = m.userData.base * f; };
+  let mode = 'stars', last = 0;
   const tmp = new THREE.Vector3();
   // ---- The clock (years from today): stars drift along their measured motions ----
   // Far beyond ±100,000 years (the Gliese 710 flyby) straight-line paths stop being trustworthy for the
@@ -143,9 +149,10 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
   // Allocation-free label placement (labels.js): each item has el, pos (a live Vector3) and px.
   let labelCam = camera; const project = (it, out) => { tmp.copy(it.pos).project(labelCam); out.x = tmp.x; out.y = tmp.y; out.z = tmp.z; return true; };
   function placeLabels(cam, bounds, list, count = list.length) { labelCam = cam; placeAll(list, count, placer, bounds, project, labelOpts); }
-  // overlay: draw over whatever is already on screen (no background), at the given opacity.
-  function render(width, height, visible, { overlay = false, opacity = 1 } = {}) {
-    scene.background = overlay ? null : bg; setFade(opacity); labelOpacity = opacity;
+  // overlay: draw over whatever is already on screen (no background). seam: null, or { role: 'inner' | 'outer', t }
+  // while a zoom crosses a seam; every object then fades by its own rule (lod.js), never the whole scene at once.
+  function render(width, height, visible, { overlay = false, seam = null } = {}) {
+    scene.background = overlay ? null : bg; seamNow = seam;
     const now = performance.now(), dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     renderer.setSize(width, height, false);
     const vw = Math.min(width, visible?.width ?? width), vh = Math.min(height, visible?.height ?? height);
@@ -158,8 +165,9 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
     if (mode === 'stars') {
       // Non-attenuated sprites: on-screen size ≈ scale × (1 / tan(fov/2)) × visible height / 2, so this keeps
       // each glow at about 2.2 × its nominal pixel size whatever the screen or sheet height.
-      const k = 2.2 * Math.tan(camera.fov * Math.PI / 360) * 2 / vh;
+      const k = glowScale(1, camera.fov, vh);
       for (const d of dots) d.sprite.scale.setScalar(Math.max(d.sprite.userData.px, d === nearDot ? 9 : 0) * k * (d.e === selected ? 1.6 : 1));
+      placeSky(sky, camera); lod.update(camera.position, ORIGIN, vh, camera.fov, seam); lastVh = vh;
       if (labelsLive) placeLabels(camera, bounds, starItems);
       const clear = renderer.autoClear; renderer.autoClear = !overlay; renderer.render(scene, camera); renderer.autoClear = clear;
     } else {
@@ -248,14 +256,15 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
     for (const p of current?.sysView?.planets || []) p.el.hidden = which !== 'system'; for (const c of current?.sysView?.compareEls || []) c.el.hidden = which !== 'system';
     for (const x of pair?.els || []) x.el.hidden = which !== 'system';
   }
+  // The "you are here" anchor at this scale: the Sun, labelled as its own label would be (lab.js draws one anchor
+  // across a seam, moving from one scale's anchor to the other's).
+  let lastVh = 1;
+  function anchor(out, bounds) {
+    tmp.copy(ORIGIN).project(camera); if (tmp.z >= 1) return false;
+    out.x = bounds.left + (tmp.x + 1) / 2 * bounds.width; out.y = bounds.top + (1 - tmp.y) / 2 * bounds.height; out.off = dots[0].px / 2 + 4; out.text = dots[0].e.name; return true;
+  }
+  // Camera up (frames.js turns it across the stars ⇄ Milky Way seam); back to the ecliptic pole afterwards.
+  function setUp(v) { if (v) camera.up.set(v.x, v.y, v.z); else camera.up.set(0, 1, 0); camera.lookAt(controls.target); }
   const zoomState = () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1 || mode !== 'stars' || !!clock.rewind });
-  return { render, pick, select, enter, leave, frame: d => { if (mode === 'stars') frame(d); }, setTime, play, pause, rewind, nearest, time: () => clock.t, playing: () => clock.playing, zoomBackIn, zoomOut, zoomState, setView, viewDir, showLabels: on => setLabels(on ? 'stars' : null), liveLabels(v) { labelsLive = v; if (!v) for (const it of starItems) { forgetLabel(it); it.el.hidden = true; } }, setDistance, distance, openSystem, openPair, pairInfo, closeSystem, get mode() { return mode; }, camera, controls, entries, scene, sys, fly };
-}
-
-// A full-screen black veil, drawn between two scenes during a zoom bridge to dim the inner one.
-export function createDimmer(renderer) {
-  const scene = new THREE.Scene(), cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  const mat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthTest: false, depthWrite: false });
-  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat));
-  return opacity => { if (opacity <= 0) return; mat.opacity = Math.min(1, opacity); const clear = renderer.autoClear; renderer.autoClear = false; renderer.render(scene, cam); renderer.autoClear = clear; };
+  return { render, anchor, setUp, hideHere(v) { hideHere = v; if (v) for (const it of dots) if (it.here) { it.el.hidden = true; forgetLabel(it); } }, sunPx: () => dots[0].px, pick, select, enter, leave, frame: d => { if (mode === 'stars') frame(d); }, setTime, play, pause, rewind, nearest, time: () => clock.t, playing: () => clock.playing, zoomBackIn, zoomOut, zoomState, setView, viewDir, showLabels: on => setLabels(on ? 'stars' : null), liveLabels(v) { labelsLive = v; if (!v) for (const it of starItems) { forgetLabel(it); it.el.hidden = true; } }, setDistance, distance, openSystem, openPair, pairInfo, closeSystem, get mode() { return mode; }, camera, controls, entries, scene, sys, fly };
 }
