@@ -4,7 +4,7 @@ const isExperiment = s => s.view === 'try' && !!s.experiment;
 // The sheet height a view opens at: worlds peek; labs and comparisons open half-way
 // so the scene stays visible while controls are usable.
 // Card views (a world, a star) open as a peek; labs, comparisons and planetary systems open half-way.
-const cardView = v => v === 'explore' || v === 'stars';
+const cardView = v => v === 'explore' || v === 'stars' || v === 'galaxy';
 export const openHeight = s => (cardView(s.view) ? 'peek' : 'half');
 export function swipe(s, dir) {
   const i = SHEETS.indexOf(s.sheet);
