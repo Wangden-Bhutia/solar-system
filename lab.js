@@ -2,6 +2,7 @@ import { bodies, focus, unfocus, hooks, renderer, controls, setHomeScope } from 
 import { createStars, createDimmer } from './stars.js';
 import { createGalaxy } from './galaxy.js';
 import { GALAXY_FACTS } from './galaxy-data.js';
+import { TIME_RANGE, timeLabel, lapsLabel, milestone, VC_SUN, OMEGA_ARMS, OMEGA_BAR, SUN_PERIOD } from './galaxy-motion.js';
 import { LEVELS, levelIndex, PAIRS, pairFor, bridgeFrame, stepBridge, atLimit, STAR_NEAR, STAR_FAR, GALAXY_NEAR } from './zoom-ladder.js';
 import { camera, drawSolar } from './app.js';
 import { STAR_FACTS, habitableZone, sizeFromMass, lightLeftYear } from './stars-data.js';
@@ -23,7 +24,18 @@ const SPACE=new Set(['stars','system','galaxy']);
 const levelOf=v=>v==='galaxy'?'galaxy':v==='stars'||v==='system'?'stars':'solar';
 const starsView=createStars({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:e=>pickStar(e)});
 let shownLevel='solar',arrival=null;
-const galaxyView=createGalaxy({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:m=>pickLandmark(m)});
+const galaxyView=createGalaxy({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:m=>pickLandmark(m),onTime:()=>paintTime()});
+// ---- The Milky Way in motion: a clock in millions of years (galaxy-motion.js) ----
+const gtime=$('gtime'),gslider=$('gslider');gslider.min=TIME_RANGE[0];gslider.max=TIME_RANGE[1];
+let timeText='';
+function paintTime(){const t=galaxyView.time(),p=galaxyView.playing();
+ const text=timeLabel(t)+'|'+(milestone(t)||(Math.abs(t)<0.5?'Press play to watch the Galaxy turn. Tap a landmark for its card.':lapsLabel(t)))+'|'+p;
+ if(document.activeElement!==gslider)gslider.value=String(Math.round(t));gslider.setAttribute('aria-valuetext',timeLabel(t));
+ if(text===timeText)return;timeText=text;const [clock,note]=text.split('|');
+ $('gclock').textContent=clock;$('gnote').textContent=note;$('gplay').dataset.state=p?'playing':'paused';$('gplay').setAttribute('aria-label',p?'Pause time':'Play time: watch the Galaxy turn');$('gnow').hidden=Math.abs(t)<0.5;}
+$('gplay').onclick=()=>{if(galaxyView.playing())galaxyView.pause();else{dismissHint();galaxyView.play();}paintTime();};
+gslider.oninput=()=>{dismissHint();galaxyView.setTime(Number(gslider.value));paintTime();};
+$('gnow').onclick=()=>{galaxyView.rewind();paintTime();};
 // ---- One continuous zoom: Solar System ⇄ nearby stars ⇄ Milky Way ----
 // Zooming past a scene's outer (or inner) limit opens a "bridge": both scenes are drawn at once and the
 // zoom gesture itself moves the blend t (0 = inner scene, 1 = outer). The inner scene recedes and dims while
@@ -66,6 +78,7 @@ function goLevel(target){
  const cur=levelOf(state.value.view);if(target===cur||bridge||animating)return;stopAudio();$('settings').open=false;
  const out=levelIndex(target)>levelIndex(cur),pair=pairFor(cur,out?1:-1),then=()=>{if(levelOf(state.value.view)!==target)goLevel(target);};
  const play=()=>{beginBridge(pair,out?0:1);animateBridge(out?1:0,then);};
+ if(cur==='galaxy'&&galaxyView.time()!==0){animating=true;galaxyView.rewind(()=>{animating=false;goLevel(target);});return;} // back to today first: the star map is as the sky is now
  if(state.value.view==='system'){starsView.closeSystem();state.update({view:'stars',sheet:'closed'});render();}
  if(out&&cur==='stars')starsView.zoomOut(play);
  else if(!out&&cur==='stars')starsView.zoomBackIn(play);
@@ -85,7 +98,7 @@ function feedZoom(amount){
  const l=levelOf(state.value.view),z=zoomState();if(!z||z.busy||state.value.sheet==='half'||state.value.sheet==='full')return;
  const lim=atLimit(z.d,z.min,z.max);
  if(amount>0&&lim.atOuter&&z.outer){beginBridge(pairFor(l,1),0);moveBridge(amount);}
- else if(amount<0&&lim.atInner&&z.inner){beginBridge(pairFor(l,-1),1);moveBridge(amount);}
+ else if(amount<0&&lim.atInner&&z.inner){if(l==='galaxy'&&(galaxyView.time()!==0||!galaxyView.atSun())){galaxyView.rewind(()=>galaxyView.zoomToSun());return;}/* back to today and to the Sun, where the star map takes over */beginBridge(pairFor(l,-1),1);moveBridge(amount);}
 }
 $('c').addEventListener('wheel',e=>feedZoom(Math.max(-120,Math.min(120,e.deltaY))),{passive:true});
 // Name labels sit above the scene and would swallow the wheel: pass it through so zooming works anywhere.
@@ -95,7 +108,7 @@ const spreadOf=()=>{const [a,b]=[...pinch.values()];return Math.hypot(a.x-b.x,a.
 document.addEventListener('pointerdown',e=>{if(e.target!==$('c'))return;pinch.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch.size===2)spread=spreadOf();},true);
 document.addEventListener('pointermove',e=>{if(!pinch.has(e.pointerId))return;pinch.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch.size!==2)return;const d=spreadOf();if(spread>0&&d>0)feedZoom(-Math.log(d/spread)*600);spread=d;},true);
 for(const t of ['pointerup','pointercancel'])document.addEventListener(t,e=>{pinch.delete(e.pointerId);if(pinch.size<2)spread=0;},true);
-function pickLandmark(m){dismissHint();go({view:'galaxy',landmark:m.name,sheet:'peek'});}
+function pickLandmark(m){dismissHint();galaxyView.pause();go({view:'galaxy',landmark:m.name,sheet:'peek'});}
 function pickStar(e){dismissHint();go({view:'stars',star:e.name,sheet:'peek'});}
 hooks.overrideTap=(x,y)=>{const s=state.value;
  if(s.view==='galaxy'){const m=galaxyView.pick(x,y);if(m)pickLandmark(m);else if(s.sheet!=='closed')setSheet({sheet:'closed',landmark:null});return;}
@@ -448,8 +461,8 @@ function paintGalaxy(){
   $('kicker').textContent=m?'Our star':'Our galaxy';$('title').textContent=m?'The Sun in the Milky Way':'The Milky Way';
   $('fact').textContent=m?m.fact:'A spiral of 100–400 billion stars. The Sun is one of them, out in a small arm called the Orion Spur.';
   $('view-caption').textContent='Model of the Milky Way seen from above · dashed line: the Sun’s orbit · not a photograph';
-  $('star-facts').innerHTML=[['Stars',GALAXY_FACTS.stars],['Width',`${GALAXY_FACTS.diameter} light-years`],['Disc thickness',`${GALAXY_FACTS.thickness} light-years`],['Sun to centre','about 27,000 light-years'],['One orbit of the Sun',`${GALAXY_FACTS.orbitMyr} years`],['Last time the Sun was here','the first dinosaurs were just appearing']].map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
-  $('star-depth').innerHTML=`${caveat}<p>Estimates of the Galaxy’s width range from about 87,000 to over 100,000 light-years depending on where you set the edge; of the Sun’s orbit, from 212 to 240 million years. Our whole 16-light-year neighbourhood from the previous level would be smaller than a single pixel here.</p><a href="https://en.wikipedia.org/wiki/Milky_Way" target="_blank" rel="noopener">Milky Way overview</a> · <a href="https://science.nasa.gov/resource/the-milky-way-galaxy/" target="_blank" rel="noopener">NASA · The Milky Way</a>${sourceNote}`;
+  $('star-facts').innerHTML=[['Stars',GALAXY_FACTS.stars],['Width',`${GALAXY_FACTS.diameter} light-years`],['Disc thickness',`${GALAXY_FACTS.thickness} light-years`],['Sun to centre','about 27,000 light-years'],['One orbit of the Sun',`${GALAXY_FACTS.orbitMyr} years`],['Last time the Sun was here','the first dinosaurs were just appearing'],['The Sun’s speed around the centre',`about ${VC_SUN} km/s, or about ${fmt(Math.round(VC_SUN*3.6/10)*10000)} km/h`],['Spiral arms','a pattern that stars move through, like a traffic jam that cars drive in and out of'],['Laps since the Sun formed','about 20, over 4.6 billion years']].map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
+  $('star-depth').innerHTML=`${caveat}<p>Estimates of the Galaxy’s width range from about 87,000 to over 100,000 light-years depending on where you set the edge; of the Sun’s orbit, from 212 to 240 million years. Our whole 16-light-year neighbourhood from the previous level would be smaller than a single pixel here.</p><p><strong>How the motion works.</strong> Press play to run the clock, about 10 million years each second. Stars near the Sun and farther out move at nearly the same speed, about ${VC_SUN} km/s (a flat rotation curve), so inner stars go round in far less time: the disc shears rather than turning like a wheel. The bright moving stars follow their own orbits. The spiral arms are a density wave, a pattern that turns more slowly as one shape (about ${OMEGA_ARMS} km/s per kiloparsec), so stars drift into an arm, crowd together and move on; if the arms were made of the same stars, they would wind up tightly within a few turns. The central bar turns faster (about ${OMEGA_BAR}). Near the Sun, stars and arms move almost in step: the Sun sits close to what astronomers call corotation. In this model one lap of the Sun takes ${Math.round(SUN_PERIOD)} million years. The Sun also bobs up and down through the disc every 60–70 million years, reaching only about 150–300 light-years above and below its middle, too little to see at this scale. Simplifications: orbits are circles, the arm shapes are held fixed, and real stars also wander inwards and outwards over billions of years, so the clock runs only about one lap either way. Nebulae and young clusters last a few million years, so away from today only the Sun and the black hole are marked.</p><p class="fine">Sources: <a href="https://arxiv.org/abs/1810.09466" target="_blank" rel="noopener">Eilers et al. 2019 (rotation curve)</a> · <a href="https://arxiv.org/abs/1905.08133" target="_blank" rel="noopener">Dias et al. 2019 (arm pattern speed)</a> · <a href="https://arxiv.org/abs/2012.10130" target="_blank" rel="noopener">Shen &amp; Zheng 2020 (bar)</a> · <a href="https://ui.adsabs.harvard.edu/abs/1985Natur.316..706B/abstract" target="_blank" rel="noopener">Bahcall &amp; Bahcall 1985 (vertical motion)</a></p><a href="https://en.wikipedia.org/wiki/Milky_Way" target="_blank" rel="noopener">Milky Way overview</a> · <a href="https://science.nasa.gov/resource/the-milky-way-galaxy/" target="_blank" rel="noopener">NASA · The Milky Way</a>${sourceNote}`;
   return;
  }
  $('kicker').textContent=m.kind;$('title').textContent=m.name;$('fact').textContent=m.fact;
@@ -516,7 +529,7 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system')starsVi
  if(!open&&space){const g=level==='galaxy';$('back').textContent=g?'← Nearby stars':'← Solar System';$('back').setAttribute('aria-label',g?'Zoom back in to the nearby stars':'Zoom back in to the Solar System');}
  else if(!open){const all=hooks.homeScope!=='inner';$('back').textContent=all?'Show inner planets':'Show all planets';$('back').setAttribute('aria-label',all?'Zoom in on the inner planets, Mercury to Mars':'Zoom out to show all eight planets');}
  else{const atOverview=!state.canBack;$('back').textContent=atOverview?'Overview':'← Back';$('back').setAttribute('aria-label',atOverview?'Close the card and show the Solar System':'Go back');}
- $('hint').hidden=(hintSeen&&!space)||open;$('hint').textContent=level==='galaxy'?'Tap a landmark':space?'Tap a star':'Tap a planet, the Sun or the Moon';
+ $('hint').hidden=(hintSeen&&!space)||open||level==='galaxy';gtime.hidden=level!=='galaxy'||open;if(!gtime.hidden)paintTime();$('hint').textContent=level==='galaxy'?'Tap a landmark':space?'Tap a star':'Tap a planet, the Sun or the Moon';
  $('world-depth').open=false;
  sheet.querySelector('.tabs').hidden=experiment||s.view==='journey'||space; // labs: controls first, Back returns to the tabs
  $('experiment-chooser').hidden=experiment;$('experiment').hidden=!scene;$('scale-lab').hidden=!(experiment&&s.experiment==='scale');$('experiment-reset').hidden=!experiment;

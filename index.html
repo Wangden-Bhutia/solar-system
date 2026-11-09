@@ -17,6 +17,11 @@
 </nav>
 <nav id="ladder" aria-label="Scale: pinch or scroll out past the edge to travel outward, or choose a level"><button data-level="solar" aria-pressed="true">Solar System</button><button data-level="stars" aria-pressed="false">Stars</button><button data-level="galaxy" aria-pressed="false">Milky Way</button></nav>
 <p id="hint" role="status">Tap a planet, the Sun or the Moon</p>
+<section id="gtime" aria-label="Time in the Milky Way" hidden>
+ <div class="grow"><button id="gplay" class="icon-btn" aria-label="Play time: watch the Galaxy turn" data-state="paused"><svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9M11 3.5v9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L13 8z" fill="currentColor"/></svg></button>
+ <input id="gslider" type="range" min="-250" max="250" step="1" value="0" aria-label="Time, in millions of years from today"><button id="gnow" class="gnow" hidden>Today</button></div>
+ <p class="gread"><strong id="gclock" aria-live="polite">Today</strong> <span id="gnote"></span></p>
+</section>
 <section id="sheet" data-state="closed" aria-label="World card" aria-hidden="true" inert>
  <div id="grip-zone">
   <button id="grip" aria-controls="sheet-body" aria-expanded="false" aria-label="Show more"><span></span></button>
