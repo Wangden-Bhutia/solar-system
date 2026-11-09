@@ -25,7 +25,7 @@ const player=createVoicePlayer({lines:LINES,durations:VOICE.dur,onState:s=>{
  lastAudioState=s;$('audio-status').textContent=s==='loading'?'Loading voice…':s==='speaking'?'Reading this card':s==='retry'?'Tap ♫ to try again.':'';
 }});
 function stopAudio(){player.stop();}
-$('listen').onclick=()=>{if(!narration||!LINES[narration])return;if(!$('sound').checked){$('audio-status').textContent='Turn on optional voice in the ☰ menu.';return;}player.unlock();player.say(narration);};
+$('listen').onclick=()=>{if(!narration||!LINES[narration])return;if(!$('sound').checked){$('audio-status').textContent='Turn on Voice in the menu (top right).';return;}player.unlock();player.say(narration);};
 $('sound').onchange=()=>{preferences.muted=!$('sound').checked;try{localStorage.setItem('solar.kids.v1',JSON.stringify(preferences));}catch{}if(preferences.muted)stopAudio();};
 document.addEventListener('visibilitychange',()=>{if(document.hidden){interrupted=['speaking','loading'].includes(lastAudioState);stopAudio();}else if(interrupted){lastAudioState='retry';$('audio-status').textContent='Tap ♫ to continue.';interrupted=false;}});
 function go(patch){stopAudio();const next={...state.value,...patch};if(!('sheet' in patch))patch={...patch,sheet:openHeight(next)};state.navigate(patch);$('settings').open=false;render();}
@@ -50,7 +50,7 @@ $('world').onchange=()=>{dismissHint();go({view:'explore',world:$('world').value
 hooks.onFocus=b=>{dismissHint();go({view:'explore',world:b.data.name,feature:'overview',experiment:null});};
 hooks.onEmpty=()=>setSheet(state.value.sheet==='closed'?null:emptyTap(state.value));
 hooks.visible=(w,h)=>{if(state.value.sheet==='closed')return {width:w,height:h};const r=sheet.getBoundingClientRect();return visibleRegion(w,h,r);};
-$('reset').addEventListener('click',()=>{stopAudio();state.navigate({view:'explore',experiment:null,feature:'orbit',sheet:'closed'});$('settings').open=false;render();});
+
 $('close').onclick=()=>setSheet({view:'explore',experiment:null,sheet:'closed'});
 // Grip: buttons, keys and swipes all drive the same state machine.
 $('grip').onclick=()=>setSheet(state.value.sheet==='full'?swipe(state.value,'down'):swipe(state.value,'up'));
