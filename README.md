@@ -57,3 +57,6 @@ Node 24 tests use linkedom (DOM emulation) and Node VM modules. They test scienc
 - **New labs** under Try it: *Why aren't there eclipses every month?* (Moon position + tilted-orbit crossing point), *What makes the tides?* (spring and neap), *How big is space?* (football-sized Sun walk, light race).
 - World cards show how long sunlight takes to reach each planet.
 - Maths, constants and limits: [docs/lab-science.md](docs/lab-science.md#learning-layer-learnjs-november-2026).
+
+## Moons
+Nineteen major moons orbit Mars and the giant planets, at true size, in each planet's equatorial plane (Uranus's on their side, Triton backwards). Tap a planet with moons and choose **Meet its moons** to frame its system and list them; each moon has its own card with sizes, orbit, a one-line fact and NASA/JPL sources. Data and model notes: [docs/sources.md](docs/sources.md#major-moons-datajs-moons-november-2026).
