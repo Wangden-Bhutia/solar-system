@@ -1,5 +1,5 @@
 export function createLabState() {
-  let value = { view:'explore', world:'Earth', experiment:null, orbit:0, tilt:23.44, latitude:40, phase:90, feature:'overview', compareA:'Earth', compareB:'Moon', mass:30 };
+  let value = { view:'explore', world:'Earth', experiment:null, orbit:0, tilt:23.44, latitude:40, phase:90, feature:'overview', compareA:'Earth', compareB:'Moon', mass:30, sheet:'closed' };
   const history=[];
   const defaults = { orbit:0, tilt:23.44, latitude:40, phase:90 };
   return {

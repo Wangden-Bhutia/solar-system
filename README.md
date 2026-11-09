@@ -1,11 +1,21 @@
 # Solar System · Look closer
 
-An interactive, static Three.js Solar System with three primary actions:
-- **Explore:** choose any of the eight planets, the Sun or Moon. Fly closer, turn the globe, choose a feature, or open sourced facts. Earth leads to a seasons lab; Moon leads to phases. Other worlds have a working Solar System/orbit view.
-- **Try it:** two substantive experiments, not a list of placeholders. Move Earth around a circular orbit, change observing latitude, then remove its 23.44° tilt. Or move the Moon and see the illuminated fraction from Earth's direction. Back restores context; Reset returns reproducible starting values.
-- **Compare:** Earth, Moon and Mars at the same diameter scale, with surface gravity, a mass-to-weight experiment, conditions and explicitly labelled distance reference points. Other worlds remain fully explorable; their comparisons are not implemented.
+An interactive, static Three.js Solar System. The space scene fills the screen; everything else lives in one bottom sheet.
 
-The entry is approachable without forcing narration. Expand **Go deeper** for original explanations, data definitions, limitations and NASA source links. Pause, speed, labels, trails, scale and optional sound live in **Controls** rather than another toolbar. The redesign is separate from the guided-adventure PR #4; it does not merge or supersede that PR automatically.
+## Immersive layout
+- **Tap a world.** Tapping a planet, the Sun or the Moon glides the camera to it and slides up a sheet. Touch taps use a 48 px pick radius (28 px for a mouse), so planets that are only a few pixels wide in the overview are still easy to hit.
+- **Sheet states:** *closed → peek → half → full.* Peek shows the name, one striking sourced fact and the contextual action (Earth: "Why do seasons happen?"; Moon: "Explore the phases"). Swipe up (or tap/Arrow Up on the grip) for details, comparisons and sources; swipe down, Escape, ✕ or a tap on empty space closes it.
+- **Explore / Try it / Compare** are tabs inside the sheet. Experiments open at half height so the scene stays visible, keep their own Reset, and are not dismissed by a stray tap on empty space. Swiping down from an experiment returns to the world's peek card.
+- **Overview / Back** sits top-left; a small ☰ menu holds go-to-world, pause, speed, labels, trails, sound, real scale and the Solar System overview.
+- The camera uses a view offset so the selected world is centred in the part of the screen the sheet does not cover, in portrait (sheet at the bottom) and landscape phones (sheet docked right). Safe-area insets are respected.
+- First visit shows a one-line hint ("Tap a planet, the Sun or the Moon"), remembered in `localStorage`.
+- Accessibility: every swipe has a button/keyboard equivalent; the sheet uses `aria-expanded`, `aria-hidden`/`inert` when closed, and reduced-motion is respected.
+
+The science content is unchanged from the previous design:
+- **Try it:** move Earth around a circular orbit, change observing latitude, then remove its 23.44° tilt; or move the Moon and see the illuminated fraction from Earth's direction.
+- **Compare:** Earth, Moon and Mars at the same diameter scale, with surface gravity, a mass-to-weight experiment, conditions and labelled distance reference points.
+
+Expand **Go deeper** for explanations, data definitions, limitations and NASA source links. This branch is separate from PR #4 (guided adventure).
 
 ## Models, data and licensing
 See [science notes](docs/lab-science.md) and [baseline sources](docs/sources.md). These are illustrative teaching models, not live imagery, weather, sky positions or an eclipse simulator. No AI-generated facts or remote AI calls. No analytics or backend.
@@ -33,6 +43,6 @@ npm ci --ignore-scripts
 npm test
 python3 tools/check-voice.py
 ```
-Node 24 tests use linkedom (DOM emulation) and Node VM modules. They test science functions, real Three.js geometry with a fake renderer, state/Back/Reset, DOM event wiring, mocked audio cancellation/fallback and packaging. Narrow-width contracts are not browser layout assertions. `check-voice.py` uses ffprobe to validate encoded clips and report durations/bytes.
+Node 24 tests use linkedom (DOM emulation) and Node VM modules. They test science functions, real Three.js geometry with a fake renderer (including the touch pick radius and the sheet-aware view offset), sheet state transitions and swipe classification, tap-to-select, close on empty tap, Back/Reset, DOM event wiring, mocked audio cancellation/fallback and packaging. CSS sheet heights, safe areas, landscape docking and real touch gestures are not exercised by these tests; they are not browser layout assertions. `check-voice.py` uses ffprobe to validate encoded clips and report durations/bytes.
 
 **Before merge:** actual phone visual screenshots and browser console/network inspection, plus actual Android Chrome Listen/mute/background/fallback QA are required. No browser was driven through Shell during implementation. The PR remains draft pending parent visual review. Pages deploys only from main, and no merge or deployment is authorized here.

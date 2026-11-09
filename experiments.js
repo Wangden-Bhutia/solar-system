@@ -38,10 +38,16 @@ export function createExperiments(renderer) {
    moon.rotation.y=next.phase*Math.PI/180;
   }
  }
- function render(width,height) {
-  camera.aspect=width/height;camera.updateProjectionMatrix();renderer.setSize(width,height,false);
-  // Preserve the whole disk even in unusually narrow views.
-  camera.zoom=Math.min(1,camera.aspect/.8);camera.updateProjectionMatrix();renderer.render(scene,camera);
+ // Renders into the region above (or beside) the sheet so the globe stays fully visible.
+ function render(width,height,visible) {
+  renderer.setSize(width,height,false);
+  const vw=Math.min(width,visible?.width??width), vh=Math.min(height,visible?.height??height);
+  const fullW=2*width-vw, fullH=2*height-vh;
+  camera.aspect=fullW/fullH;
+  // Preserve the whole disk even in unusually narrow visible regions.
+  camera.zoom=(vh/fullH)*Math.min(1,(vw/vh)/.8);
+  if(vw===width&&vh===height)camera.clearViewOffset();else camera.setViewOffset(fullW,fullH,width-vw,height-vh,width,height);
+  camera.updateProjectionMatrix();renderer.render(scene,camera);
  }
  return {update,render,scene,camera,light,tilt,moon,latitude};
 }

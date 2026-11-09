@@ -29,3 +29,17 @@ export function genericInsight(body) {
   deeper:name==='Sun'?'The Sun is a star, not a planet. Its visible surface rotates at different rates at different latitudes. The time in the fact card is a representative rotation, not a solid-body day.':`One spin on ${name} takes about ${Math.abs(rot).toLocaleString('en-IN')} Earth hours. Its trip around the Sun takes about ${period.toLocaleString('en-IN')} Earth days. Spin and orbit are different motions; a sunrise-to-sunrise solar day can differ from a rotation measured against distant stars.`,
   source:null};
 }
+
+// One striking, previously sourced fact per world for the collapsed card (see docs/sources.md and docs/lab-science.md).
+export const STRIKING = {
+ Sun:'About 1.3 million Earths could fit inside the Sun.',
+ Mercury:'A year on Mercury lasts just 88 Earth days.',
+ Venus:'A day on Venus is longer than its year.',
+ Earth:'Earth’s axis is tilted about 23.4°. That tilt gives us seasons.',
+ Moon:'The same side of the Moon always faces Earth.',
+ Mars:'Mars looks red because iron in its rocks and dust has rusted.',
+ Jupiter:'About 1,300 Earths could fit inside Jupiter.',
+ Saturn:'Saturn’s rings are made of countless chunks of ice and rock.',
+ Uranus:'Uranus spins tipped over on its side, at about 98°.',
+ Neptune:'One trip around the Sun takes Neptune about 165 Earth years.',
+};

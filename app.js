@@ -161,18 +161,17 @@ function unfocus(goHome, dur) {
   focused = null; info.hidden = true; fly.dur = dur || 1.2;
   if (goHome) { fly.fromPos.copy(camera.position); fly.fromTgt.copy(controls.target); fly.t = 0; fly.home = true; }
 }
-document.getElementById('close').onclick = () => unfocus(false);
+document.getElementById('info-close').onclick = () => unfocus(false);
 
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(); let down = null;
 canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
-canvas.addEventListener('pointerup', e => {
-  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;
-  if (hooks.renderOverride) return;
+// Touch needs a generous pick radius: tiny planets are a few pixels wide.
+export const PICK_RADIUS = { touch: 48, mouse: 28 };
+function pickAt(clientX, clientY, pointerType = 'touch') {
   const bounds = canvas.getBoundingClientRect();
-  ndc.set((e.clientX-bounds.left) / bounds.width * 2 - 1, -(e.clientY-bounds.top) / bounds.height * 2 + 1);
+  ndc.set((clientX - bounds.left) / bounds.width * 2 - 1, -(clientY - bounds.top) / bounds.height * 2 + 1);
   ray.setFromCamera(ndc, camera);
-  // Generous hit test: nearest body whose screen-space distance is small
-  let best = null, bestD = hooks.kid ? 60 : 28;
+  let best = null, bestD = pointerType === 'mouse' ? PICK_RADIUS.mouse : PICK_RADIUS.touch;
   for (const b of bodies) {
     if (!b.pivot && !b.satellite) continue; // the Sun is big: only a direct hit (raycast) selects it
     const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera);
@@ -182,7 +181,13 @@ canvas.addEventListener('pointerup', e => {
   const hit = ray.intersectObjects(bodies.map(b => b.mesh), false)[0];
   const hb = hit && bodies.find(b => b.mesh === hit.object);
   if (hb && (hb.pivot || hb.satellite || !best)) best = hb; // planets near the Sun win over the Sun disc
-  if (best) focus(best);
+  return best;
+}
+canvas.addEventListener('pointerup', e => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;
+  if (hooks.renderOverride) return;
+  const best = pickAt(e.clientX, e.clientY, e.pointerType);
+  if (best) focus(best); else hooks.onEmpty?.();
 });
 
 // Controls
@@ -214,11 +219,23 @@ addEventListener('resize', resize); resize(); camera.position.copy(HOME.pos);
 const ease = t => t < .5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 const tmp = new THREE.Vector3(), prevFocus = new THREE.Vector3();
 let last = performance.now();
+// Keep the subject centred in the part of the screen not covered by the sheet,
+// at the size it would have on a screen of that visible height. Picking and
+// labels use the same projection, so taps stay accurate.
+function applyVisibleRegion(cam, width, height, visible) {
+  const vw = Math.min(width, Math.max(1, visible?.width ?? width)), vh = Math.min(height, Math.max(1, visible?.height ?? height));
+  const fullW = 2 * width - vw, fullH = 2 * height - vh;
+  cam.aspect = fullW / fullH; cam.zoom = vh / fullH;
+  if (vw === width && vh === height) cam.clearViewOffset(); else cam.setViewOffset(fullW, fullH, width - vw, height - vh, width, height);
+  cam.updateProjectionMatrix();
+  return { width: vw, height: vh, aspect: vw / vh };
+}
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
   if (hooks.renderOverride) { hooks.renderOverride(); requestAnimationFrame(frame); return; }
   const bounds = canvas.getBoundingClientRect();
-  renderer.setSize(bounds.width,bounds.height,false);camera.aspect=bounds.width/bounds.height;camera.updateProjectionMatrix();
+  renderer.setSize(bounds.width,bounds.height,false);
+  const view = applyVisibleRegion(camera, bounds.width, bounds.height, hooks.visible?.(bounds.width, bounds.height));
   const kidSlow = hooks.kid ? 0.25 : 1;
   if (playing && !hooks.hold) simDays += dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidSlow;
   placeBodies();
@@ -238,7 +255,7 @@ function frame(now) {
       tgt = focused.mesh.getWorldPosition(tmp).clone();
       const dir = hooks.outside ? (() => { const sw = tgt.clone().setY(0).normalize().negate(); return sw.multiplyScalar(0.8).add(new THREE.Vector3(-sw.z / 0.8, 0, sw.x / 0.8).multiplyScalar(0.6)).normalize(); })() : fly.fromPos.clone().sub(tgt).normalize();
       dir.y = Math.max(dir.y, 0.35); dir.normalize();
-      pos = tgt.clone().add(dir.multiplyScalar(focused.radius * (hooks.focusMul || Math.max(focused.data.rings?5:4, (focused.data.rings ? 5.8 : 2.8) / camera.aspect))));
+      pos = tgt.clone().add(dir.multiplyScalar(focused.radius * (hooks.focusMul || Math.max(focused.data.rings?5:4, (focused.data.rings ? 5.8 : 2.8) / view.aspect))));
     } else { tgt = HOME.target; pos = HOME.pos; }
     controls.target.lerpVectors(fly.fromTgt, tgt, k);
     camera.position.lerpVectors(fly.fromPos, pos, k);
@@ -265,7 +282,7 @@ function frame(now) {
   hereEl.hidden = !showHere;
   if (showHere) hereEl.style.transform = `translate(${bounds.left + (hp.x + 1) / 2 * bounds.width}px,${bounds.top + (1 - hp.y) / 2 * bounds.height}px)`;
   // Show markers only for bodies that are too small to see/tap
-  const pxPerUnit = bounds.height / 2 / Math.tan(camera.fov * Math.PI / 360);
+  const pxPerUnit = view.height / 2 / Math.tan(camera.fov * Math.PI / 360);
   for (const b of bodies) { const dd = camera.position.distanceTo(b.mesh.getWorldPosition(tmp)); b.marker.visible = b.radius * (b === bodies[0] && realScale ? SUN_SHRINK : 1) / dd * pxPerUnit < 5; }
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
@@ -298,6 +315,6 @@ export function setRealScale(on) {
 }
 document.getElementById('realBtn').onclick = e => { const on = !realScale; e.currentTarget.classList.toggle('on', on); e.currentTarget.setAttribute('aria-pressed', on); document.getElementById('scaleNote').textContent = on ? 'true sizes & distances' : 'sizes to scale (Sun 1/5) · distances shrunk'; setRealScale(on); };
 window.__face = (name, lonDeg) => { const b = bodies.find(x => x.data.name === name); const d = camera.position.clone().sub(b.mesh.getWorldPosition(new THREE.Vector3())); const tilt = b.mesh.parent; const local = tilt.worldToLocal(camera.position.clone()).sub(tilt.worldToLocal(b.mesh.getWorldPosition(new THREE.Vector3()))); b.mesh.rotation.y = Math.atan2(-local.z, local.x) - lonDeg * Math.PI / 180; void d; };
-export { bodies, focus, unfocus, camera, controls, renderer };
-window.__solar = { screenOf: n => { const bounds=canvas.getBoundingClientRect(); const b = bodies.find(x => x.data.name === n); const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera); return [bounds.left + (p.x + 1) / 2 * bounds.width, bounds.top + (1 - p.y) / 2 * bounds.height]; }, focusByName: n => focus(bodies.find(b => b.data.name === n)), setKid };
+export { bodies, focus, unfocus, camera, controls, renderer, pickAt, applyVisibleRegion };
+window.__solar = { pickAt, screenOf: n => { const bounds=canvas.getBoundingClientRect(); const b = bodies.find(x => x.data.name === n); const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera); return [bounds.left + (p.x + 1) / 2 * bounds.width, bounds.top + (1 - p.y) / 2 * bounds.height]; }, focusByName: n => focus(bodies.find(b => b.data.name === n)), setKid };
 window.__cam = () => [camera.position.toArray().map(v => +v.toFixed(3)), controls.target.toArray().map(v => +v.toFixed(3))];

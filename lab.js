@@ -1,33 +1,57 @@
 import { bodies, focus, unfocus, hooks, renderer, controls } from './app.js';
 import { createExperiments } from './experiments.js';
 import { createLabState } from './lab-state.js';
+import { swipe, emptyTap, openHeight, classifyDrag, visibleRegion } from './sheet.js';
 import { seasonGeometry, daylightHours, noonAltitude, phaseGeometry, phaseName, weightNewtons, NEARBY, wrap } from './science.js';
-import { INSIGHTS, genericInsight, NASA, CHECKED } from './insights.js';
+import { INSIGHTS, STRIKING, genericInsight, NASA, CHECKED } from './insights.js';
 import { LINES, VOICE } from './voice/lines.js';
 import { createVoicePlayer } from './voice-player.js';
 const $=id=>document.getElementById(id), state=createLabState(), experiments=createExperiments(renderer);
+const sheet=$('sheet');
 const sourceLink=(key,label='NASA source')=>`<a href="${NASA[key]}" target="_blank" rel="noopener">${label}</a>`;
 const sourceNote=`<p class="fine">Sources checked ${CHECKED}. This is an illustrative teaching model, not a live sky, weather forecast or spacecraft view.</p>`;
 let narration='lab_earth', lastAudioState='idle', interrupted=false;
 let preferences;try{preferences=JSON.parse(localStorage.getItem('solar.kids.v1'))||{};}catch{preferences={};}
+let hintSeen=false;try{hintSeen=localStorage.getItem('solar.hint.v1')==='seen';}catch{}
 $('sound').checked=!preferences.muted;
 const player=createVoicePlayer({lines:LINES,durations:VOICE.dur,onState:s=>{
  if(s==='idle' && lastAudioState==='retry')return;
- lastAudioState=s;$('audio-status').textContent=s==='loading'?'Loading voice…':s==='speaking'?'Reading this insight':s==='retry'?'Tap Listen to try again.':'';
+ lastAudioState=s;$('audio-status').textContent=s==='loading'?'Loading voice…':s==='speaking'?'Reading this card':s==='retry'?'Tap ♫ to try again.':'';
 }});
 function stopAudio(){player.stop();}
-$('listen').onclick=()=>{if(!$('sound').checked){$('audio-status').textContent='Enable optional voice in Controls.';return;}player.unlock();player.say(narration);};
+$('listen').onclick=()=>{if(!$('sound').checked){$('audio-status').textContent='Turn on optional voice in the ☰ menu.';return;}player.unlock();player.say(narration);};
 $('sound').onchange=()=>{preferences.muted=!$('sound').checked;try{localStorage.setItem('solar.kids.v1',JSON.stringify(preferences));}catch{}if(preferences.muted)stopAudio();};
-document.addEventListener('visibilitychange',()=>{if(document.hidden){interrupted=['speaking','loading'].includes(lastAudioState);stopAudio();}else if(interrupted){lastAudioState='retry';$('audio-status').textContent='Tap Listen to continue.';interrupted=false;}});
-function go(patch){stopAudio();state.navigate(patch);$('settings').open=false;render();}
-$('back').onclick=()=>{stopAudio();state.back();render();};
-for(const button of document.querySelectorAll('[data-view]'))button.onclick=()=>go({view:button.dataset.view,experiment:null});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){interrupted=['speaking','loading'].includes(lastAudioState);stopAudio();}else if(interrupted){lastAudioState='retry';$('audio-status').textContent='Tap ♫ to continue.';interrupted=false;}});
+function go(patch){stopAudio();const next={...state.value,...patch};if(!('sheet' in patch))patch={...patch,sheet:openHeight(next)};state.navigate(patch);$('settings').open=false;render();}
+function setSheet(patch){if(!patch)return;if(patch.view&&patch.view!==state.value.view)stopAudio();state.update(patch);render();}
+function dismissHint(){if(hintSeen)return;hintSeen=true;try{localStorage.setItem('solar.hint.v1','seen');}catch{}}
+// Back: previous card/lab; with no history it returns to the whole Solar System.
+$('back').onclick=()=>{stopAudio();if(state.value.sheet!=='closed'&&state.canBack)state.back();else state.update({view:'explore',experiment:null,feature:'orbit',sheet:'closed'});render();};
+for(const button of document.querySelectorAll('[data-view]'))button.onclick=()=>{const view=button.dataset.view,s=state.value;
+ const patch={view,experiment:null};
+ if(view==='compare'&&NEARBY[s.world]){patch.compareA=s.world;if(s.compareB===s.world)patch.compareB=s.world==='Earth'?'Moon':'Earth';}
+ go({...patch,sheet:'half'});};
 for(const button of document.querySelectorAll('[data-experiment]'))button.onclick=()=>go({view:'try',experiment:button.dataset.experiment});
 $('world').innerHTML=bodies.map(b=>`<option>${b.data.name}</option>`).join('');
-$('world').onchange=()=>go({view:'explore',world:$('world').value,feature:'overview',experiment:null});
-hooks.onFocus=b=>{if(state.value.view==='explore')go({world:b.data.name,feature:'overview'});};
-// Keep controls menu's original scene controls; Reset just changes the camera.
-$('reset').addEventListener('click',()=>{if(state.value.view!=='explore')go({view:'explore',experiment:null});unfocus(true);$('settings').open=false;$('view-caption').textContent='Solar System overview · select any world to look closer. Sizes to scale (Sun 1/5); orbit gaps shortened unless Real scale is on.';});
+$('world').onchange=()=>{dismissHint();go({view:'explore',world:$('world').value,feature:'overview',experiment:null});};
+// Tap a world in the scene → glide to it and slide up its card.
+hooks.onFocus=b=>{dismissHint();go({view:'explore',world:b.data.name,feature:'overview',experiment:null});};
+hooks.onEmpty=()=>setSheet(state.value.sheet==='closed'?null:emptyTap(state.value));
+hooks.visible=(w,h)=>{if(state.value.sheet==='closed')return {width:w,height:h};const r=sheet.getBoundingClientRect();return visibleRegion(w,h,r);};
+$('reset').addEventListener('click',()=>{stopAudio();state.navigate({view:'explore',experiment:null,feature:'orbit',sheet:'closed'});$('settings').open=false;render();});
+$('close').onclick=()=>setSheet({view:'explore',experiment:null,sheet:'closed'});
+// Grip: buttons, keys and swipes all drive the same state machine.
+$('grip').onclick=()=>setSheet(state.value.sheet==='full'?swipe(state.value,'down'):swipe(state.value,'up'));
+sheet.addEventListener('keydown',e=>{
+ if(e.key==='Escape'){e.preventDefault();setSheet(swipe(state.value,'down'));}
+ else if(e.target===$('grip')&&(e.key==='ArrowUp'||e.key==='ArrowDown')){e.preventDefault();setSheet(swipe(state.value,e.key==='ArrowUp'?'up':'down'));}
+});
+addEventListener('keydown',e=>{if(e.key==='Escape'&&$('settings').open){$('settings').open=false;$('settings').querySelector('summary').focus();}});
+let drag=null,suppressClick=false;
+$('grip-zone').addEventListener('pointerdown',e=>{if(e.target.closest('input,select,a'))return;drag={y:e.clientY,t:e.timeStamp,id:e.pointerId};});
+$('grip-zone').addEventListener('pointerup',e=>{if(!drag||drag.id!==e.pointerId)return;const dir=classifyDrag(e.clientY-drag.y,e.timeStamp-drag.t);drag=null;if(!dir)return;suppressClick=true;setTimeout(()=>suppressClick=false,0);setSheet(swipe(state.value,dir));});
+$('grip-zone').addEventListener('pointercancel',()=>{drag=null;});
+$('grip-zone').addEventListener('click',e=>{if(suppressClick){e.stopPropagation();e.preventDefault();suppressClick=false;}},true);
 function diagram(experiment,angle){
  const a=angle*Math.PI/180;
  const phase=experiment==='phases';
@@ -43,9 +67,9 @@ function diagram(experiment,angle){
 function paintExperiment(){
  const s=state.value, seasons=s.experiment==='seasons';
  experiments.update(s);
- $('experiment-kicker').textContent=seasons?'Earth lab · tilt & daylight':'Moon lab · reflected sunlight';
- $('experiment-title').textContent=seasons?'Why do seasons happen?':'Explore the phases';
- narration=seasons?'lab_seasons':'lab_phases';$('experiment-summary').textContent=LINES[narration];
+ $('kicker').textContent=seasons?'Earth lab · tilt & daylight':'Moon lab · reflected sunlight';
+ $('title').textContent=seasons?'Why do seasons happen?':'Explore the phases';
+ narration=seasons?'lab_seasons':'lab_phases';$('experiment-summary').textContent=LINES[narration];$('fact').textContent=seasons?seasonLabel(s.orbit):phaseName(s.phase);
  $('angle-label').textContent=seasons?'Move Earth around the Sun':'Move the Moon around Earth';
  $('experiment-angle').value=seasons?s.orbit:s.phase;
  $('experiment-angle').setAttribute('aria-valuetext',seasons?seasonLabel(s.orbit):phaseName(s.phase));
@@ -76,6 +100,7 @@ $('experiment-angle').oninput=()=>{stopAudio();const s=state.value;state.update(
 $('no-tilt').onchange=()=>{stopAudio();state.update({tilt:$('no-tilt').checked?0:23.44});paintExperiment();};
 $('latitude').oninput=()=>{stopAudio();state.update({latitude:+$('latitude').value});paintExperiment();};
 $('experiment-reset').onclick=()=>{stopAudio();state.reset();paintExperiment();};
+
 for(const id of ['compare-a','compare-b'])$(id).innerHTML=Object.keys(NEARBY).map(n=>`<option>${n}</option>`).join('');
 $('compare-a').onchange=()=>{state.update({compareA:$('compare-a').value});paintCompare();};
 $('compare-b').onchange=()=>{state.update({compareB:$('compare-b').value});paintCompare();};
@@ -83,28 +108,34 @@ $('mass').oninput=()=>{state.update({mass:+$('mass').value});paintCompare();};
 function paintCompare(){
  const {compareA:a,compareB:b,mass}=state.value,A=NEARBY[a],B=NEARBY[b];
  $('compare-a').value=a;$('compare-b').value=b;$('mass').value=mass;$('mass-value').textContent=`${mass} kg`;
- const max=Math.max(A.diameter,B.diameter), base=innerWidth<760?135:210;
+ const max=Math.max(A.diameter,B.diameter), base=innerWidth<760?110:150;
  const colours={Earth:'#407cb6',Moon:'#aaa69e',Mars:'#a75f44'};
+ $('kicker').textContent='Compare nearby worlds';$('title').textContent=`${a} and ${b}`;$('fact').textContent=`${a} is ${(A.diameter/B.diameter).toFixed(2)} times the width of ${b}.`;
  $('compare-visual').innerHTML=[[a,A],[b,B]].map(([n,d])=>`<figure><div class="disk" style="width:${base*d.diameter/max}px;height:${base*d.diameter/max}px;background:${colours[n]}"></div><figcaption>${n}<small>${Math.round(d.diameter).toLocaleString('en-IN')} km wide</small></figcaption></figure>`).join('');
  $('view-caption').textContent='Flat disks compare equatorial diameters at the same scale; distances are not pictured.';
  $('size-result').textContent=`${a} is ${(A.diameter/B.diameter).toFixed(2)} times the width of ${b}. The disks use the same size scale.`;
  $('weight-result').innerHTML=`<strong>${a}: ${weightNewtons(mass,A.gravity).toFixed(0)} N · ${b}: ${weightNewtons(mass,B.gravity).toFixed(0)} N</strong><p>Your mass stays ${mass} kg. Gravity pulls ${(A.gravity/B.gravity).toFixed(2)} times as strongly on ${a} as on ${b}. Your weight (the force of gravity) changes. N means newtons, the unit of force.</p>`;
  $('conditions').innerHTML=[[a,A],[b,B]].map(([n,d])=>`<h3>${n}</h3><p>${d.condition} ${d.atmosphere}</p><p><b>${d.distanceLabel}:</b> ${d.distance.toLocaleString('en-IN')} km.</p>`).join('');
  $('compare-depth').innerHTML=`<p>Equatorial diameter = width across the equator. The comparison Moon diameter (3,476.2 km) is equatorial; the scene’s 3,474.8 km Moon uses its mean diameter. Gravity values are approximate surface means: Earth 9.82, Moon 1.62, Mars 3.73 m/s² (metres per second squared). Weight = mass × surface gravity. Real readings vary with location.</p><p>Mean distance = average orbital scale, not today’s separation. Moon distance is measured from Earth’s centre; planet distances are from the Sun’s centre. These are different reference points, so do not compare them as distances from the same place. Mars–Earth distance changes continually.</p><p>Moon temperature examples depend strongly on sunlight and location, not a single “Moon temperature”. Conditions are descriptive, not live readings.</p>${sourceLink(A.source,a+' data')} · ${sourceLink(B.source,b+' data')} · ${sourceLink('moon','Lunar surface and temperatures')}${sourceNote}`;
- narration='lab_compare';$('compare-summary').textContent=LINES[narration];
+ narration='lab_compare';
 }
 function paintExplore(){
  const s=state.value,body=bodies.find(b=>b.data.name===s.world),info=INSIGHTS[s.world]||genericInsight(body.data);
- $('world').value=s.world;$('world-title').textContent=s.world;
+ $('world').value=s.world;$('kicker').textContent=s.world==='Sun'?'Our star':s.world==='Moon'?'Earth’s Moon':'Planet';$('title').textContent=s.world;
+ $('fact').textContent=STRIKING[s.world];
  narration=info.line||`f_${s.world}_0`;$('world-insight').textContent=LINES[narration]||info.intro;
  $('features').innerHTML=info.features.map(([id,text])=>`<button data-feature="${id}" aria-pressed="${s.feature===id}">${text}</button>`).join('');
  for(const b of $('features').querySelectorAll('button'))b.onclick=()=>{
   if(b.dataset.feature==='moon')return go({world:'Moon',feature:'overview'});
   if(b.dataset.feature==='phases')return go({view:'try',experiment:'phases'});
-  go({feature:b.dataset.feature});
+  go({feature:b.dataset.feature,sheet:state.value.sheet});
  };
- $('context-action').textContent=info.question;
- $('context-action').onclick=()=>info.experiment?go({view:'try',experiment:info.experiment}):go({feature:'orbit'});
+ $('action').hidden=false;$('action').textContent=info.question;
+ $('action').onclick=()=>info.experiment?go({view:'try',experiment:info.experiment}):go({feature:'orbit',sheet:state.value.sheet});
+ const ratio=body.data.km/12756;
+ $('world-size').textContent=s.world==='Earth'?'Earth is 12,756 km wide at the equator.':`${s.world} is ${ratio>=1?ratio.toFixed(ratio>=10?0:1)+' times as wide as':Math.round(ratio*100)+'% as wide as'} Earth (${body.data.km.toLocaleString('en-IN')} km).`;
+ const nearby=NEARBY[s.world];$('compare-shortcut').hidden=!nearby;
+ if(nearby){const other=s.world==='Earth'?'Moon':'Earth';$('compare-shortcut').textContent=`Compare ${s.world} with ${other} →`;$('compare-shortcut').onclick=()=>go({view:'compare',experiment:null,compareA:s.world,compareB:other});}
  $('world-deeper').textContent=info.deeper;
  // Avoid stale, changing outer-planet moon counts in the new UI; dated legacy figures remain in data.js.
  $('world-facts').innerHTML=body.data.facts.filter(([k])=>k!=='Moons').map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
@@ -112,23 +143,32 @@ function paintExplore(){
  $('world-sources').innerHTML=`<a href="${url}" target="_blank" rel="noopener">NASA · ${s.world}</a>${info.source?sourceNote:'<p class="fine">Baseline facts checked 8 November 2026 against NASA sources; see docs/sources.md. Changing moon counts are omitted.</p>'}`;
  $('world-scale').textContent='Model caveats: spherical worlds, circular mostly coplanar orbits, accelerated time, procedural surfaces. Earth coastlines use Natural Earth data. Moon craters and weather are not live or mapped observations. Sun size is 1/5 in the default view; orbit gaps and Moon gap are compressed. Real scale restores size/distance ratios, not an actual-date sky. Faint fill light reveals the night-side shape.';
  if(s.feature==='orbit')unfocus(true,1.5);
- else focus(body,{silent:true,outside:s.world==='Earth',dur:1.1,mul:s.world==='Earth'?Math.max(4,2.8/( $('stage').clientWidth/$('stage').clientHeight)):0});
- $('view-caption').textContent=s.feature==='orbit'?(s.world==='Sun'?'The Sun and eight planets · schematic view, not current positions':`${s.world} orbits the Sun · schematic Solar System view; not current positions`):s.world==='Earth'?'Drag to look around · gold line: Earth’s tilted spin axis · day/night comes from sunlight':s.world==='Moon'?'Earth’s Moon · select Explore the phases for the view from Earth':`${s.world} · drag to look around · illustrative surface and lighting`;
+ else focus(body,{silent:true,outside:s.world==='Earth',dur:1.1});
+ $('view-caption').textContent=s.feature==='orbit'?(s.world==='Sun'?'The Sun and eight planets · schematic view, not current positions':`${s.world} orbits the Sun · schematic Solar System view; not current positions`):s.world==='Earth'?'Drag to look around · gold line: Earth’s tilted spin axis · day/night comes from sunlight':s.world==='Moon'?'Earth’s Moon · Explore the phases shows the view from Earth':`${s.world} · drag to look around · illustrative surface and lighting`;
  if(s.feature==='day'){narration='lab_day';$('world-insight').textContent=LINES[narration];}
 }
 function render(){
  const s=state.value,experiment=s.view==='try'&&!!s.experiment;
+ sheet.dataset.state=s.sheet;document.body.dataset.sheet=s.sheet;
+ const open=s.sheet!=='closed';sheet.inert=!open;sheet.setAttribute('aria-hidden',String(!open));
+ if(!open&&sheet.contains(document.activeElement))$('back').focus();
+ $('grip').setAttribute('aria-expanded',String(s.sheet==='half'||s.sheet==='full'));
+ $('grip').setAttribute('aria-label',s.sheet==='full'?'Show less':'Show more');
  for(const v of ['explore','try','compare'])$(v+'-panel').hidden=s.view!==v;
- for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-pressed',b.dataset.view===s.view);
- $('back').disabled=!state.canBack;$('world-depth').open=false;
- $('experiment-chooser').hidden=experiment;$('experiment').hidden=!experiment;
- $('compare-visual').hidden=s.view!=='compare';$('orbit-map').hidden=!experiment;
- document.body.classList.toggle('experiment-mode',experiment);document.body.classList.toggle('comparison-mode',s.view==='compare');
- controls.enabled=!experiment&&s.view!=='compare';hooks.hold=s.view!=='explore';
- hooks.renderOverride=experiment?()=>{const r=$('stage').getBoundingClientRect();experiments.render(r.width,r.height);}:null;
- $('listen').hidden=false;
- if(experiment)paintExperiment();else if(s.view==='compare')paintCompare();else if(s.view==='explore')paintExplore();else{narration='lab_try';focus(bodies.find(b=>b.data.name==='Earth'),{silent:true,outside:true});$('view-caption').textContent='Two experiments. Change one thing and see why it matters.';}
+ for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-pressed',String(b.dataset.view===s.view));
+ const atOverview=!open||!state.canBack;$('back').textContent=atOverview?'Overview':'← Back';$('back').setAttribute('aria-label',atOverview?'Show the whole Solar System':'Go back');
+ $('hint').hidden=hintSeen||open;
+ $('world-depth').open=false;
+ $('experiment-chooser').hidden=experiment;$('experiment').hidden=!experiment;$('experiment-reset').hidden=!experiment;
+ $('orbit-map').hidden=!experiment;
+ document.body.classList.toggle('experiment-mode',experiment);
+ controls.enabled=!experiment;hooks.hold=experiment;
+ hooks.renderOverride=experiment?()=>{const r=$('stage').getBoundingClientRect();experiments.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:null;
+ if(experiment){$('action').hidden=true;paintExperiment();}
+ else if(s.view==='compare'){$('action').hidden=true;paintCompare();}
+ else if(s.view==='explore')paintExplore();
+ else{narration='lab_try';$('action').hidden=true;$('kicker').textContent='Small science lab';$('title').textContent='Try an idea';$('fact').textContent=LINES.lab_try;$('view-caption').textContent='Two experiments. Change one thing and see why it matters.';}
 }
 addEventListener('resize',()=>{if(state.value.view==='compare')paintCompare();});
 render();
-window.__lab={state,go,experiments,player};
+window.__lab={state,go,experiments,player,setSheet};

@@ -1,44 +1,61 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#080f1d"><title>Solar System · Look closer</title><link rel="stylesheet" href="style.css"></head>
-<body>
-<header class="app-header">
- <div class="heading"><button id="back" class="quiet" disabled aria-label="Go back">← Back</button><div><strong>Our Solar System</strong><small>Look closer. Try an idea.</small></div>
- <details id="settings"><summary aria-label="Open controls">☰ <span>Controls</span></summary><div class="menu">
-  <button id="play" aria-label="Pause">Pause motion</button><label class="speed"><span id="speedTxt"></span><input id="speed" type="range" min="-2" max="2" step="0.01" value="0" aria-label="Simulation speed"></label>
-  <button id="lbls" aria-pressed="false">Labels</button><button id="trails" class="on" aria-pressed="true">Orbit trails</button><button id="realBtn" aria-pressed="false">Real scale</button><button id="reset">Solar System view</button>
-  <label><input id="sound" type="checkbox"> Enable optional voice</label><p>Voice plays only when you tap Listen. Experiment sliders set time themselves; motion controls affect Explore only.</p>
- </div></details></div>
- <nav class="primary" aria-label="Ways to discover"><button data-view="explore" aria-pressed="true">Explore</button><button data-view="try" aria-pressed="false">Try it</button><button data-view="compare" aria-pressed="false">Compare</button></nav>
-</header>
-<main id="layout">
- <section id="stage" aria-label="Interactive space model"><canvas id="c" aria-label="Drag to orbit the selected world; choose a world from the menu for keyboard access"></canvas><div id="labels" class="off"></div><div id="here" hidden></div>
-  <div id="compare-visual" hidden></div><div id="orbit-map" hidden></div><p id="view-caption"></p>
- </section>
- <section id="panel" aria-label="Discover and experiment">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#000005"><title>Our Solar System</title><link rel="stylesheet" href="style.css"></head>
+<body data-sheet="closed">
+<main id="stage" aria-label="Interactive space scene">
+ <canvas id="c" aria-label="3D Solar System. Drag to look around. Tap a planet, the Sun or the Moon to open its card. Keyboard: use Go to a world in the menu."></canvas>
+ <div id="labels" class="off"></div><div id="here" hidden></div><div id="orbit-map" hidden></div>
+</main>
+<nav id="topbar" aria-label="Navigation">
+ <button id="back" class="chip" aria-label="Back to overview">Overview</button>
+ <details id="settings"><summary class="chip" aria-label="Menu">☰</summary><div class="menu" role="group" aria-label="Scene controls">
+  <label>Go to a world <select id="world"></select></label>
+  <button id="play" aria-label="Pause">Pause motion</button>
+  <label class="speed"><span id="speedTxt"></span><input id="speed" type="range" min="-2" max="2" step="0.01" value="0" aria-label="Simulation speed"></label>
+  <div class="row"><button id="lbls" aria-pressed="false">Labels</button><button id="trails" class="on" aria-pressed="true">Trails</button><button id="realBtn" aria-pressed="false">Real scale</button></div>
+  <label><input id="sound" type="checkbox"> Optional voice (plays only when you tap ♫)</label>
+  <button id="reset">Solar System overview</button>
+  <p class="fine" id="scale-note">Sizes to scale (Sun shown at 1/5); orbit and Moon gaps shortened. Real scale restores size and distance ratios, not today’s positions.</p>
+ </div></details>
+</nav>
+<p id="hint" role="status">Tap a planet, the Sun or the Moon</p>
+<section id="sheet" data-state="closed" aria-label="World card" aria-hidden="true" inert>
+ <div id="grip-zone">
+  <button id="grip" aria-controls="sheet-body" aria-expanded="false" aria-label="Show more"><span></span></button>
+  <header class="sheet-head">
+   <div class="head-text"><p class="eyebrow" id="kicker"></p><h1 id="title"></h1><p id="fact"></p></div>
+   <div class="head-tools"><button id="listen" class="icon" aria-label="Listen">♫</button><button id="close" class="icon" aria-label="Close card">✕</button></div>
+  </header>
+  <div class="head-actions"><button id="action" class="action"></button><button id="experiment-reset" class="quiet" hidden>↺ Reset experiment</button></div>
+  <p id="audio-status" class="fine" role="status"></p>
+ </div>
+ <div id="sheet-body">
+  <nav class="tabs" aria-label="Ways to discover"><button data-view="explore" aria-pressed="true">Explore</button><button data-view="try" aria-pressed="false">Try it</button><button data-view="compare" aria-pressed="false">Compare</button></nav>
+  <p id="view-caption" class="fine"></p>
   <div id="explore-panel">
-   <label class="world-picker">Choose a world <select id="world"></select></label>
    <div id="features" class="chips" aria-label="Features"></div>
-   <h1 id="world-title">Earth</h1><p id="world-insight"></p><button id="context-action" class="action"></button>
+   <p id="world-insight"></p>
+   <p id="world-size"></p>
+   <button id="compare-shortcut" class="quiet"></button>
    <details id="world-depth"><summary>Go deeper · facts & sources</summary><p id="world-deeper"></p><dl id="world-facts"></dl><div id="world-sources"></div><p class="fine" id="world-scale"></p></details>
   </div>
   <div id="try-panel" hidden>
-   <div id="experiment-chooser"><p class="eyebrow">Small science lab</p><h1>Try an idea.</h1><p>Change one thing. Watch what happens. Then ask why.</p><button class="experiment-card" data-experiment="seasons"><strong>Why do seasons happen?</strong><span>Move Earth. Try removing its tilt.</span></button><button class="experiment-card" data-experiment="phases"><strong>Explore the Moon’s phases</strong><span>Move the Moon. See it from Earth.</span></button></div>
+   <div id="experiment-chooser"><button class="experiment-card" data-experiment="seasons"><strong>Why do seasons happen?</strong><span>Move Earth. Try removing its tilt.</span></button><button class="experiment-card" data-experiment="phases"><strong>Explore the Moon’s phases</strong><span>Move the Moon. See it from Earth.</span></button></div>
    <div id="experiment" hidden>
-    <p class="eyebrow" id="experiment-kicker"></p><h1 id="experiment-title"></h1><p id="experiment-summary"></p>
+    <p id="experiment-summary"></p>
     <label class="slider-label" for="experiment-angle" id="angle-label"></label><input id="experiment-angle" type="range" min="0" max="360" step="1"><div id="presets" class="chips"></div>
     <div id="season-controls"><label><input id="no-tilt" type="checkbox"> What if Earth had no tilt?</label><label class="slider-label" for="latitude">Your place: <output id="latitude-value"></output></label><input id="latitude" type="range" min="-60" max="60" step="5" value="40"></div>
-    <div id="experiment-result" class="result" aria-live="polite"></div><button id="experiment-reset" class="quiet">↺ Reset experiment</button>
+    <div id="experiment-result" class="result" aria-live="polite"></div>
     <details><summary>Why this happens · model & sources</summary><div id="experiment-depth"></div></details>
    </div>
   </div>
   <div id="compare-panel" hidden>
-   <p class="eyebrow">Nearby worlds</p><h1>Same traveller. Different worlds.</h1><div class="pair"><label>First world<select id="compare-a"></select></label><label>Second world<select id="compare-b"></select></label></div>
-   <p id="compare-summary"></p><p id="size-result"></p><label class="slider-label" for="mass">Traveller’s mass: <output id="mass-value"></output></label><input id="mass" type="range" min="10" max="100" step="5" value="30"><div id="weight-result" class="result" aria-live="polite"></div><div id="conditions"></div>
+   <div class="pair"><label>First world<select id="compare-a"></select></label><label>Second world<select id="compare-b"></select></label></div>
+   <div id="compare-visual"></div><p id="size-result"></p>
+   <label class="slider-label" for="mass">Traveller’s mass: <output id="mass-value"></output></label><input id="mass" type="range" min="10" max="100" step="5" value="30"><div id="weight-result" class="result" aria-live="polite"></div><div id="conditions"></div>
    <details><summary>Numbers, units & sources</summary><div id="compare-depth"></div></details>
   </div>
-  <div class="voice-row"><button id="listen" class="quiet">♫ Listen</button><span id="audio-status" role="status"></span></div>
- </section>
-</main>
-<!-- Compatibility data targets for the original scene controls; not a second UI. -->
-<div hidden><span id="title"></span><span id="scaleNote"></span><div id="info"><h2 id="i-name"></h2><p id="i-blurb"></p><dl id="i-facts"></dl><button id="close"></button></div><button id="kidBtn"></button></div>
+ </div>
+</section>
+<!-- Data targets used by the original scene module; not visible UI. -->
+<div hidden><span id="scaleNote"></span><div id="info"><h2 id="i-name"></h2><p id="i-blurb"></p><dl id="i-facts"></dl><button id="info-close"></button></div><button id="kidBtn"></button></div>
 <script type="module" src="lab.js"></script></body></html>
