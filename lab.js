@@ -6,6 +6,10 @@ import { seasonGeometry, daylightHours, noonAltitude, phaseGeometry, phaseName, 
 import { INSIGHTS, STRIKING, genericInsight, NASA, CHECKED } from './insights.js';
 import { LINES, VOICE } from './voice/lines.js';
 import { createVoicePlayer } from './voice-player.js';
+import { PREDICTIONS, judge, JOURNEYS, journey, canAdvance, eclipseGeometry, tideLabel, tideRange, scaleWalk, sizeLike, formatMetres, formatDuration, lightSeconds, sunlightTo, AU_KM, FOOTBALL_CM, MOON_INCLINATION } from './learn.js';
+// Labs drawn in their own 3D scene; the scale lab keeps the live Solar System behind the sheet.
+const SCENE_LABS=new Set(['seasons','phases','eclipses','tides']);
+const LAB_TITLES={seasons:'Why do seasons happen?',phases:'Explore the phases',eclipses:'Why aren’t eclipses monthly?',tides:'What makes the tides?',scale:'How big is space?'};
 const $=id=>document.getElementById(id), state=createLabState(), experiments=createExperiments(renderer);
 const sheet=$('sheet');
 const sourceLink=(key,label='NASA source')=>`<a href="${NASA[key]}" target="_blank" rel="noopener">${label}</a>`;
@@ -21,7 +25,7 @@ const player=createVoicePlayer({lines:LINES,durations:VOICE.dur,onState:s=>{
  lastAudioState=s;$('audio-status').textContent=s==='loading'?'Loading voice…':s==='speaking'?'Reading this card':s==='retry'?'Tap ♫ to try again.':'';
 }});
 function stopAudio(){player.stop();}
-$('listen').onclick=()=>{if(!$('sound').checked){$('audio-status').textContent='Turn on optional voice in the ☰ menu.';return;}player.unlock();player.say(narration);};
+$('listen').onclick=()=>{if(!narration||!LINES[narration])return;if(!$('sound').checked){$('audio-status').textContent='Turn on optional voice in the ☰ menu.';return;}player.unlock();player.say(narration);};
 $('sound').onchange=()=>{preferences.muted=!$('sound').checked;try{localStorage.setItem('solar.kids.v1',JSON.stringify(preferences));}catch{}if(preferences.muted)stopAudio();};
 document.addEventListener('visibilitychange',()=>{if(document.hidden){interrupted=['speaking','loading'].includes(lastAudioState);stopAudio();}else if(interrupted){lastAudioState='retry';$('audio-status').textContent='Tap ♫ to continue.';interrupted=false;}});
 function go(patch){stopAudio();const next={...state.value,...patch};if(!('sheet' in patch))patch={...patch,sheet:openHeight(next)};state.navigate(patch);$('settings').open=false;render();}
@@ -38,6 +42,7 @@ for(const button of document.querySelectorAll('[data-view]'))button.onclick=()=>
  const patch={view,experiment:null};
  if(view==='compare'&&NEARBY[s.world]){patch.compareA=s.world;if(s.compareB===s.world)patch.compareB=s.world==='Earth'?'Moon':'Earth';}
  go({...patch,sheet:'half'});};
+$('journeys').onclick=()=>{dismissHint();go({view:'journey',journey:null,step:0,experiment:null,sheet:'half'});};
 for(const button of document.querySelectorAll('[data-experiment]'))button.onclick=()=>go({view:'try',experiment:button.dataset.experiment});
 $('world').innerHTML=bodies.map(b=>`<option>${b.data.name}</option>`).join('');
 $('world').onchange=()=>{dismissHint();go({view:'explore',world:$('world').value,feature:'overview',experiment:null});};
@@ -59,7 +64,45 @@ $('grip-zone').addEventListener('pointerdown',e=>{if(e.target.closest('input,sel
 $('grip-zone').addEventListener('pointerup',e=>{if(!drag||drag.id!==e.pointerId)return;const dir=classifyDrag(e.clientY-drag.y,e.timeStamp-drag.t);drag=null;if(!dir)return;suppressClick=true;setTimeout(()=>suppressClick=false,0);setSheet(swipe(state.value,dir));});
 $('grip-zone').addEventListener('pointercancel',()=>{drag=null;});
 $('grip-zone').addEventListener('click',e=>{if(suppressClick){e.stopPropagation();e.preventDefault();suppressClick=false;}},true);
+// Predict, then reveal: a lab or journey question is answered (or skipped) before the result shows.
+function predictHtml(id){
+ const p=PREDICTIONS[id],a=state.value.answers[id];
+ if(a===undefined)return `<p class="predict-q"><span class="tag">Guess first</span> ${p.q}</p><div class="choices">${p.options.map((o,i)=>`<button data-choice="${i}">${o}</button>`).join('')}</div><button class="quiet skip" data-choice="skip">Skip the guess</button>`;
+ const j=a==='skip'?null:judge(id,a);
+ const verdict=a==='skip'?`<strong>Answer:</strong> ${p.options[p.answer]}`:j.right?`<strong>✓ You got it.</strong> ${p.options[p.answer]}`:`<strong>Not quite.</strong> You guessed “${p.options[a]}”. The answer: ${p.options[p.answer]}`;
+ return `<p class="predict-q">${p.q}</p><div class="verdict ${a==='skip'?'skipped':j.right?'right':'wrong'}"><p>${verdict}</p><p>${p.explain}</p></div><button class="quiet skip" data-choice="again">Ask me again</button>`;
+}
+const answered=id=>state.value.answers[id]!==undefined;
+function bindPredict(el,id,after){
+ el.hidden=!id;if(!id){el.innerHTML='';return;}
+ el.innerHTML=predictHtml(id);
+ for(const b of el.querySelectorAll('[data-choice]'))b.onclick=()=>{stopAudio();const c=b.dataset.choice,answers={...state.value.answers};
+  if(c==='again')delete answers[id];else answers[id]=c==='skip'?'skip':+c;
+  state.update({answers});after();};
+}
 function diagram(experiment,angle){
+ if(experiment==='eclipses'){
+  const s=state.value,g=eclipseGeometry(s.phase,s.node),y=70-Math.max(-40,Math.min(40,g.latitude*12));
+  const moonX=Math.cos(s.phase*Math.PI/180)>0?96:136; // new-Moon side: between Earth and the Sun
+  return `<svg viewBox="0 0 160 140" role="img" aria-label="Side view along the Sun–Earth line; the Moon sits ${Math.abs(g.latitude).toFixed(1)} degrees ${g.latitude>=0?'above':'below'} it">
+  <line x1="6" y1="70" x2="156" y2="70" stroke="#52677e" stroke-dasharray="3 3"/>
+  <circle cx="14" cy="70" r="10" fill="#ffd591"/><text x="14" y="96" fill="#ffd591" font-size="9" text-anchor="middle">Sun</text>
+  <circle cx="116" cy="70" r="7" fill="#5e9dd5"/><text x="116" y="92" fill="#bccce0" font-size="9" text-anchor="middle">Earth</text>
+  <path d="M123 66L156 69V71L123 74Z" fill="#000" stroke="#334" opacity=".8"/>
+  <circle cx="${moonX}" cy="${y.toFixed(1)}" r="3.5" fill="${/^(solar|lunar)/.test(g.kind)?'#ffb37a':'#c8c6c1'}"/>
+  <text x="80" y="20" fill="#bccce0" font-size="9" text-anchor="middle">${Math.abs(g.latitude).toFixed(1)}° ${g.latitude>=0?'above':'below'} the line</text>
+  <text x="80" y="135" fill="#aabbd3" font-size="8" text-anchor="middle">Side view • tilt exaggerated ×12</text></svg><p>${g.kind==='none'?'No eclipse here':'Eclipse!'}</p>`;
+ }
+ if(experiment==='tides'){
+  const a=angle*Math.PI/180,mx=80+52*Math.cos(a),my=68-52*Math.sin(a),k=tideRange(angle);
+  return `<svg viewBox="0 0 160 140" role="img" aria-label="Top-down view: ocean bulges point toward and away from the Moon">
+  <path d="M153 40H136M153 68H136M153 96H136" stroke="#ffd591"/><text x="154" y="25" fill="#ffd591" font-size="9" text-anchor="end">Sunlight ←</text>
+  <circle cx="80" cy="68" r="52" fill="none" stroke="#52677e" stroke-dasharray="3 3"/>
+  <ellipse cx="80" cy="68" rx="${(16+7*k).toFixed(1)}" ry="${(16-3*k).toFixed(1)}" fill="#5fb4ff55" stroke="#5fb4ff" transform="rotate(${(-angle).toFixed(1)} 80 68)"/>
+  <circle cx="80" cy="68" r="13" fill="#3f7fe0"/>
+  <circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="5" fill="#c8c6c1"/>
+  <text x="80" y="135" fill="#aabbd3" font-size="8" text-anchor="middle">From above • bulges exaggerated</text></svg><p>${tideLabel(angle).name}</p>`;
+ }
  const a=angle*Math.PI/180;
  const phase=experiment==='phases';
  const x=80+(phase?1:-1)*46*Math.cos(a), y=68+(phase?-1:1)*46*Math.sin(a);
@@ -72,8 +115,13 @@ function diagram(experiment,angle){
  <text x="80" y="135" fill="#aabbd3" font-size="8" text-anchor="middle">${phase?'Top-down orbit • not to scale':'Tilt direction projected • not to scale'}</text></svg><p>${phase?'Main view: Moon seen from Earth':'Main view: following Earth'}</p>`;
 }
 function paintExperiment(){
- const s=state.value, seasons=s.experiment==='seasons';
+ const s=state.value, seasons=s.experiment==='seasons', kind=s.experiment;
+ if(kind==='scale')return paintScale();
+ if(kind==='eclipses'||kind==='tides')return paintMoonLab();
  experiments.update(s);
+ $('eclipse-controls').hidden=true;
+ bindPredict($('predict'),kind,paintExperiment);
+ $('experiment-result').hidden=$('experiment-summary').hidden=!answered(kind);
  $('kicker').textContent=seasons?'Earth lab · tilt & daylight':'Moon lab · reflected sunlight';
  $('title').textContent=seasons?'Why do seasons happen?':'Explore the phases';
  narration=seasons?'lab_seasons':'lab_phases';$('experiment-summary').textContent=LINES[narration];$('fact').textContent=seasons?seasonLabel(s.orbit):phaseName(s.phase);
@@ -98,12 +146,104 @@ function paintExperiment(){
   $('experiment-depth').innerHTML=`<p>${INSIGHTS.Moon.deeper}</p><p>The light source stays on the Sun side. The camera moves to the Earth-facing direction as you move the Moon; the same lunar face stays toward Earth. The fraction is (1 − cos elongation) / 2, where elongation here is the Moon’s circular-orbit angle from the Sun direction.</p><p>Phases are not Earth’s shadow. The Moon’s real orbit is tilted about 5° to Earth’s orbit, so new and full Moons usually do not align for eclipses. This coplanar phase-only model omits that tilt, eclipses, libration, earthshine and the local horizon. It must not be used to predict an eclipse or tonight’s Moon. Surface craters are illustrative, not mapped.</p>${sourceLink('phases','NASA · Moon phases and observer view')} · ${sourceLink('moonfact','NASA · orbit data')}${sourceNote}`;
  }
 }
+// Eclipses and tides share the Moon-position slider with the phases lab.
+function paintMoonLab(){
+ const s=state.value,eclipses=s.experiment==='eclipses',g=eclipseGeometry(s.phase,s.node),t=tideLabel(s.phase);
+ experiments.update({...s,eclipse:g.kind,eclipseLat:g.latitude,tideRange:tideRange(s.phase)});
+ bindPredict($('predict'),s.experiment,paintExperiment);
+ const shown=answered(s.experiment);$('experiment-result').hidden=$('experiment-summary').hidden=!shown;
+ $('season-controls').hidden=true;$('eclipse-controls').hidden=!eclipses;
+ narration=null;
+ $('kicker').textContent=eclipses?'Moon lab · lining up':'Earth lab · ocean tides';
+ $('title').textContent=LAB_TITLES[s.experiment];
+ $('fact').textContent=eclipses?(g.kind==='none'?phaseName(s.phase):g.label.split(':')[0]):`${t.name} · ${phaseName(s.phase)}`;
+ $('angle-label').textContent='Move the Moon around Earth';
+ $('experiment-angle').value=s.phase;$('experiment-angle').setAttribute('aria-valuetext',phaseName(s.phase));
+ const choices=[[0,'New'],[90,'First quarter'],[180,'Full'],[270,'Last quarter']];
+ $('presets').innerHTML=choices.map(([a,label])=>`<button data-angle="${a}" aria-pressed="${Math.abs(wrap(s.phase)-a)<1}">${label}</button>`).join('');
+ for(const b of $('presets').querySelectorAll('button'))b.onclick=()=>{stopAudio();state.update({phase:+b.dataset.angle});paintExperiment();};
+ $('orbit-map').innerHTML=diagram(s.experiment,s.phase);
+ if(eclipses){
+  $('node').value=s.node;$('node-value').textContent=`${Math.round(wrap(s.node))}° from the Sun line`;
+  $('experiment-result').innerHTML=`<strong>${g.label}</strong><p>The Moon is ${Math.abs(g.latitude).toFixed(2)}° ${g.latitude>=0?'above':'below'} the Earth–Sun line — about ${g.moonWidths.toFixed(1)} Moon-widths.</p><p>${g.kind==='none'&&(wrap(s.phase)<1||Math.abs(wrap(s.phase)-180)<1)?'Slide the crossing point toward the Sun line and try again.':g.kind==='none'?'Pick New or Full first.':'This happens only when a new or full Moon falls near a crossing point: a few times a year, never every month.'}</p>`;
+  $('experiment-summary').textContent='The Moon’s orbit is tilted about 5° to Earth’s. Most months it slips past above or below the Sun and Earth’s shadow. Twice a year or so, the crossing points line up with the Sun: eclipse season.';
+  $('view-caption').textContent='From Earth · near new Moon the Sun’s disc sits behind the Moon (misses larger than a Sun-width are pulled into view) · in a lunar eclipse the Moon turns coppery';
+  $('experiment-depth').innerHTML=`<p>Latitude above or below Earth’s orbital plane = asin(sin ${MOON_INCLINATION}° × sin(Moon angle − crossing angle)). A solar eclipse needs the Moon within about 1.5° of the Earth–Sun line at new Moon (about 0.9° for a total or annular one); a lunar eclipse within about 1.0° at full Moon (about 0.4° for a total one). These are approximate teaching limits; real limits shift with the Moon’s and Earth’s changing distances.</p><p>The crossing points (nodes) slowly drift, so eclipse seasons come about every 173 days. This model ignores where on Earth an eclipse is visible and cannot predict real eclipse dates.</p><a href="https://science.nasa.gov/eclipses/" target="_blank" rel="noopener">NASA · Eclipses</a> · ${sourceLink('moonfact','NASA · Moon orbit data')}${sourceNote}`;
+ }else{
+  $('experiment-result').innerHTML=`<strong>${t.name}</strong><p>Tidal range about ${Math.round(t.ratio*100)}% of the smallest (neap) range. ${t.name==='Spring tides'?'Sun and Moon pull in line: highest highs, lowest lows.':t.name==='Neap tides'?'Sun and Moon pull at right angles and partly cancel: gentle tides.':'Between the two.'}</p><p>Two bulges: one under the Moon, one on the far side. Earth turns through both, so most coasts get two high tides a day.</p>`;
+  $('experiment-summary').textContent='The Moon pulls the near-side ocean a little more, and Earth a little more than the far-side ocean. That stretches the oceans into two bulges. The Sun does the same, about half as strongly.';
+  $('view-caption').textContent='Looking down on the North Pole · Sun to the right · ocean bulges exaggerated thousands of times';
+  $('experiment-depth').innerHTML=`<p>The Sun’s tide-raising force is about 46% of the Moon’s, because tidal force falls off with the cube of distance. Range here = √(1 + 0.46² + 2 × 0.46 × cos 2θ), relative to the Moon alone, where θ is the Moon’s angle from the Sun. Spring tides (new and full Moon) are about 2.7 times neap tides in this ideal model.</p><p>Real tides depend strongly on coastlines and ocean basins: some places get one tide a day, the Bay of Fundy gets 16 m, and peaks often lag the Moon by hours or days. Use a local tide table for real times.</p><a href="https://oceanservice.noaa.gov/education/tutorial_tides/" target="_blank" rel="noopener">NOAA · Tides tutorial</a>${sourceNote}`;
+ }
+}
+// Scale walk and light race. The real Solar System stays live behind the sheet.
+const SUN_PRESETS=[[2.5,'Marble'],[FOOTBALL_CM,'Football'],[65,'Gym ball']];
+let race=null;
+function paintScale(){
+ const s=state.value,list=scaleWalk(s.sunCm);
+ narration=null;$('kicker').textContent='Scale lab · size and distance';$('title').textContent=LAB_TITLES.scale;
+ $('fact').textContent=`Sun ${s.sunCm} cm → Earth ${formatMetres(list[2].distanceM)} away`;
+ $('sun-size').value=s.sunCm;$('sun-size-value').textContent=`${s.sunCm} cm`;
+ $('sun-presets').innerHTML=SUN_PRESETS.map(([cm,label])=>`<button data-cm="${cm}" aria-pressed="${s.sunCm===cm}">${label}</button>`).join('');
+ for(const b of $('sun-presets').querySelectorAll('button'))b.onclick=()=>{state.update({sunCm:+b.dataset.cm});paintScale();};
+ bindPredict($('scale-predict'),'scale',paintScale);$('scale-reveal').hidden=!answered('scale');
+ $('scale-result').innerHTML=`<strong>Sun: a ball ${s.sunCm} cm wide</strong><p>Earth: ${sizeLike(list[2].sizeMm)} (${list[2].sizeMm.toFixed(1)} mm), ${formatMetres(list[2].distanceM)} away. Neptune: ${formatMetres(list[7].distanceM)} away. Almost everything in the Solar System is empty space.</p>`;
+ $('scale-list').innerHTML=list.map(p=>`<li><b>${p.name}</b> <span>${sizeLike(p.sizeMm)} · ${p.sizeMm<1?p.sizeMm.toFixed(2):p.sizeMm.toFixed(1)} mm</span><span>${formatMetres(p.distanceM)} from the Sun</span></li>`).join('');
+ const maxAu=30.2,stops=list.map((p,i)=>({name:p.name,x:12+136*(i===list.length-1?1:scaleAu(p.name)/maxAu)}));
+ $('light-race').innerHTML=`<svg viewBox="0 0 160 48" role="img" aria-label="Distances from the Sun to each planet in a straight line, to scale"><line x1="6" y1="20" x2="152" y2="20" stroke="#52677e"/><circle cx="6" cy="20" r="5" fill="#ffd591"/>${stops.map((p,i)=>`<circle cx="${p.x.toFixed(1)}" cy="20" r="2" fill="#c6d3e4"/>${i>=4?`<text x="${p.x.toFixed(1)}" y="${i%2?33:12}" fill="#aabbd3" font-size="6" text-anchor="middle">${p.name}</text>`:''}`).join('')}<text x="4" y="45" fill="#aabbd3" font-size="6">Mercury, Venus, Earth, Mars: all within the first few dots</text><circle id="photon" cx="6" cy="20" r="2.4" fill="#fff6c8"/></svg>`;
+ if(!race)$('light-clock').textContent=`Sunlight reaches Earth in ${formatDuration(lightSeconds(AU_KM))} and Neptune in ${formatDuration(sunlightTo('Neptune'))}.`;
+ $('scale-depth').innerHTML=`<p>Scale factor = ball size ÷ the Sun’s real diameter (1,391,400 km). Planet sizes and mean distances from the Sun are multiplied by the same factor, so this walk is true to scale. Light time = distance ÷ 299,792 km/s, using mean distances. Planets are never lined up like this; they are spread around their orbits.</p><p>The light race runs 600 times faster than real light: one second on screen is ten minutes in space.</p>${sourceLink('earthfact','NASA · planetary fact sheets')}${sourceNote}`;
+ aimCamera({...s,feature:'orbit'});
+}
+const scaleAu=name=>bodies.find(b=>b.data.name===name).data.au;
+$('sun-size').oninput=()=>{state.update({sunCm:+$('sun-size').value});paintScale();};
+$('light-go').onclick=()=>{
+ const end=sunlightTo('Neptune'),speed=600,reduce=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+ const show=t=>{const reached=[...bodies].filter(b=>b.data.au&&sunlightTo(b.data.name)<=t).map(b=>b.data.name).pop();
+  $('light-clock').textContent=`Light has travelled ${formatDuration(t)}${reached?` · just passed ${reached}`:''}`;
+  const dot=document.getElementById('photon');if(dot)dot.setAttribute('cx',(6+146*Math.min(1,t/end)).toFixed(1));};
+ if(race)globalThis.cancelAnimationFrame?.(race.id);
+ if(reduce||typeof requestAnimationFrame!=='function'){race=null;show(end);return;}
+ race={start:performance.now()};$('light-go').textContent='↻ Send it again';
+ const tick=now=>{if(!race)return;const t=Math.min(end,(now-race.start)/1000*speed);show(t);if(t<end)race.id=requestAnimationFrame(tick);else race=null;};
+ race.id=requestAnimationFrame(tick);
+};
+// Guided journeys: a list, then ordered steps that move the camera and the sheet together.
+function paintJourney(){
+ const s=state.value,j=journey(s.journey);narration=null;$('action').hidden=true;
+ $('journey-list').hidden=!!j;$('journey-step').hidden=!j;
+ if(!j){
+  $('kicker').textContent='Guided journeys';$('title').textContent='Choose a journey';$('fact').textContent='Short tours. Make a guess, then see what really happens.';
+  $('view-caption').textContent='';
+  $('journey-list').innerHTML=JOURNEYS.map(x=>`<button class="experiment-card" data-journey="${x.id}"><strong>${x.title}</strong><span>${x.blurb} · ${x.steps.length} stops</span></button>`).join('');
+  for(const b of $('journey-list').querySelectorAll('button'))b.onclick=()=>go({view:'journey',journey:b.dataset.journey,step:0});
+  aimCamera({...s,feature:'orbit'});return;
+ }
+ const i=Math.max(0,Math.min(j.steps.length-1,s.step)),st=j.steps[i],last=i===j.steps.length-1;
+ $('kicker').textContent=`${j.title} · ${i+1} of ${j.steps.length}`;$('title').textContent=st.title;$('fact').textContent=st.text;
+ $('view-caption').textContent=st.world?`${st.world} · schematic view, not current positions`:'The whole Solar System · schematic view';
+ bindPredict($('journey-predict'),st.predict,paintJourney);
+ const lab=st.lab||st.compare;$('journey-lab').parentElement.hidden=!lab;
+ if(st.lab){$('journey-lab').textContent=`Try it: ${LAB_TITLES[st.lab]} →`;$('journey-lab').onclick=()=>go({view:'try',experiment:st.lab,sheet:'half'});}
+ else if(st.compare){$('journey-lab').textContent=`Compare ${st.compare[0]} and ${st.compare[1]} →`;$('journey-lab').onclick=()=>go({view:'compare',experiment:null,compareA:st.compare[0],compareB:st.compare[1]});}
+ $('journey-prev').disabled=i===0;
+ const ok=canAdvance(st,s.answers);$('journey-next').disabled=!ok;$('journey-next').textContent=last?'Finish ✓':'Next →';
+ $('journey-next').setAttribute('aria-label',ok?(last?'Finish the journey':'Next stop'):'Answer the question to continue');
+ $('journey-dots').textContent=j.steps.map((_,k)=>k<i?'●':k===i?'◉':'○').join(' ');
+ const body=st.world?bodies.find(b=>b.data.name===st.world):null;
+ if(body)aimCamera({...s,world:st.world,feature:'overview'},body);else aimCamera({...s,feature:'orbit'});
+}
+$('journey-prev').onclick=()=>{stopAudio();state.update({step:Math.max(0,state.value.step-1)});render();};
+$('journey-next').onclick=()=>{stopAudio();const s=state.value,j=journey(s.journey);if(!j||!canAdvance(j.steps[s.step],s.answers))return;
+ if(s.step>=j.steps.length-1)state.update({journey:null,step:0});else state.update({step:s.step+1});render();};
 function seasonLabel(a){
  const angle=wrap(a);
  if(angle<1||angle>359)return 'June solstice';if(Math.abs(angle-90)<1)return 'September equinox';if(Math.abs(angle-180)<1)return 'December solstice';if(Math.abs(angle-270)<1)return 'March equinox';
  return angle<90?'June → September':angle<180?'September → December':angle<270?'December → March':'March → June';
 }
 $('experiment-angle').oninput=()=>{stopAudio();const s=state.value;state.update(s.experiment==='seasons'?{orbit:+$('experiment-angle').value}:{phase:+$('experiment-angle').value});paintExperiment();};
+$('node').oninput=()=>{stopAudio();state.update({node:+$('node').value});paintExperiment();};
+$('node-line-up').onclick=()=>{stopAudio();const p=wrap(state.value.phase);state.update({node:p<90||p>270?0:180});paintExperiment();};
 $('no-tilt').onchange=()=>{stopAudio();state.update({tilt:$('no-tilt').checked?0:23.44});paintExperiment();};
 $('latitude').oninput=()=>{stopAudio();state.update({latitude:+$('latitude').value});paintExperiment();};
 $('experiment-reset').onclick=()=>{stopAudio();state.reset();paintExperiment();};
@@ -149,7 +289,8 @@ function paintExplore(){
  $('action').hidden=false;$('action').textContent=info.question;
  $('action').onclick=()=>info.experiment?go({view:'try',experiment:info.experiment}):go({feature:'orbit',sheet:state.value.sheet});
  const ratio=body.data.km/12756;
- $('world-size').textContent=s.world==='Earth'?'Earth is 12,756 km wide at the equator.':`${s.world} is ${ratio>=1?ratio.toFixed(ratio>=10?0:1)+' times as wide as':Math.round(ratio*100)+'% as wide as'} Earth (${body.data.km.toLocaleString('en-IN')} km).`;
+ const light=sunlightTo(s.world);
+ $('world-size').textContent=(s.world==='Earth'?'Earth is 12,756 km wide at the equator.':`${s.world} is ${ratio>=1?ratio.toFixed(ratio>=10?0:1)+' times as wide as':Math.round(ratio*100)+'% as wide as'} Earth (${body.data.km.toLocaleString('en-IN')} km).`)+(light?` Sunlight takes ${formatDuration(light)} to get here.`:'');
  const nearby=NEARBY[s.world];$('compare-shortcut').hidden=!nearby;
  if(nearby){const other=s.world==='Earth'?'Moon':'Earth';$('compare-shortcut').textContent=`Compare ${s.world} with ${other} →`;$('compare-shortcut').onclick=()=>go({view:'compare',experiment:null,compareA:s.world,compareB:other});}
  $('world-deeper').textContent=info.deeper;
@@ -163,28 +304,31 @@ function paintExplore(){
  if(s.feature==='day'){narration='lab_day';$('world-insight').textContent=LINES[narration];}
 }
 function render(){
- const s=state.value,experiment=s.view==='try'&&!!s.experiment;
+ const s=state.value,experiment=s.view==='try'&&!!s.experiment,scene=experiment&&SCENE_LABS.has(s.experiment);
+ if(race&&!(experiment&&s.experiment==='scale')){globalThis.cancelAnimationFrame?.(race.id);race=null;}
  sheet.dataset.state=s.sheet;document.body.dataset.sheet=s.sheet;
  const open=s.sheet!=='closed';sheet.inert=!open;sheet.setAttribute('aria-hidden',String(!open));
  if(!open&&sheet.contains(document.activeElement))$('back').focus();
  $('grip').setAttribute('aria-expanded',String(s.sheet==='half'||s.sheet==='full'));
  $('grip').setAttribute('aria-label',s.sheet==='full'?'Show less':'Show more');
- for(const v of ['explore','try','compare'])$(v+'-panel').hidden=s.view!==v;
+ for(const v of ['explore','try','compare','journey'])$(v+'-panel').hidden=s.view!==v;
  for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-pressed',String(b.dataset.view===s.view));
  if(!open){const all=hooks.homeScope!=='inner';$('back').textContent=all?'Show inner planets':'Show all planets';$('back').setAttribute('aria-label',all?'Zoom in on the inner planets, Mercury to Mars':'Zoom out to show all eight planets');}
  else{const atOverview=!state.canBack;$('back').textContent=atOverview?'Overview':'← Back';$('back').setAttribute('aria-label',atOverview?'Close the card and show the Solar System':'Go back');}
  $('hint').hidden=hintSeen||open;
  $('world-depth').open=false;
- sheet.querySelector('.tabs').hidden=experiment; // labs: controls first, Back returns to the tabs
- $('experiment-chooser').hidden=experiment;$('experiment').hidden=!experiment;$('experiment-reset').hidden=!experiment;
- $('orbit-map').hidden=!experiment;
- document.body.classList.toggle('experiment-mode',experiment);
- controls.enabled=!experiment;hooks.hold=experiment;
- hooks.renderOverride=experiment?()=>{const r=$('stage').getBoundingClientRect();experiments.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:null;
+ sheet.querySelector('.tabs').hidden=experiment||s.view==='journey'; // labs: controls first, Back returns to the tabs
+ $('experiment-chooser').hidden=experiment;$('experiment').hidden=!scene;$('scale-lab').hidden=!(experiment&&s.experiment==='scale');$('experiment-reset').hidden=!experiment;
+ $('orbit-map').hidden=!scene;
+ document.body.classList.toggle('experiment-mode',scene);
+ controls.enabled=!scene;hooks.hold=scene;
+ hooks.renderOverride=scene?()=>{const r=$('stage').getBoundingClientRect();experiments.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:null;
  if(experiment){$('action').hidden=true;paintExperiment();}
  else if(s.view==='compare'){$('action').hidden=true;paintCompare();}
  else if(s.view==='explore')paintExplore();
- else{narration='lab_try';$('action').hidden=true;$('kicker').textContent='Small science lab';$('title').textContent='Try an idea';$('fact').textContent=LINES.lab_try;$('view-caption').textContent='Two experiments. Change one thing and see why it matters.';}
+ else if(s.view==='journey')paintJourney();
+ else{narration='lab_try';$('action').hidden=true;$('kicker').textContent='Small science lab';$('title').textContent='Try an idea';$('fact').textContent=LINES.lab_try;$('view-caption').textContent='Five experiments. Change one thing and see why it matters.';}
+ $('listen').hidden=!narration||!LINES[narration];
 }
 addEventListener('resize',()=>{if(state.value.view==='compare')paintCompare();});
 render();

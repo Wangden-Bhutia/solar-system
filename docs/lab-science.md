@@ -34,3 +34,24 @@ No new imagery was downloaded. Natural Earth continent data and the existing pro
 
 ## Verification limits
 Unit tests verify numerical identities, geometry/light/camera consistency, the same face directed toward Earth, opposite-hemisphere daylight, zero-tilt/polar limits, mass/weight units, UI event/state wiring and cancellation. DOM emulation and fake rendering do not verify visual appearance, CSS layout, browser autoplay policy, screen readers or real Android sound. Those require parent-dispatched desktop/phone review before readiness.
+
+## Learning layer (`learn.js`, November 2026)
+Predict-then-reveal questions, guided journeys, the scale walk and light race, and the eclipse and tide labs. All maths is in `learn.js` and covered by `tests/learn.test.js`.
+
+**Constants**
+- Speed of light 299,792.458 km/s (exact by definition). 1 AU = 149,597,870.7 km (IAU 2012). Light time = distance ÷ c, using each planet's mean distance (`data.js`): Earth 8 min 19 s, Mars 12 min 40 s, Neptune 4 h 11 min.
+- Moon's orbital inclination to the ecliptic 5.145° — NASA NSSDCA Moon fact sheet, https://nssdc.gsfc.nasa.gov/planetary/factsheet/moonfact.html
+- Sun's tide-generating force ≈ 46% of the Moon's — Bowditch, *American Practical Navigator*, ch. 35 (Tides and Tidal Currents); NOAA tides tutorial https://oceanservice.noaa.gov/education/tutorial_tides/
+- Earth–Mars distance range ≈ 54.6 million km (closest possible) to ≈ 401 million km (farthest), giving one-way signal delay of about 3 to 22 minutes. Standard NASA figures; not re-read for this change.
+- Perihelion around 3 January, aphelion around 4 July, about 3% apart in distance. A Martian solar day ≈ 24 h 39 min 35 s. Mars surface gravity 3.73 m/s² (≈ 38% of Earth's 9.82, existing Compare data).
+- Football (size 5) ≈ 22 cm across. Sun diameter 1,391,400 km (existing `data.js`).
+
+**Scale walk.** Every size and mean distance is multiplied by (ball size ÷ Sun diameter), so the walk is true to scale. With a 22 cm Sun: Earth ≈ 2.0 mm at ≈ 24 m, Neptune ≈ 714 m. Planets are drawn in a line for the comparison; they are never lined up like that.
+
+**Light race.** Runs 600× faster than light (one second on screen = ten minutes in space); jumps to the end with reduced motion.
+
+**Eclipses.** Moon latitude above Earth's orbital plane β = asin(sin 5.145° × sin(Moon angle − node angle)). Teaching limits: solar eclipse if |β| < 1.5° at new Moon (central, total or annular, if < 0.9°); lunar eclipse if |β| < 1.0° at full Moon (total if < 0.4°). These are approximate ecliptic limits expressed as latitudes; real limits vary with the Moon's and Earth's distances. The model shows *whether* an alignment eclipses, not where on Earth it is visible or when real eclipses occur. Node drift and eclipse seasons are mentioned, not simulated. The 3D view draws the Sun's disc at the Moon's apparent size and clamps offsets beyond about one Sun-width so a near miss stays on screen; the side-view inset exaggerates the tilt ×12.
+
+**Tides.** Relative range = √(1 + 0.46² + 2 × 0.46 × cos 2θ) where θ is the Moon's angle from the Sun: spring ÷ neap ≈ 2.7 in this equilibrium model. Real tides depend on ocean basins and coastlines (some places have one tide a day; peaks lag the Moon). Ocean bulges are exaggerated thousands of times in both views.
+
+**Predictions** are deliberately simple multiple choice with one defensible answer each; every explanation restates figures from this document. Guesses stay made when the learner goes Back, and "Ask me again" clears one.

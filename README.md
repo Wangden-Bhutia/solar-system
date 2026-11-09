@@ -50,3 +50,10 @@ python3 tools/check-voice.py
 Node 24 tests use linkedom (DOM emulation) and Node VM modules. They test science functions; real taps (`tests/tap.test.js` boots the real index.html, app.js, OrbitControls, lab.js and voice player in linkedom and dispatches PointerEvent sequences at coordinates projected from each world); real Three.js geometry with a fake renderer (including the touch pick radius and the sheet-aware view offset), sheet state transitions and swipe classification, tap-to-select, close on empty tap, Back/Reset, DOM event wiring, mocked audio cancellation/fallback and packaging. CSS sheet heights, safe areas, landscape docking and real touch gestures are not exercised by these tests; they are not browser layout assertions. `check-voice.py` uses ffprobe to validate encoded clips and report durations/bytes.
 
 **Before merge:** actual phone visual screenshots and browser console/network inspection, plus actual Android Chrome Listen/mute/background/fallback QA are required. No browser was driven through Shell during implementation. The PR remains draft pending parent visual review. Pages deploys only from main, and no merge or deployment is authorized here.
+
+## Learn by guessing first
+- **✦ Journeys** (top bar): four short guided tours — *How big is space?*, *Why do we have seasons?*, *The Moon and us*, *Next door: Mars*. Each stop glides the camera to a world; questions must be answered (or skipped) before moving on, and labs open from the step with Back returning to it.
+- **Predict, then reveal**: every lab asks a question first and shows the result once you commit.
+- **New labs** under Try it: *Why aren't there eclipses every month?* (Moon position + tilted-orbit crossing point), *What makes the tides?* (spring and neap), *How big is space?* (football-sized Sun walk, light race).
+- World cards show how long sunlight takes to reach each planet.
+- Maths, constants and limits: [docs/lab-science.md](docs/lab-science.md#learning-layer-learnjs-november-2026).
