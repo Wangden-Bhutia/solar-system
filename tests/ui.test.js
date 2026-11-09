@@ -1,6 +1,6 @@
 // DOM emulator only: NOT a browser, rendering test or actual mobile playback test.
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import {parseHTML} from 'linkedom';
-import {SUN,PLANETS,MOON} from '../data.js';import * as science from '../science.js';import * as state from '../lab-state.js';import * as sheetMod from '../sheet.js';import * as insights from '../insights.js';import * as learn from '../learn.js';import * as lines from '../voice/lines.js';
+import {SUN,PLANETS,MOON,MOONS} from '../data.js';import * as science from '../science.js';import * as state from '../lab-state.js';import * as sheetMod from '../sheet.js';import * as insights from '../insights.js';import * as learn from '../learn.js';import * as lines from '../voice/lines.js';
 async function setup(width=390,height=844,stored={}){
  const {window,document}=parseHTML(fs.readFileSync('index.html','utf8'));
  const selections=new WeakMap();Object.defineProperty(window.HTMLSelectElement.prototype,'value',{configurable:true,get(){return selections.get(this)??this.querySelector('option')?.textContent??'';},set(v){selections.set(this,v);}});
@@ -8,7 +8,7 @@ async function setup(width=390,height=844,stored={}){
  const sheet=document.getElementById('sheet');sheet.getBoundingClientRect=()=>{const h=sheetHeights[sheet.dataset.state];return {left:0,top:height-h,width,height:h};};
  document.getElementById('stage').getBoundingClientRect=()=>({left:0,top:0,width,height});
  const hooks={homeScope:'inner'},focuses=[],updates=[],renders=[],played=[],storage={...stored};let unlocks=0,stops=0;
- const bodies=[SUN,...PLANETS,MOON].map(data=>({data}));const controls={};
+ const bodies=[SUN,...PLANETS,MOON,...MOONS].map(data=>({data}));const controls={};
  const app={hooks,bodies,controls,renderer:{},focus(b,opts={}){focuses.push([b.data.name,opts]);if(!opts.silent)hooks.onFocus?.(b);},unfocus(){focuses.push(['overview']);},setHomeScope(scope){hooks.homeScope=scope;focuses.push(['overview:'+scope]);}};
  const audio={createVoicePlayer:({onState})=>({unlock(){unlocks++;},stop(){stops++;onState('idle');},say(id){assert.ok(lines.LINES[id],id);played.push(id);onState('speaking');return Promise.resolve();}})};
  const mods={'./app.js':app,'./science.js':science,'./lab-state.js':state,'./sheet.js':sheetMod,'./insights.js':insights,'./voice/lines.js':lines,'./voice-player.js':audio,'./learn.js':learn,'./experiments.js':{createExperiments:()=>({update(s){updates.push(s);},render(w,h,v){renders.push([w,h,v]);}})}};
@@ -91,10 +91,10 @@ test('Back with the card closed switches inner planets ↔ all planets; menu ove
 });
 test('every world has a working card, contextual action, facts and external source',async()=>{
  const a=await setup(412,915);
- for(const b of a.app.bodies){a.tap(b.data.name);assert.equal(a.$('title').textContent,b.data.name);assert.equal(a.$('fact').textContent,insights.STRIKING[b.data.name]);assert.ok(a.$('world-insight').textContent.length>20);assert.ok(a.$('world-sources').querySelector('a').getAttribute('href').startsWith('https://'));a.$('action').onclick();assert.ok(a.lab.state.value.experiment||a.lab.state.value.feature==='orbit');}
+ for(const b of a.app.bodies){a.tap(b.data.name);assert.equal(a.$('title').textContent,b.data.name);assert.equal(a.$('fact').textContent,insights.STRIKING[b.data.name]||b.data.fact);assert.ok(a.$('world-insight').textContent.length>20);assert.ok(a.$('world-sources').querySelector('a').getAttribute('href').startsWith('https://'));a.$('action').onclick();const v=a.lab.state.value;assert.ok(v.experiment||v.feature==='orbit'||(v.feature==='moons'&&(b.data.parent?v.world===b.data.parent:v.world===b.data.name)),b.data.name);}
 });
 test('keyboard access: menu world picker opens a card; voice is opt-in per tap and remembered',async()=>{
- const a=await setup();assert.equal(a.$('world').querySelectorAll('option').length,10);
+ const a=await setup();assert.equal(a.$('world').querySelectorAll('option').length,10+MOONS.length);
  a.$('world').value='Neptune';a.$('world').onchange();assert.equal(a.sheet,'peek');assert.equal(a.$('title').textContent,'Neptune');
  a.tap('Earth');assert.equal(a.played.length,0);a.$('listen').onclick();assert.equal(a.unlocks,1);assert.equal(a.played[0],'lab_earth');
  a.$('sound').checked=false;a.$('sound').onchange();const count=a.played.length;a.$('listen').onclick();assert.equal(a.played.length,count);assert.equal(JSON.parse(a.storage['solar.kids.v1']).muted,true);
@@ -174,4 +174,22 @@ test('journeys: list → steps that move the camera; a question gates Next; labs
 test('explore cards add sunlight travel time for planets',async()=>{
  const a=await setup();a.tap('Mars');assert.match(a.$('world-size').textContent,/Sunlight takes 12 min 40 s to get here/);
  a.tap('Moon');assert.doesNotMatch(a.$('world-size').textContent,/Sunlight/);
+});
+test('moons: planet cards list their big moons and count; a moon card has its own fact, sources and a way back',async()=>{
+ const a=await setup();a.tap('Jupiter');
+ assert.match(a.$('world-size').textContent,/Jupiter has more than 100 known moons\./);
+ const chip=[...a.$('features').querySelectorAll('button')].find(b=>b.dataset.feature==='moons');assert.ok(chip,'Its moons chip');chip.onclick();
+ assert.equal(a.$('world-moons').hidden,false);assert.deepEqual([...a.$('moon-list').querySelectorAll('button')].map(b=>b.dataset.moon),['Io','Europa','Ganymede','Callisto']);
+ const f=a.focuses.at(-1);assert.equal(f[0],'Jupiter');assert.ok(Math.abs(f[1].mul-15.40*1.15/(Math.tan(25*Math.PI/180)*390/844)/5.6)<.05,'portrait: backs off far enough for Callisto’s orbit to fit across the narrow screen');
+ a.$('moon-list').querySelector('[data-moon="Europa"]').onclick();
+ assert.equal(a.$('title').textContent,'Europa');assert.equal(a.$('kicker').textContent,'Moon of Jupiter');assert.match(a.$('fact').textContent,/ocean/);
+ assert.match(a.$('world-sources').innerHTML,/joviansatfact/);assert.match(a.$('world-sources').innerHTML,/ssd\.jpl\.nasa\.gov/);
+ assert.match(a.$('world-facts').textContent,/3,122 km/);assert.match(a.$('world-facts').textContent,/3\.55 days/);
+ assert.equal(a.$('world-moons').hidden,true);
+ a.$('action').onclick();assert.equal(a.$('title').textContent,'Jupiter');assert.equal(a.$('world-moons').hidden,false,'action returns to the moon system');
+ a.$('moon-list').querySelector('[data-moon="Io"]').onclick();[...a.$('features').querySelectorAll('button')].find(b=>b.dataset.feature==='parent').onclick();assert.equal(a.$('title').textContent,'Jupiter');
+ a.tap('Triton');assert.match(a.$('world-deeper').textContent,/opposite way/);a.tap('Phobos');assert.match(a.$('world-facts').textContent,/7\.7 hours/);
+ a.tap('Mercury');assert.match(a.$('world-size').textContent,/Mercury has no moons/);assert.equal([...a.$('features').querySelectorAll('button')].some(b=>b.dataset.feature==='moons'),false);
+ a.tap('Mars');assert.equal(a.$('action').textContent,'Meet Mars’s moons');a.$('action').onclick();assert.equal(a.sheet,'half','opens the list');assert.match(a.$('moon-count').textContent,/two small moons\. Both are drawn here/);
+ a.tap('Earth');assert.equal(a.$('action').textContent,'Why do seasons happen?','Earth keeps its lab');
 });

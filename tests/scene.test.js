@@ -15,7 +15,7 @@ test('Moon is independently focusable; kid/default/real scale keep radius ratios
   await entry.link(spec=>fake(spec.includes('three.module')?three:spec.includes('OrbitControls')?{OrbitControls:Controls}:spec.includes('data.js')?data:textures));await entry.evaluate();
   const {bodies,setKid,setRealScale,focus,hooks}=entry.namespace;
   const earth=bodies.find(b=>b.data.name==='Earth'),moon=bodies.find(b=>b.data.name==='Moon');
-  assert.equal(bodies.length,10);assert.equal(moon.mesh,earth.moonMesh);assert.equal(moon.satellite,true);
+  assert.equal(bodies.length,10+data.MOONS.length);assert.equal(moon.mesh,earth.moonMesh);assert.equal(moon.satellite,true);
   setKid(true,{noHome:true});assert.equal(earth.radius,1);assert.equal(moon.radius,data.MOON.size*2);
   assert.equal(moon.mesh.position.x,2.4);assert.equal(moon.mesh.scale.x,2);
   hooks.hold=true;frame(performance.now()+16);focus(moon);frame(performance.now()+32);
@@ -24,6 +24,22 @@ test('Moon is independently focusable; kid/default/real scale keep radius ratios
   setRealScale(true);frame(performance.now()+48);assert.equal(moon.mesh.position.x,data.MOON.realDist);
   assert.ok(Math.abs(earth.pivot.position.length()-data.PLANETS.find(p=>p.name==='Earth').realDist)<.001);
   setRealScale(false);assert.equal(moon.mesh.position.x,1.5);
+  // Major moons: one body each, attached to their planet's equatorial (tilted) frame.
+  const {inSystem,moonScreenSpeed,MOON_CAP}=entry.namespace,by=n=>bodies.find(b=>b.data.name===n);
+  const jupiter=by('Jupiter'),io=by('Io'),europa=by('Europa'),uranus=by('Uranus'),miranda=by('Miranda'),triton=by('Triton');
+  assert.equal(jupiter.moons.length,4);assert.equal(by('Saturn').moons.length,7);assert.equal(uranus.moons.length,5);assert.equal(by('Mars').moons.length,2);
+  for(const m of data.MOONS){const b=by(m.name);assert.ok(b.satellite&&b.host.data.name===m.parent,m.name);assert.equal(b.radius,m.size);assert.equal(b.mesh.position.x,m.dist);}
+  assert.equal(miranda.orbitPivot.parent.parent,uranus.mesh.parent,'Uranus moons share its 98° tilted equator');
+  assert.ok(Math.abs(triton.orbitPivot.parent.rotation.x*180/Math.PI-157.345)<1e-6,'Triton orbit flipped: retrograde');
+  // Visibility is scoped to the selected system.
+  focus(earth);assert.equal(inSystem(io),false);assert.equal(inSystem(moon),true);
+  focus(jupiter);assert.equal(inSystem(io),true);assert.equal(inSystem(miranda),false);
+  focus(europa);assert.equal(inSystem(io),true,'siblings stay visible when a moon is selected');
+  frame(performance.now()+64);assert.equal(by('Callisto').moonRing.visible,true);assert.equal(miranda.moonRing.visible,false);assert.equal(miranda.marker.visible,false);
+  // Real scale puts moons at true distance.
+  setRealScale(true);assert.equal(io.mesh.position.x,data.MOONS.find(m=>m.name==='Io').realDist);setRealScale(false);assert.equal(io.mesh.position.x,data.MOONS.find(m=>m.name==='Io').dist);
+  // Screen speed: true below the cap, slowed but still ordered above it.
+  assert.equal(moonScreenSpeed(1),1);assert.ok(moonScreenSpeed(100)<moonScreenSpeed(1000));assert.ok(moonScreenSpeed(1000)<MOON_CAP*6);
 });
 async function loadScene(width=390,height=844){
   const size={width,height},listeners={};

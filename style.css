@@ -163,3 +163,7 @@ dl{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px}dt{color:va
 .journey-nav button:disabled{opacity:.45;cursor:not-allowed}
 #journey-dots{color:var(--muted);font-size:12px;letter-spacing:2px;text-align:center;flex:1;min-width:0}
 #journey-step .action{width:100%}
+/* Its moons: one button per big moon, size underneath. */
+#moon-count{margin:10px 0 2px!important}
+#moon-list button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 12px;min-height:44px;text-align:left}
+#moon-list small{font-size:11px;color:var(--muted)}

@@ -43,3 +43,9 @@ export const STRIKING = {
  Uranus:'Uranus spins tipped over on its side, at about 98°.',
  Neptune:'One trip around the Sun takes Neptune about 165 Earth years.',
 };
+// Known moons per planet, kept deliberately loose because the counts keep rising (Jupiter 101 and
+// Saturn at least 285 per Live Science / EarthSky, March 2026; other sources differ).
+export const MOON_COUNT = { Mercury:'no moons', Venus:'no moons', Earth:'one Moon', Mars:'two small moons', Jupiter:'more than 100 known moons', Saturn:'more than 280 known moons', Uranus:'28 confirmed moons', Neptune:'16 known moons' };
+// NASA NSSDCA satellite fact sheets used for moon cards (orbits) — read 9 November 2026.
+export const SAT_SOURCES = { Mars:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html', Jupiter:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/joviansatfact.html', Saturn:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturniansatfact.html', Uranus:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/uraniansatfact.html', Neptune:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/neptuniansatfact.html' };
+export const JPL_RADII = 'https://ssd.jpl.nasa.gov/sats/phys_par/';

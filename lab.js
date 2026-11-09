@@ -3,7 +3,7 @@ import { createExperiments } from './experiments.js';
 import { createLabState } from './lab-state.js';
 import { swipe, emptyTap, openHeight, classifyDrag, visibleRegion } from './sheet.js';
 import { seasonGeometry, daylightHours, noonAltitude, phaseGeometry, phaseName, weightNewtons, NEARBY, wrap } from './science.js';
-import { INSIGHTS, STRIKING, genericInsight, NASA, CHECKED } from './insights.js';
+import { INSIGHTS, STRIKING, genericInsight, NASA, CHECKED, MOON_COUNT, SAT_SOURCES, JPL_RADII } from './insights.js';
 import { LINES, VOICE } from './voice/lines.js';
 import { createVoicePlayer } from './voice-player.js';
 import { PREDICTIONS, judge, JOURNEYS, journey, canAdvance, eclipseGeometry, tideLabel, tideRange, scaleWalk, sizeLike, formatMetres, formatDuration, lightSeconds, sunlightTo, AU_KM, FOOTBALL_CM, MOON_INCLINATION } from './learn.js';
@@ -270,37 +270,69 @@ function paintCompare(){
 // whole system; an open world card glides to that world. Only re-aim when the target changes,
 // so expanding or collapsing the sheet does not restart the glide.
 let cameraKey=null;
+// Major moons are bodies whose data names a parent planet.
+const moonsOf=name=>bodies.filter(b=>b.data.parent===name);
+// Framing a whole moon system: far enough back that the outermost drawn orbit fits on screen.
+// The camera's vertical field is 50°; on a portrait phone the horizontal field is much narrower, so
+// the distance is set by whichever is tighter, with a 15% margin.
+const systemMul=b=>{const ms=moonsOf(b.data.name);if(!ms.length)return 0;
+ const half=Math.tan(25*Math.PI/180)*Math.min(1,(globalThis.innerWidth||1)/(globalThis.innerHeight||1));
+ return Math.max(...ms.map(m=>m.data.dist))*1.15/half/b.data.size;};
 function aimCamera(s,body){
- const key=s.sheet==='closed'||s.feature==='orbit'?'overview':`${s.world}`;
+ const system=s.feature==='moons'&&moonsOf(s.world).length>0;
+ const key=s.sheet==='closed'||s.feature==='orbit'?'overview':`${s.world}${system?':moons':''}`;
  if(key===cameraKey)return;cameraKey=key;
- if(key==='overview')unfocus(true,1.5);else focus(body,{silent:true,outside:s.world==='Earth',dur:1.1});
+ if(key==='overview')unfocus(true,1.5);else focus(body,{silent:true,outside:s.world==='Earth',dur:1.1,mul:system?systemMul(body):0});
+}
+function moonInsight(d){
+ const km=Math.round(d.km).toLocaleString('en-IN');
+ return {intro:`${d.name} is one of ${d.parent}’s moons, about ${km} km across.`,question:`See all of ${d.parent}’s big moons`,experiment:null,line:null,
+  features:[['overview','Look closer'],['parent',`Back to ${d.parent}`]],
+  deeper:`${d.name} is about ${km} km across and orbits ${d.parent} once every ${d.period<2?(d.period*24).toFixed(1)+' hours':d.period.toFixed(d.period<10?2:1)+' days'}, at an average of ${d.aKm.toLocaleString('en-IN')} km. Like our Moon, it keeps the same face toward its planet.${d.incl?' Its orbit is tilted past upright, so it travels the opposite way to its planet’s spin.':''}`,
+  source:null,moon:true};
+}
+// "Its moons": the planet's known-moon count, then a button for each big moon drawn in the scene.
+function paintMoons(s,body,ms){
+ const show=s.feature==='moons'&&ms.length>0;$('world-moons').hidden=!show;
+ if(!show){if(MOON_COUNT[s.world]&&!body.data.parent)$('world-size').textContent+=` ${s.world} has ${MOON_COUNT[s.world]}.`;return;}
+ $('moon-count').textContent=`${s.world} has ${MOON_COUNT[s.world]}. ${s.world==='Mars'?'Both are':'The big ones are'} drawn here:`;
+ $('moon-list').innerHTML=ms.map(m=>`<button data-moon="${m.data.name}">${m.data.name}<small>${Math.round(m.data.km).toLocaleString('en-IN')} km</small></button>`).join('');
+ for(const b of $('moon-list').querySelectorAll('button'))b.onclick=()=>go({world:b.dataset.moon,feature:'overview'});
+ $('moon-note').textContent='Moon sizes are true to scale with the planet. Their orbits are drawn much closer in, in the right order; Real scale shows the true distances. All are drawn as spheres (Phobos and Deimos are really lumpy), with illustrative colours, and the fastest moons are slowed so they don’t blur.';
 }
 function paintExplore(){
- const s=state.value,body=bodies.find(b=>b.data.name===s.world),info=INSIGHTS[s.world]||genericInsight(body.data);
- $('world').value=s.world;$('kicker').textContent=s.world==='Sun'?'Our star':s.world==='Moon'?'Earth’s Moon':'Planet';$('title').textContent=s.world;
- $('fact').textContent=STRIKING[s.world];
+ const s=state.value,body=bodies.find(b=>b.data.name===s.world),moon=!!body.data.parent,info=INSIGHTS[s.world]||(moon?moonInsight(body.data):genericInsight(body.data));
+ const sysMoons=moonsOf(s.world);
+ if(sysMoons.length&&!info.features.some(f=>f[0]==='moons'))info.features=[...info.features,['moons','Its moons']];
+ // A planet with moons: the main button shows them (Earth keeps its seasons lab).
+ const meetMoons=sysMoons.length>0&&!info.experiment;
+ $('world').value=s.world;$('kicker').textContent=s.world==='Sun'?'Our star':s.world==='Moon'?'Earth’s Moon':moon?`Moon of ${body.data.parent}`:'Planet';$('title').textContent=s.world;
+ $('fact').textContent=STRIKING[s.world]||body.data.fact||'';
  narration=info.line||`f_${s.world}_0`;$('world-insight').textContent=LINES[narration]||info.intro;
  $('features').innerHTML=info.features.map(([id,text])=>`<button data-feature="${id}" aria-pressed="${s.feature===id}">${text}</button>`).join('');
  for(const b of $('features').querySelectorAll('button'))b.onclick=()=>{
   if(b.dataset.feature==='moon')return go({world:'Moon',feature:'overview'});
   if(b.dataset.feature==='phases')return go({view:'try',experiment:'phases'});
+  if(b.dataset.feature==='parent')return go({world:body.data.parent,feature:'moons'});
   go({feature:b.dataset.feature,sheet:state.value.sheet});
  };
- $('action').hidden=false;$('action').textContent=info.question;
- $('action').onclick=()=>info.experiment?go({view:'try',experiment:info.experiment}):go({feature:'orbit',sheet:state.value.sheet});
+ $('action').hidden=false;$('action').textContent=meetMoons?`Meet ${s.world}’s moons`:info.question;
+ $('action').onclick=()=>info.experiment?go({view:'try',experiment:info.experiment}):moon?go({world:body.data.parent,feature:'moons'}):meetMoons?go({feature:'moons',sheet:'half'}):go({feature:'orbit',sheet:state.value.sheet});
  const ratio=body.data.km/12756;
  const light=sunlightTo(s.world);
  $('world-size').textContent=(s.world==='Earth'?'Earth is 12,756 km wide at the equator.':`${s.world} is ${ratio>=1?ratio.toFixed(ratio>=10?0:1)+' times as wide as':Math.round(ratio*100)+'% as wide as'} Earth (${body.data.km.toLocaleString('en-IN')} km).`)+(light?` Sunlight takes ${formatDuration(light)} to get here.`:'');
+ paintMoons(s,body,sysMoons);
  const nearby=NEARBY[s.world];$('compare-shortcut').hidden=!nearby;
  if(nearby){const other=s.world==='Earth'?'Moon':'Earth';$('compare-shortcut').textContent=`Compare ${s.world} with ${other} →`;$('compare-shortcut').onclick=()=>go({view:'compare',experiment:null,compareA:s.world,compareB:other});}
  $('world-deeper').textContent=info.deeper;
  // Avoid stale, changing outer-planet moon counts in the new UI; dated legacy figures remain in data.js.
  $('world-facts').innerHTML=body.data.facts.filter(([k])=>k!=='Moons').map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
  const url=info.source?NASA[info.source]:`https://science.nasa.gov/${s.world==='Sun'?'sun':s.world.toLowerCase()}/facts/`;
- $('world-sources').innerHTML=`<a href="${url}" target="_blank" rel="noopener">NASA · ${s.world}</a>${info.source?sourceNote:'<p class="fine">Baseline facts checked 8 November 2026 against NASA sources; see docs/sources.md. Changing moon counts are omitted.</p>'}`;
+ if(moon){$('world-sources').innerHTML=`<a href="${SAT_SOURCES[body.data.parent]}" target="_blank" rel="noopener">NASA · ${body.data.parent} satellite fact sheet</a> · <a href="${JPL_RADII}" target="_blank" rel="noopener">JPL · moon sizes</a><p class="fine">Orbit and size data read 9 November 2026. Colours are illustrative.</p>`;}
+ else $('world-sources').innerHTML=`<a href="${url}" target="_blank" rel="noopener">NASA · ${s.world}</a>${info.source?sourceNote:'<p class="fine">Baseline facts checked 8 November 2026 against NASA sources; see docs/sources.md. Changing moon counts are omitted.</p>'}`;
  $('world-scale').textContent='Model caveats: spherical worlds, circular mostly coplanar orbits, accelerated time, procedural surfaces. Earth coastlines use Natural Earth data. Moon craters and weather are not live or mapped observations. Sun size is 1/5 in the default view and 1/10 in the overview (so the inner planets stay visible), where orbits also run at 1/5 speed; orbit gaps and Moon gap are compressed. Real scale restores size/distance ratios, not an actual-date sky. Faint fill light reveals the night-side shape.';
  aimCamera(s,body);
- $('view-caption').textContent=s.feature==='orbit'?(s.world==='Sun'?'The Sun and eight planets · schematic view, not current positions':`${s.world} orbits the Sun · schematic Solar System view; not current positions`):s.world==='Earth'?'Drag to look around · gold line: Earth’s tilted spin axis · day/night comes from sunlight':s.world==='Moon'?'Earth’s Moon · Explore the phases shows the view from Earth':`${s.world} · drag to look around · illustrative surface and lighting`;
+ $('view-caption').textContent=s.feature==='moons'&&sysMoons.length?`${s.world} and its big moons · true sizes, orbits drawn closer than real · not current positions`:moon?`${s.world} · a moon of ${body.data.parent} · drag to look around · illustrative colours`:s.feature==='orbit'?(s.world==='Sun'?'The Sun and eight planets · schematic view, not current positions':`${s.world} orbits the Sun · schematic Solar System view; not current positions`):s.world==='Earth'?'Drag to look around · gold line: Earth’s tilted spin axis · day/night comes from sunlight':s.world==='Moon'?'Earth’s Moon · Explore the phases shows the view from Earth':`${s.world} · drag to look around · illustrative surface and lighting`;
  if(s.feature==='day'){narration='lab_day';$('world-insight').textContent=LINES[narration];}
 }
 function render(){
