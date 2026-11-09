@@ -67,3 +67,6 @@ Nineteen major moons orbit Mars and the giant planets, at true size, in each pla
 - **Photographic maps** for the Sun, Mercury, Earth and clouds, the Moon, Mars, Jupiter, Saturn, Uranus and Neptune — Solar System Scope textures, CC BY 4.0, based on NASA imagery (credited on each card; licence in `textures/`). Venus shows its cloud tops, as it looks from space.
 - Close-ups approach from the sunlit side and turn with the planet's orbit, so the day side stays in view.
 Details: [docs/sources.md](docs/sources.md).
+
+## Zoom out: the nearby stars
+The 🔍 **Stars** button zooms out past the Solar System to a 3D map of every star and brown dwarf within 16 light-years (plus TRAPPIST-1), placed by real direction and distance, coloured by temperature, glowing by true brightness. Tap a star for its card: type, distance, the year its light left, companions. For stars with known planets, **Visit its planets** opens that system with its orbits to scale, the habitable zone, and Mercury's and Earth's orbits for comparison. Data: [docs/sources.md](docs/sources.md#beyond-the-solar-system-nearby-stars-and-their-planets-stars-datajs-november-2026).
