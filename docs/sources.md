@@ -99,3 +99,23 @@ Nineteen moons besides Earth's: Phobos, Deimos; Io, Europa, Ganymede, Callisto; 
 - **The Sun's vertical motion:** Bahcall & Bahcall 1985, Nature 316, 706 ([abstract](https://ui.adsabs.harvard.edu/abs/1985Natur.316..706B/abstract), read 9 Nov 2026): half-period 26–37 Myr, peak height 49–93 pc. The model uses a 64 Myr period and 70 pc. The Sun's present height of about 20.8 pc above the mid-plane is from Bennett & Bovy 2019 (MNRAS 482, 1417). At the Galaxy scale this bob is too small to see; it is described in the card.
 - **Earth milestones on the clock:** the end-Cretaceous extinction 66 million years ago; dinosaurs first appear in the Late Triassic, roughly 230–245 million years ago, so one lap back (about 222 million) they were "new on Earth".
 - **Simplifications, stated in the app:** circular orbits (no epicycles or radial migration), arm shapes held fixed, clock limited to ±250 million years (about one lap each way), and nebulae and young clusters hidden away from today because they last only a few million years.
+
+## Nearby stars in motion (`star-motion.js`, November 2026)
+- **Proper motions and radial velocities.** Taken from each star's Wikipedia infobox, which quotes Gaia DR3 or SIMBAD values (read 9 Nov 2026), for: Proxima Centauri (used for the Alpha Centauri system), Barnard's Star, Luhman 16, WISE 0855−0714, Wolf 359, Lalande 21185, Sirius, Gliese 65, Ross 154, Ross 248, Epsilon Eridani, GJ 1061, Teegarden's Star, Kapteyn's Star, SCR 1845−6357, DENIS J1048−3956, UGPS J0722−0540, Wolf 424, Gliese 440, GJ 1245, WISE 1741+2553, WISE 1639−6847, LHS 288, DENIS 0255−4700, TRAPPIST-1, and the passing stars Gliese 445, Scholz's Star and Gliese 710. The Luhman 16 radial velocity (23.1 km/s) comes from the article text.
+- **The remaining stars** come from the [HYG database v4.1](https://github.com/astronexus/HYG-Database): Hipparcos proper motions and Gliese-catalogue radial velocities, licensed CC BY-SA 4.0. HYG was also used as a cross-check. It has a placeholder for Barnard's Star's declination motion and records unknown radial velocities as 0, which is why the infobox values above were preferred.
+- **Radial velocity not measured.** Treated as unknown (drawn with sideways drift only, and the card says so) for WISE 0855−0714, SCR 1845−6357, Gliese 440, WISE 1741+2553, WISE 1639−6847 and DENIS 0255−4700. LHS 288 is also treated as unknown: SIMBAD lists 155.6 km/s without a cited source, and no published encounter list uses it.
+- **Model.** Each star moves in a straight line, p(t) = p₀ + v·t, with v built from its proper motion, radial velocity and distance (4.74047 km/s per arcsec/yr per parsec). The clock covers ±100,000 years. Beyond that range (the Gliese 710 flyby) only the chosen passing star is drawn.
+- **Checks against published encounters.** The [List of nearest stars](https://en.wikipedia.org/wiki/List_of_nearest_stars) table (read 9 Nov 2026), compiled from Bailer-Jones et al. and others, counts from about the year 2000 CE. The model reproduces it to within a few per cent:
+
+  | Star | Published | This model |
+  |---|---|---|
+  | Proxima / Alpha Centauri | 28,650 yr, 3.12 ly | 26,700 yr from now, 3.11 ly |
+  | Ross 248 | 38,500 yr, 3.04 ly | 36,500 yr, 3.04 ly |
+  | Gliese 445 | 46,300 yr, 3.34 ly | 44,300 yr, 3.34 ly |
+  | Barnard's Star | 11,700 yr, 3.77 ly | 9,700 yr, 3.77 ly |
+  | Lalande 21185 | 22,000 yr, 4.68 ly | 20,000 yr, 4.68 ly |
+  | Gliese 710 | 1.30 million yr, 0.167 ly | 1.34 million yr, 0.173 ly; a 2026 study gives 1.345 million yr, 0.062 pc |
+  | Scholz's Star | 70,000–81,000 yr ago, 0.82–1.08 ly (two studies) | 80,600 yr ago, 1.06 ly |
+  | Epsilon Eridani | 105,000 yr ago, 7 ly (its article) | 105,200 yr ago, 7.0 ly |
+
+- **"Nearest star" readout.** The nearest system to the Sun at the clock's time, by this model. Older eras (for example Luhman 16 being nearest roughly 15,000–60,000 years ago) follow from the same data but have not been checked against a published study.

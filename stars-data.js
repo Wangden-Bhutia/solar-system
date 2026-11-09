@@ -94,10 +94,11 @@ export const sizeFromMass = m => m < 2 ? m ** 0.28 : Math.min(11.2, 0.808 * m **
 export const lightLeftYear = (ly, now = 2026) => Math.round(now - ly);
 
 // One entry per system: its primary star decides colour and brightness; companions are listed.
-export const NEIGHBOURS = SYSTEMS.map(s => {
+export function neighbourEntry(s) {
   const primary = s.stars[0], k = starKind(primary.type), Lv = visualLuminosity(primary.mag, s.ly);
   return { ...s, primary, kind: k.kind, kindBlurb: k.blurb, temp: k.temp, Lv, pos: starPosition(s.ra, s.dec, s.ly), planets: PLANET_SYSTEMS[s.name] || null };
-});
+}
+export const NEIGHBOURS = SYSTEMS.map(neighbourEntry);
 export const SUN_ENTRY = { name: 'Sun', ly: 0, kind: 'Yellow dwarf', kindBlurb: 'our own star', temp: 5800, Lv: 1, pos: [0, 0, 0], stars: [{ name: 'Sun', type: 'G2V' }], primary: { name: 'Sun', type: 'G2V', mag: -26.74 }, sun: true };
 // Glow size in pixels from visual luminosity (log scale): the Sun 14 px, Sirius ~18, faint red dwarfs ~5.
 export const starPixels = e => e.kind === 'Brown dwarf' ? 3.5 : Math.max(4, Math.min(24, 14 + 3.2 * Math.log10(e.Lv ?? 1e-4)));

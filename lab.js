@@ -2,6 +2,7 @@ import { bodies, focus, unfocus, hooks, renderer, controls, setHomeScope } from 
 import { createStars, createDimmer } from './stars.js';
 import { createGalaxy } from './galaxy.js';
 import { GALAXY_FACTS } from './galaxy-data.js';
+import { STAR_TIME, yearsLabel, approachLabel } from './star-motion.js';
 import { TIME_RANGE, timeLabel, lapsLabel, milestone, VC_SUN, OMEGA_ARMS, OMEGA_BAR, SUN_PERIOD } from './galaxy-motion.js';
 import { LEVELS, levelIndex, PAIRS, pairFor, bridgeFrame, stepBridge, atLimit, STAR_NEAR, STAR_FAR, GALAXY_NEAR } from './zoom-ladder.js';
 import { camera, drawSolar } from './app.js';
@@ -22,20 +23,28 @@ const sheet=$('sheet');
 // ---- Beyond the Solar System: the nearby stars and their planets ----
 const SPACE=new Set(['stars','system','galaxy']);
 const levelOf=v=>v==='galaxy'?'galaxy':v==='stars'||v==='system'?'stars':'solar';
-const starsView=createStars({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:e=>pickStar(e)});
+const starsView=createStars({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:e=>pickStar(e),onTime:()=>paintTime()});
 let shownLevel='solar',arrival=null;
 const galaxyView=createGalaxy({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:m=>pickLandmark(m),onTime:()=>paintTime()});
-// ---- The Milky Way in motion: a clock in millions of years (galaxy-motion.js) ----
-const gtime=$('gtime'),gslider=$('gslider');gslider.min=TIME_RANGE[0];gslider.max=TIME_RANGE[1];
+// ---- Time at the big scales: one clock bar, in thousands of years for the stars (star-motion.js)
+// and millions for the Milky Way (galaxy-motion.js). Each scene keeps its own clock; leaving a scale
+// (or zooming across a seam) first returns it to today, because every map is drawn as the sky is now.
+const gtime=$('gtime'),gslider=$('gslider');
 let timeText='';
-function paintTime(){const t=galaxyView.time(),p=galaxyView.playing();
- const text=timeLabel(t)+'|'+(milestone(t)||(Math.abs(t)<0.5?'Press play to watch the Galaxy turn. Tap a landmark for its card.':lapsLabel(t)))+'|'+p;
- if(document.activeElement!==gslider)gslider.value=String(Math.round(t));gslider.setAttribute('aria-valuetext',timeLabel(t));
- if(text===timeText)return;timeText=text;const [clock,note]=text.split('|');
- $('gclock').textContent=clock;$('gnote').textContent=note;$('gplay').dataset.state=p?'playing':'paused';$('gplay').setAttribute('aria-label',p?'Pause time':'Play time: watch the Galaxy turn');$('gnow').hidden=Math.abs(t)<0.5;}
-$('gplay').onclick=()=>{if(galaxyView.playing())galaxyView.pause();else{dismissHint();galaxyView.play();}paintTime();};
-gslider.oninput=()=>{dismissHint();galaxyView.setTime(Number(gslider.value));paintTime();};
-$('gnow').onclick=()=>{galaxyView.rewind();paintTime();};
+const clockLevel=()=>{const v=state.value.view;return v==='galaxy'?'galaxy':v==='stars'?'stars':null;};
+const clockOf=l=>l==='galaxy'?galaxyView:l==='stars'?starsView:null;
+function paintTime(){const l=clockLevel(),c=clockOf(l);if(!c)return;const t=c.time(),p=c.playing(),g=l==='galaxy';
+ let clock,note;
+ if(g){clock=timeLabel(t);note=milestone(t)||(Math.abs(t)<0.5?'Press play to watch the Galaxy turn. Tap a landmark for its card.':lapsLabel(t));}
+ else{clock=yearsLabel(t);const n=c.nearest();note=n.entry?`${Math.abs(t)<50?'Nearest star now':'Nearest star'}: ${n.entry.name}, ${fmt(n.ly,1)} light-years`+(Math.abs(t)<50&&!p?' · press play to watch the stars drift':''):'';}
+ const range=g?TIME_RANGE:STAR_TIME;gslider.min=range[0];gslider.max=range[1];gslider.step=g?1:100;
+ gslider.setAttribute('aria-label',g?'Time, in millions of years from today':'Time, in years from today');
+ if(document.activeElement!==gslider)gslider.value=String(Math.round(t));gslider.setAttribute('aria-valuetext',clock);
+ const text=[l,clock,note,p].join('|');if(text===timeText)return;timeText=text;
+ $('gclock').textContent=clock;$('gnote').textContent=note;$('gplay').dataset.state=p?'playing':'paused';$('gplay').setAttribute('aria-label',p?'Pause time':g?'Play time: watch the Galaxy turn':'Play time: watch the stars drift');$('gnow').hidden=Math.abs(t)<(g?0.5:50);gtime.setAttribute('aria-label',g?'Time in the Milky Way':'Time among the nearby stars');}
+$('gplay').onclick=()=>{const c=clockOf(clockLevel());if(!c)return;if(c.playing())c.pause();else{dismissHint();c.play();}paintTime();};
+gslider.oninput=()=>{const c=clockOf(clockLevel());if(!c)return;dismissHint();c.setTime(Number(gslider.value));paintTime();};
+$('gnow').onclick=()=>{clockOf(clockLevel())?.rewind();paintTime();};
 // ---- One continuous zoom: Solar System ⇄ nearby stars ⇄ Milky Way ----
 // Zooming past a scene's outer (or inner) limit opens a "bridge": both scenes are drawn at once and the
 // zoom gesture itself moves the blend t (0 = inner scene, 1 = outer). The inner scene recedes and dims while
@@ -78,7 +87,7 @@ function goLevel(target){
  const cur=levelOf(state.value.view);if(target===cur||bridge||animating)return;stopAudio();$('settings').open=false;
  const out=levelIndex(target)>levelIndex(cur),pair=pairFor(cur,out?1:-1),then=()=>{if(levelOf(state.value.view)!==target)goLevel(target);};
  const play=()=>{beginBridge(pair,out?0:1);animateBridge(out?1:0,then);};
- if(cur==='galaxy'&&galaxyView.time()!==0){animating=true;galaxyView.rewind(()=>{animating=false;goLevel(target);});return;} // back to today first: the star map is as the sky is now
+ const ck=clockOf(cur);if(ck&&ck.time()!==0){animating=true;ck.rewind(()=>{animating=false;goLevel(target);});return;} // back to today first: the star map is as the sky is now
  if(state.value.view==='system'){starsView.closeSystem();state.update({view:'stars',sheet:'closed'});render();}
  if(out&&cur==='stars')starsView.zoomOut(play);
  else if(!out&&cur==='stars')starsView.zoomBackIn(play);
@@ -97,8 +106,9 @@ function feedZoom(amount){
  if(animating)return;if(bridge){moveBridge(amount);return;}
  const l=levelOf(state.value.view),z=zoomState();if(!z||z.busy||state.value.sheet==='half'||state.value.sheet==='full')return;
  const lim=atLimit(z.d,z.min,z.max);
+ const ck=clockOf(l);if(ck&&ck.time()!==0&&(lim.atOuter&&amount>0&&z.outer||lim.atInner&&amount<0&&z.inner)){ck.rewind();return;}
  if(amount>0&&lim.atOuter&&z.outer){beginBridge(pairFor(l,1),0);moveBridge(amount);}
- else if(amount<0&&lim.atInner&&z.inner){if(l==='galaxy'&&(galaxyView.time()!==0||!galaxyView.atSun())){galaxyView.rewind(()=>galaxyView.zoomToSun());return;}/* back to today and to the Sun, where the star map takes over */beginBridge(pairFor(l,-1),1);moveBridge(amount);}
+ else if(amount<0&&lim.atInner&&z.inner){if(l==='galaxy'&&!galaxyView.atSun()){galaxyView.zoomToSun();return;}/* back to today and to the Sun, where the star map takes over */beginBridge(pairFor(l,-1),1);moveBridge(amount);}
 }
 $('c').addEventListener('wheel',e=>feedZoom(Math.max(-120,Math.min(120,e.deltaY))),{passive:true});
 // Name labels sit above the scene and would swallow the wheel: pass it through so zooming works anywhere.
@@ -109,7 +119,7 @@ document.addEventListener('pointerdown',e=>{if(e.target!==$('c'))return;pinch.se
 document.addEventListener('pointermove',e=>{if(!pinch.has(e.pointerId))return;pinch.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch.size!==2)return;const d=spreadOf();if(spread>0&&d>0)feedZoom(-Math.log(d/spread)*600);spread=d;},true);
 for(const t of ['pointerup','pointercancel'])document.addEventListener(t,e=>{pinch.delete(e.pointerId);if(pinch.size<2)spread=0;},true);
 function pickLandmark(m){dismissHint();galaxyView.pause();go({view:'galaxy',landmark:m.name,sheet:'peek'});}
-function pickStar(e){dismissHint();go({view:'stars',star:e.name,sheet:'peek'});}
+function pickStar(e){dismissHint();starsView.pause();go({view:'stars',star:e.name,sheet:'peek'});}
 hooks.overrideTap=(x,y)=>{const s=state.value;
  if(s.view==='galaxy'){const m=galaxyView.pick(x,y);if(m)pickLandmark(m);else if(s.sheet!=='closed')setSheet({sheet:'closed',landmark:null});return;}
  if(s.view!=='stars')return;const e=starsView.pick(x,y);if(e)pickStar(e);else if(s.sheet!=='closed')setSheet({sheet:'closed',star:null});};
@@ -478,20 +488,22 @@ function paintStar(){
  $('star-panel').hidden=!e;$('action').hidden=true;
  if(!e){$('kicker').textContent='Our neighbourhood';$('title').textContent='The nearest stars';$('fact').textContent='Every star and brown dwarf within 16 light-years.';$('view-caption').textContent='';return;}
  const p=e.primary||e.stars[0];
- $('kicker').textContent=`${e.kind} · ${p.type}`;$('title').textContent=e.name;
- $('fact').textContent=e.sun?'Our own star. From here, every other star is a point of light.':STAR_FACTS[e.name]||`A ${e.kindBlurb}, ${fmt(e.ly,1)} light-years away.`;
+ $('kicker').textContent=e.visitor?`Passing star · ${e.kind}`:`${e.kind} · ${p.type}`;$('title').textContent=e.name;
+ $('fact').textContent=e.sun?'Our own star. From here, every other star is a point of light.':STAR_FACTS[e.name]||e.fact||`A ${e.kindBlurb}, ${fmt(e.ly,1)} light-years away.`;
  $('view-caption').textContent=e.sun?'The Sun at the centre · rings at 5, 10 and 15 light-years':`${fmt(e.ly,2)} light-years from the Sun · positions to scale · star sizes show brightness, not true size`;
  const naked=p.mag!=null&&p.mag<6;
  const rows=e.sun?[['Type','Yellow dwarf (G2V)'],['Surface temperature','about 5,800 K'],['Sunlight reaches Earth in','about 8 minutes']]:[
   ['Distance',`${fmt(e.ly,2)} light-years`],['The light you see left it',`around ${lightLeftYear(e.ly)}`],['Type',`${e.kind} (${p.type})`],
   ['Surface temperature',`about ${fmt(e.temp)} K`],['Visible brightness',p.mag==null?'too faint to see; infrared only':`magnitude ${p.mag}${naked?' · visible to the naked eye':' · needs a telescope or binoculars'}`]];
+ const mo=e.motion;if(mo)rows.push(['Speed compared with the Sun',`about ${fmt(mo.kms)} km/s`+(mo.rvKnown?'':' across the sky (its speed towards or away from us is not yet measured)')],['Closest to the Sun',mo.rvKnown?approachLabel(mo.close):'unknown: needs its speed towards or away from us']);
  $('star-facts').innerHTML=rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
  $('star-companions').textContent=e.stars.length>1?`A ${['','','double','triple','quadruple'][e.stars.length]||'multiple'} system: ${e.stars.map(x=>`${x.name} (${starKindShort(x.type)})`).join(', ')}.`:'';
  const ps=e.planets;
  $('star-planets').innerHTML=ps?`<p><b>${ps.planets.length} known planet${ps.planets.length>1?'s':''}.</b> ${ps.logL!=null&&ps.planets.some(x=>{const hz=habitableZone(ps.logL,e.temp);return x[2]>=hz[0]&&x[2]<=hz[1];})?'At least one orbits in the habitable zone.':''}</p>`:e.sun?'':'<p class="fine">No planets confirmed yet.</p>';
  if(ps){$('action').hidden=false;$('action').textContent=`Visit its planets`;$('action').onclick=()=>go({view:'system',star:e.name,sheet:'half'});}
+ else if(e.visitor&&e.motion?.rvKnown){const c=e.motion.close;$('action').hidden=false;$('action').textContent=c.years<0?'Show its close pass':'Show its close approach';$('action').onclick=()=>{starsView.setTime(Math.round(c.years/100)*100,e);setSheet({sheet:'closed'});paintTime();};}
  else if(e.sun){$('action').hidden=false;$('action').textContent='Back to the Solar System';$('action').onclick=leaveStars;}
- $('star-depth').innerHTML=`<p>Positions come from each star’s direction in the sky and its measured distance, so the 3D layout is real. The rings mark 5, 10 and 15 light-years in the plane of the Solar System; the thin lines drop to that plane. Glow size shows how bright a star really is, not its true size; at this scale every star would be far too small to see.</p><p>Temperatures are typical values for the star’s spectral type. Magnitudes are visual brightness as seen from Earth (smaller is brighter; about 6 is the limit for the naked eye).</p><a href="https://en.wikipedia.org/wiki/List_of_nearest_stars" target="_blank" rel="noopener">Nearest-stars table (RECONS / Gaia values)</a>${ps?' · <a href="https://exoplanetarchive.ipac.caltech.edu/" target="_blank" rel="noopener">NASA Exoplanet Archive</a>':''}${sourceNote}`;
+ $('star-depth').innerHTML=`<p>Positions come from each star’s direction in the sky and its measured distance, so the 3D layout is real. The rings mark 5, 10 and 15 light-years in the plane of the Solar System; the thin lines drop to that plane. Glow size shows how bright a star really is, not its true size; at this scale every star would be far too small to see.</p><p>Temperatures are typical values for the star’s spectral type. Magnitudes are visual brightness as seen from Earth (smaller is brighter; about 6 is the limit for the naked eye).</p><p><strong>How the stars move.</strong> Press play to run the clock, about 2,000 years each second, up to 100,000 years back or forward. Each star moves in a straight line at its measured speed: its drift across our sky (proper motion) combined with its speed towards or away from us (radial velocity). Over this span real paths are very nearly straight. The faint coloured line shows where a star has come from since today. A few cold brown dwarfs have no measured speed towards or away from us, so only their sideways drift is shown. The Sun’s neighbours all orbit the Galaxy too, but at almost the same speed as the Sun, so here you see only how they move relative to us. The map is drawn as the sky is now, so zooming out to the Milky Way or in to the Solar System first brings the clock back to today.</p><a href="https://en.wikipedia.org/wiki/List_of_nearest_stars" target="_blank" rel="noopener">Nearest-stars table (RECONS / Gaia values)</a>${ps?' · <a href="https://exoplanetarchive.ipac.caltech.edu/" target="_blank" rel="noopener">NASA Exoplanet Archive</a>':''}${sourceNote}`;
 }
 const starKindShort=t=>t[0]==='D'?'white dwarf':'LTY'.includes(t[0])?'brown dwarf':t[0]==='M'?'red dwarf':t[0]==='K'?'orange dwarf':t[0]==='G'?'Sun-like':'star';
 function paintSystem(){
@@ -529,7 +541,7 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system')starsVi
  if(!open&&space){const g=level==='galaxy';$('back').textContent=g?'← Nearby stars':'← Solar System';$('back').setAttribute('aria-label',g?'Zoom back in to the nearby stars':'Zoom back in to the Solar System');}
  else if(!open){const all=hooks.homeScope!=='inner';$('back').textContent=all?'Show inner planets':'Show all planets';$('back').setAttribute('aria-label',all?'Zoom in on the inner planets, Mercury to Mars':'Zoom out to show all eight planets');}
  else{const atOverview=!state.canBack;$('back').textContent=atOverview?'Overview':'← Back';$('back').setAttribute('aria-label',atOverview?'Close the card and show the Solar System':'Go back');}
- $('hint').hidden=(hintSeen&&!space)||open||level==='galaxy';gtime.hidden=level!=='galaxy'||open;if(!gtime.hidden)paintTime();$('hint').textContent=level==='galaxy'?'Tap a landmark':space?'Tap a star':'Tap a planet, the Sun or the Moon';
+ $('hint').hidden=(hintSeen&&!space)||open||!!clockLevel();gtime.hidden=!clockLevel()||open;if(!gtime.hidden)paintTime();$('hint').textContent=level==='galaxy'?'Tap a landmark':space?'Tap a star':'Tap a planet, the Sun or the Moon';
  $('world-depth').open=false;
  sheet.querySelector('.tabs').hidden=experiment||s.view==='journey'||space; // labs: controls first, Back returns to the tabs
  $('experiment-chooser').hidden=experiment;$('experiment').hidden=!scene;$('scale-lab').hidden=!(experiment&&s.experiment==='scale');$('experiment-reset').hidden=!experiment;
@@ -551,4 +563,4 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system')starsVi
 }
 addEventListener('resize',()=>{if(state.value.view==='compare')paintCompare();});
 render();
-window.__lab={state,go,experiments,player,setSheet};
+window.__lab={state,go,experiments,player,setSheet,starsView,galaxyView};
