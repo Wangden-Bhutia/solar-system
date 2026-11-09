@@ -1,9 +1,9 @@
 import { bodies, focus, unfocus, hooks, renderer, controls, setHomeScope } from './app.js';
-import { createStars } from './stars.js';
+import { createStars, createDimmer } from './stars.js';
 import { createGalaxy } from './galaxy.js';
 import { GALAXY_FACTS } from './galaxy-data.js';
-import { LEVELS, levelIndex, createPush, atLimit, edgeHint } from './zoom-ladder.js';
-import { camera } from './app.js';
+import { LEVELS, levelIndex, PAIRS, pairFor, bridgeFrame, stepBridge, atLimit, STAR_NEAR, STAR_FAR, GALAXY_NEAR } from './zoom-ladder.js';
+import { camera, drawSolar } from './app.js';
 import { STAR_FACTS, habitableZone, sizeFromMass, lightLeftYear } from './stars-data.js';
 import { createExperiments } from './experiments.js';
 import { createLabState } from './lab-state.js';
@@ -22,34 +22,71 @@ const sheet=$('sheet');
 const SPACE=new Set(['stars','system','galaxy']);
 const levelOf=v=>v==='galaxy'?'galaxy':v==='stars'||v==='system'?'stars':'solar';
 const starsView=createStars({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:e=>pickStar(e)});
-let shownLevel='solar',fading=false;
+let shownLevel='solar',arrival=null;
 const galaxyView=createGalaxy({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:m=>pickLandmark(m)});
-function fadeThen(fn,ms=320){if(typeof globalThis.requestAnimationFrame!=='function'){fn();return;}if(fading)return;fading=true;$('fade').classList.add('on');setTimeout(()=>{fn();globalThis.requestAnimationFrame(()=>{$('fade').classList.remove('on');fading=false;});},globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches?0:ms);}
-function enterStars(){stopAudio();$('settings').open=false;fadeThen(()=>{state.navigate({view:'stars',star:null,experiment:null,sheet:'closed'});render();});}
-function leaveStars(){stopAudio();$('settings').open=false;const go2=()=>fadeThen(()=>{state.navigate({view:'explore',feature:'orbit',star:null,experiment:null,sheet:'closed'});render();});
- if(state.value.view==='system'){state.update({view:'stars',sheet:'closed'});render();}
- starsView.zoomBackIn(go2);}
-// The zoom ladder: Solar System → nearby stars → Milky Way. Zooming out past a scene's edge (or the scale
-// ladder) steps out; zooming in past it, or Back, steps in.
-function enterGalaxy(){stopAudio();$('settings').open=false;starsView.zoomOut(()=>fadeThen(()=>{state.navigate({view:'galaxy',landmark:null,star:null,sheet:'closed'});render();}));}
-function leaveGalaxy(){stopAudio();$('settings').open=false;galaxyView.zoomToSun(()=>fadeThen(()=>{state.navigate({view:'stars',star:null,landmark:null,sheet:'closed'});render();}));}
-// Jump to any level: outward glides via the levels in between; inward glides home to the Sun first.
-function goLevel(target){const cur=levelOf(state.value.view);if(target===cur||fading)return;stopAudio();$('settings').open=false;push.reset();
- const views={solar:{view:'explore',feature:'orbit'},stars:{view:'stars'},galaxy:{view:'galaxy'}},arrive=()=>fadeThen(()=>{state.navigate({...views[target],star:null,landmark:null,experiment:null,sheet:'closed'});render();});
- if(levelIndex(target)>levelIndex(cur)){if(cur==='stars')starsView.zoomOut(arrive);else arrive();}
- else{if(cur==='galaxy')galaxyView.zoomToSun(arrive);else if(cur==='stars'){if(state.value.view==='system'){state.update({view:'stars',sheet:'closed'});render();}starsView.zoomBackIn(arrive);}}}
+// ---- One continuous zoom: Solar System ⇄ nearby stars ⇄ Milky Way ----
+// Zooming past a scene's outer (or inner) limit opens a "bridge": both scenes are drawn at once and the
+// zoom gesture itself moves the blend t (0 = inner scene, 1 = outer). The inner scene recedes and dims while
+// the outer one dissolves in, centred on the Sun and seen from the same direction. No cuts, no fades to black.
+const dim=createDimmer(renderer);
+let bridge=null,animating=false;
+const views={solar:{view:'explore',feature:'orbit'},stars:{view:'stars'},galaxy:{view:'galaxy'}};
+const viewDirOf=l=>l==='solar'?camera.position.clone().sub(controls.target).normalize():l==='stars'?starsView.viewDir():galaxyView.viewDir();
+function drawBridge(){
+ const r=$('stage').getBoundingClientRect(),f=bridgeFrame(bridge.pair,bridge.t);
+ if(bridge.pair==='solar>stars'){drawSolar(f.inner.recede);dim(f.inner.dim);starsView.setView(bridge.dir,f.outer.d);starsView.render(r.width,r.height,null,{overlay:true,opacity:f.outer.opacity});}
+ else{starsView.setView(bridge.dir,f.inner.d);starsView.render(r.width,r.height,null,{opacity:1-f.inner.dim});dim(f.inner.dim);galaxyView.setView(bridge.dir,f.outer.d);galaxyView.render(r.width,r.height,null,{overlay:true,opacity:f.outer.opacity});}
+}
+function beginBridge(pair,t){
+ const cur=levelOf(state.value.view);if(state.value.view==='system'){starsView.closeSystem();state.update({view:'stars'});}
+ bridge={pair,t,dir:viewDirOf(cur)};state.update({sheet:'closed',star:null,landmark:null});
+ if(pair==='solar>stars')starsView.showLabels(true);else galaxyView.showLabels(true);
+ document.body.classList.add('bridging');render();
+}
+function moveBridge(amount){const {t,settled}=stepBridge(bridge.t,amount);bridge.t=t;if(settled)settle(settled);}
+function settle(end){
+ const b=bridge,[inner,outer]=PAIRS[b.pair],target=end==='outer'?outer:inner,cur=levelOf(state.value.view);bridge=null;document.body.classList.remove('bridging');
+ const other=target===inner?outer:inner;if(other==='stars')starsView.showLabels(false);if(other==='galaxy')galaxyView.showLabels(false);
+ // Arrive with the camera exactly where the bridge left it.
+ arrival=target==='solar'?{solar:true}:target==='stars'?{dir:b.dir,d:b.pair==='solar>stars'?STAR_NEAR:STAR_FAR}:{dir:b.dir,d:GALAXY_NEAR};
+ if(target!==cur)state.navigate({...views[target],star:null,landmark:null,experiment:null,sheet:'closed'});
+ else{arrival=null;if(target==='stars')starsView.setView(b.dir,b.pair==='solar>stars'?STAR_NEAR:STAR_FAR);if(target==='galaxy')galaxyView.setView(b.dir,GALAXY_NEAR);}
+ render();
+}
+// The same blend, played automatically for the scale ladder, Back and buttons: glide to the edge, then cross.
+function animateBridge(to,done){
+ if(typeof globalThis.requestAnimationFrame!=='function'||globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches){bridge.t=to;settle(to===1?'outer':'inner');done?.();return;}
+ animating=true;let last=performance.now();
+ const tick=now=>{const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;if(!bridge){animating=false;return;}
+  const {t,settled}=stepBridge(bridge.t,(to===1?1:-1)*dt/1.3*600);bridge.t=t;
+  if(settled){animating=false;settle(settled);done?.();}else globalThis.requestAnimationFrame(tick);};
+ globalThis.requestAnimationFrame(tick);
+}
+function goLevel(target){
+ const cur=levelOf(state.value.view);if(target===cur||bridge||animating)return;stopAudio();$('settings').open=false;
+ const out=levelIndex(target)>levelIndex(cur),pair=pairFor(cur,out?1:-1),then=()=>{if(levelOf(state.value.view)!==target)goLevel(target);};
+ const play=()=>{beginBridge(pair,out?0:1);animateBridge(out?1:0,then);};
+ if(state.value.view==='system'){starsView.closeSystem();state.update({view:'stars',sheet:'closed'});render();}
+ if(out&&cur==='stars')starsView.zoomOut(play);
+ else if(!out&&cur==='stars')starsView.zoomBackIn(play);
+ else if(!out&&cur==='galaxy')galaxyView.zoomToSun(play);
+ else{if(state.value.sheet!=='closed'){state.update({sheet:'closed'});render();}play();}
+}
+const enterStars=()=>goLevel('stars'),leaveStars=()=>goLevel('solar'),enterGalaxy=()=>goLevel('galaxy'),leaveGalaxy=()=>goLevel('stars');
 for(const b of $('ladder').querySelectorAll('button'))b.onclick=()=>goLevel(b.dataset.level);
-// Gestures: wheel and pinch feed the push accumulator while the active camera sits at a limit.
-const push=createPush();
+// Gestures: while bridging, the wheel and pinch move the blend; otherwise they open a bridge only when the
+// active camera is already at its limit (so ordinary zooming inside a scale is untouched).
 function zoomState(){const l=levelOf(state.value.view);
  if(l==='solar'){if(state.value.view==='try'&&state.value.experiment)return null;const d=camera.position.distanceTo(controls.target);return {d,min:controls.minDistance,max:controls.maxDistance,busy:false,outer:true,inner:false};}
+ if(state.value.view==='system')return null;
  const z=(l==='stars'?starsView:galaxyView).zoomState();return {...z,outer:l==='stars',inner:true};}
 function feedZoom(amount){
- const l=levelOf(state.value.view),z=zoomState();if(!z||z.busy||fading||(state.value.sheet!=='closed'&&state.value.sheet!=='peek'))return;
- const lim=atLimit(z.d,z.min,z.max),step=push.feed(amount,{atOuter:lim.atOuter&&z.outer,atInner:lim.atInner&&z.inner});
- const msg=edgeHint(l,push.direction);$('edge-hint').hidden=!msg;if(msg){$('edge-hint').querySelector('span').textContent=msg;$('edge-hint').querySelector('i').style.width=`${Math.round(push.progress*100)}%`;}
- globalThis.clearTimeout?.(feedZoom.t);feedZoom.t=setTimeout(()=>{$('edge-hint').hidden=true;},1000);
- if(step){$('edge-hint').hidden=true;goLevel(LEVELS[levelIndex(l)+(step==='out'?1:-1)]);}}
+ if(animating)return;if(bridge){moveBridge(amount);return;}
+ const l=levelOf(state.value.view),z=zoomState();if(!z||z.busy||state.value.sheet==='half'||state.value.sheet==='full')return;
+ const lim=atLimit(z.d,z.min,z.max);
+ if(amount>0&&lim.atOuter&&z.outer){beginBridge(pairFor(l,1),0);moveBridge(amount);}
+ else if(amount<0&&lim.atInner&&z.inner){beginBridge(pairFor(l,-1),1);moveBridge(amount);}
+}
 $('c').addEventListener('wheel',e=>feedZoom(Math.max(-120,Math.min(120,e.deltaY))),{passive:true});
 // Name labels sit above the scene and would swallow the wheel: pass it through so zooming works anywhere.
 $('labels').addEventListener('wheel',e=>{e.preventDefault();$('c').dispatchEvent(new WheelEvent('wheel',{deltaX:e.deltaX,deltaY:e.deltaY,deltaMode:e.deltaMode,clientX:e.clientX,clientY:e.clientY,ctrlKey:e.ctrlKey,bubbles:true,cancelable:true}));},{passive:false});
@@ -460,8 +497,9 @@ function render(){
  const level=levelOf(s.view);
  if(level!==shownLevel){const from=shownLevel;shownLevel=level;
   if(from==='stars')starsView.leave();if(from==='galaxy')galaxyView.leave();
-  if(level==='stars')starsView.enter(from==='galaxy'?'outside':'inside');if(level==='galaxy')galaxyView.enter();
-  if(level==='solar')unfocus(true,.01);}
+  const at=arrival;arrival=null;
+  if(level==='stars')starsView.enter(at||(from==='galaxy'?'outside':'inside'));if(level==='galaxy')galaxyView.enter(at);
+  if(level==='solar'&&!at)unfocus(true,.01);}
 if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system')starsView.openSystem(entryOf(s.star));})():starsView.mode==='system'&&starsView.closeSystem());
  if(level==='stars')starsView.select(s.star&&entryOf(s.star));if(level==='galaxy')galaxyView.select(s.landmark&&galaxyView.landmarks.find(x=>x.name===s.landmark));
  document.body.classList.toggle('space-mode',space);
@@ -495,6 +533,8 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system')starsVi
  else if(s.view==='journey')paintJourney();
  else{narration='lab_try';$('action').hidden=true;$('kicker').textContent='Small science lab';$('title').textContent='Try an idea';$('fact').textContent=LINES.lab_try;$('view-caption').textContent='Five experiments. Change one thing and see why it matters.';}
  $('listen').hidden=!narration||!LINES[narration];
+ if(bridge){hooks.renderOverride=drawBridge;hooks.hold=true;controls.enabled=false;starsView.controls.enabled=false;galaxyView.controls.enabled=false;}
+ else{starsView.controls.enabled=level==='stars'&&starsView.mode==='stars';galaxyView.controls.enabled=level==='galaxy';}
 }
 addEventListener('resize',()=>{if(state.value.view==='compare')paintCompare();});
 render();

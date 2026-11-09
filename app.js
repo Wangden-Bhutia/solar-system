@@ -503,6 +503,15 @@ export function setRealScale(on) {
 }
 document.getElementById('realBtn').onclick = e => { const on = !realScale; e.currentTarget.classList.toggle('on', on); e.currentTarget.setAttribute('aria-pressed', on); document.getElementById('scaleNote').textContent = on ? 'true sizes & distances' : 'sizes to scale (Sun 1/5) · distances shrunk'; setRealScale(on); };
 window.__face = (name, lonDeg) => { const b = bodies.find(x => x.data.name === name); const d = camera.position.clone().sub(b.mesh.getWorldPosition(new THREE.Vector3())); const tilt = b.mesh.parent; const local = tilt.worldToLocal(camera.position.clone()).sub(tilt.worldToLocal(b.mesh.getWorldPosition(new THREE.Vector3()))); b.mesh.rotation.y = Math.atan2(-local.z, local.x) - lonDeg * Math.PI / 180; void d; };
+// Draw the Solar System once with the camera pulled back `recede` times along its current line of
+// sight (used while zooming out into the stars), without moving the simulation.
+export function drawSolar(recede = 1) {
+  const bounds = canvas.getBoundingClientRect(); if (!bounds.width || !bounds.height) return;
+  renderer.setSize(bounds.width, bounds.height, false); applyVisibleRegion(camera, bounds.width, bounds.height, hooks.visible?.(bounds.width, bounds.height));
+  const saved = camera.position.clone(); camera.position.sub(controls.target).multiplyScalar(recede).add(controls.target);
+  camera.far = Math.max(5e6, camera.position.distanceTo(controls.target) * 4); camera.updateProjectionMatrix(); camera.lookAt(controls.target);
+  renderer.render(scene, camera); camera.position.copy(saved); camera.lookAt(controls.target);
+}
 export { bodies, focus, unfocus, camera, controls, renderer, pickAt, applyVisibleRegion, HOME, handleTap, inSystem };
 window.__solar = { pickAt, screenOf: n => { const bounds=canvas.getBoundingClientRect(); const b = bodies.find(x => x.data.name === n); const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera); return [bounds.left + (p.x + 1) / 2 * bounds.width, bounds.top + (1 - p.y) / 2 * bounds.height]; }, focusByName: n => focus(bodies.find(b => b.data.name === n)), setKid };
 window.__cam = () => [camera.position.toArray().map(v => +v.toFixed(3)), controls.target.toArray().map(v => +v.toFixed(3))];

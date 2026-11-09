@@ -1,37 +1,42 @@
-// Continuous zoom between scales: Solar System → nearby stars → Milky Way.
-// Each scene keeps its own camera limits. When the camera is already at its outer limit and the
-// person keeps zooming out (scroll wheel or pinch), that extra "push" builds up; past a threshold
-// we move out one level. The same works inward at the inner limit. Pure logic, no DOM.
+// One continuous zoom across scales: Solar System → nearby stars → Milky Way.
+// Each scale is its own scene with its own camera. Between two scales there is a "bridge": a blend
+// position t from 0 (the inner scale) to 1 (the outer scale). Zooming past a scene's limit moves t
+// directly, so the outer scene dissolves in while the inner one recedes and darkens, with no cut,
+// fade-to-black or pause. Pure maths here; drawing is in lab.js / stars.js / galaxy.js.
 export const LEVELS = ['solar', 'stars', 'galaxy'];
 export const LEVEL_NAMES = { solar: 'Solar System', stars: 'Stars', galaxy: 'Milky Way' };
 export const levelIndex = l => LEVELS.indexOf(l);
+export const PAIRS = { 'solar>stars': ['solar', 'stars'], 'stars>galaxy': ['stars', 'galaxy'] };
+export const pairFor = (level, dir) => dir > 0 ? (level === 'solar' ? 'solar>stars' : level === 'stars' ? 'stars>galaxy' : null)
+  : (level === 'stars' ? 'solar>stars' : level === 'galaxy' ? 'stars>galaxy' : null);
 
-// A push accumulator. amount > 0 means zooming out, < 0 zooming in (wheel deltaY, or the log of a
-// pinch's finger-spread ratio scaled to the same units). Returns 'out' / 'in' when a step should
-// happen, otherwise null. Pushes decay if the person stops (after idleMs) or reverses direction,
-// and only count while the camera sits at the matching limit.
-export function createPush({ threshold = 260, idleMs = 900 } = {}) {
-  let acc = 0, last = 0;
-  return {
-    feed(amount, { atOuter, atInner, now = Date.now() }) {
-      if (now - last > idleMs) acc = 0; last = now;
-      if (amount > 0 && atOuter) acc = Math.max(0, acc) + amount;
-      else if (amount < 0 && atInner) acc = Math.min(0, acc) + amount;
-      else acc = 0;
-      if (acc >= threshold) { acc = 0; return 'out'; }
-      if (acc <= -threshold) { acc = 0; return 'in'; }
-      return null;
-    },
-    get progress() { return Math.min(1, Math.abs(acc) / threshold); },
-    get direction() { return acc > 0 ? 'out' : acc < 0 ? 'in' : null; },
-    reset() { acc = 0; },
-  };
+// Camera distances that meet at the seams.
+export const STAR_NEAR = 0.4;      // ly: the star map's closest view (its inner limit) = end of the Solar System bridge
+export const STAR_FAR = 120;       // ly: the star map's outer limit = start of the Galaxy bridge
+export const GALAXY_NEAR = 12;     // kly: the Galaxy's closest view (inner limit) = end of the Galaxy bridge
+// How much zooming crosses a whole bridge (wheel deltaY units; a pinch is converted to the same units).
+export const BRIDGE_SPAN = 600;
+
+const smooth = t => t * t * (3 - 2 * t);
+// Where each camera is and how visible each scene is at blend position t.
+export function bridgeFrame(pair, t) {
+  t = Math.max(0, Math.min(1, t));
+  if (pair === 'solar>stars') {
+    // The Solar System recedes (camera pulls back up to 8×) as the star map opens out from just around
+    // the Sun (0.02 → 0.4 ly). The Solar System's units are compressed, so this seam is visual, not metric.
+    return { inner: { recede: 1 + 7 * t ** 1.5, dim: smooth(t) }, outer: { d: 0.02 * (STAR_NEAR / 0.02) ** t, opacity: smooth(t) } };
+  }
+  // Stars → Galaxy is metric: both scenes share the Sun as centre and the same view direction, and
+  // the Galaxy's camera distance in kly is exactly the star map's in ly ÷ 1,000 (120 ly = 0.12 kly).
+  const starD = STAR_FAR * (GALAXY_NEAR * 1000 / STAR_FAR) ** t;
+  return { inner: { d: starD, dim: smooth(t) }, outer: { d: starD / 1000, opacity: smooth(t) } };
 }
-// Within this fraction of a limit counts as "at" it (OrbitControls damping stops just short).
+// Is the active camera at the limit that leads into a bridge? (OrbitControls damping stops just short.)
 export const atLimit = (d, min, max, slack = 0.04) => ({ atOuter: d >= max * (1 - slack), atInner: d <= min * (1 + slack) });
-// What the edge hint says while a push builds up.
-export function edgeHint(level, dir) {
-  if (dir === 'out') return level === 'solar' ? 'Keep zooming out to leave the Solar System' : level === 'stars' ? 'Keep zooming out to see the Milky Way' : null;
-  if (dir === 'in') return level === 'stars' ? 'Keep zooming in to return to the Solar System' : level === 'galaxy' ? 'Keep zooming in to return to the nearby stars' : null;
-  return null;
+// Advance a bridge by a zoom amount (> 0 zooms out). Returns the new t and whether it has settled
+// at an end: 'outer' (arrived at the outer scale), 'inner' (back at the inner one) or null.
+export function stepBridge(t, amount, span = BRIDGE_SPAN) {
+  let next = Math.max(0, Math.min(1, t + amount / span));
+  if (next < 1e-9) next = 0; else if (next > 1 - 1e-9) next = 1; // floating-point steps must still land on the ends
+  return { t: next, settled: next >= 1 ? 'outer' : next <= 0 ? 'inner' : null };
 }

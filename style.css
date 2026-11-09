@@ -168,9 +168,6 @@ dl{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px}dt{color:va
 #moon-list button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 12px;min-height:44px;text-align:left}
 #moon-list small{font-size:11px;color:var(--muted)}
 /* Beyond the Solar System: zoom control, fade, star labels and panels. */
-#fade{position:fixed;inset:0;z-index:12;background:#000;opacity:0;pointer-events:none;transition:opacity .3s ease}
-#fade.on{opacity:1}
-@media (prefers-reduced-motion:reduce){#fade{transition:none}}
 #labels .lbl.space{display:none}
 body.space-mode #labels .lbl:not(.space){display:none}
 body.space-mode #labels .lbl.space:not([hidden]){display:block}
@@ -192,5 +189,7 @@ body.space-mode #labels .lbl.space:not([hidden]){display:block}
 #ladder button::before{content:'';position:absolute;inset:-8px -2px}/* larger tap target */
 #ladder button[aria-pressed=true]{background:rgba(194,223,243,.92);color:#102336}
 .experiment-mode #ladder{display:none}
-#edge-hint{position:fixed;z-index:14;left:50%;top:50%;transform:translate(-50%,-50%);margin:0;padding:10px 16px 12px;border-radius:16px;background:rgba(12,20,36,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(170,195,235,.2);font-size:13.5px;color:#e9f0fb;text-align:center;pointer-events:none;max-width:80vw}
-#edge-hint i{display:block;height:3px;margin-top:8px;border-radius:2px;background:var(--gold);width:0;transition:width .12s}
+/* While zooming between scales, the Solar System's names give way to the stars' (or the stars' to the Galaxy's). */
+body.bridging #labels .lbl:not(.space){display:none}
+body.bridging #labels .lbl.space:not([hidden]){display:block}
+body.bridging #hint,body.bridging #sheet{visibility:hidden}

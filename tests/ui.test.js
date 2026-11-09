@@ -1,7 +1,7 @@
 // DOM emulator only: NOT a browser, rendering test or actual mobile playback test.
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import {parseHTML} from 'linkedom';
 import {SUN,PLANETS,MOON,MOONS,DWARFS} from '../data.js';import * as science from '../science.js';import * as state from '../lab-state.js';import * as sheetMod from '../sheet.js';import * as insights from '../insights.js';import * as learn from '../learn.js';import * as starsData from '../stars-data.js';import * as galaxyData from '../galaxy-data.js';import * as ladderMod from '../zoom-ladder.js';import * as lines from '../voice/lines.js';
-const space={log:[],pickResult:null,selected:null,starsZoom:{d:26,min:0.4,max:120,busy:false},galaxyZoom:{d:215,min:8,max:260,busy:false}};
+const space={log:[],dims:[],pickResult:null,selected:null,starsZoom:{d:26,min:0.4,max:120,busy:false},galaxyZoom:{d:215,min:8,max:260,busy:false}};
 async function setup(width=390,height=844,stored={}){
  space.log=[];space.pickResult=null;
  const {window,document}=parseHTML(fs.readFileSync('index.html','utf8'));
@@ -10,12 +10,12 @@ async function setup(width=390,height=844,stored={}){
  const sheet=document.getElementById('sheet');sheet.getBoundingClientRect=()=>{const h=sheetHeights[sheet.dataset.state];return {left:0,top:height-h,width,height:h};};
  document.getElementById('stage').getBoundingClientRect=()=>({left:0,top:0,width,height});
  const hooks={homeScope:'inner'},focuses=[],updates=[],renders=[],played=[],storage={...stored};let unlocks=0,stops=0;
- const bodies=[SUN,...PLANETS,MOON,...DWARFS,...MOONS].map(data=>({data}));const controls={target:{},minDistance:0.6,maxDistance:900};const camera={position:{distanceTo:()=>space.solarD??300}};
- const app={hooks,bodies,controls,camera,renderer:{},focus(b,opts={}){focuses.push([b.data.name,opts]);if(!opts.silent)hooks.onFocus?.(b);},unfocus(){focuses.push(['overview']);},setHomeScope(scope){hooks.homeScope=scope;focuses.push(['overview:'+scope]);}};
+ const bodies=[SUN,...PLANETS,MOON,...DWARFS,...MOONS].map(data=>({data}));const controls={target:{},minDistance:0.6,maxDistance:900};const camera={position:{distanceTo:()=>space.solarD??300,clone:()=>({sub:()=>({normalize:()=>({x:0,y:0.5,z:0.86})})})}};
+ const app={hooks,bodies,controls,camera,drawSolar(r){space.log.push('drawSolar:'+r.toFixed(2));},renderer:{},focus(b,opts={}){focuses.push([b.data.name,opts]);if(!opts.silent)hooks.onFocus?.(b);},unfocus(){focuses.push(['overview']);},setHomeScope(scope){hooks.homeScope=scope;focuses.push(['overview:'+scope]);}};
  const audio={createVoicePlayer:({onState})=>({unlock(){unlocks++;},stop(){stops++;onState('idle');},say(id){assert.ok(lines.LINES[id],id);played.push(id);onState('speaking');return Promise.resolve();}})};
- const mods={'./app.js':app,'./science.js':science,'./lab-state.js':state,'./sheet.js':sheetMod,'./insights.js':insights,'./voice/lines.js':lines,'./voice-player.js':audio,'./learn.js':learn,'./stars-data.js':starsData,'./galaxy-data.js':galaxyData,'./zoom-ladder.js':ladderMod,'./galaxy.js':{createGalaxy:()=>({landmarks:galaxyData.LANDMARKS,enter(){space.log.push('galaxy:enter');},leave(){space.log.push('galaxy:leave');},render(){},pick:()=>space.galaxyPick,select(m){space.galaxySel=m;},zoomToSun(done){space.log.push('galaxy:zoomToSun');done();},zoomState:()=>space.galaxyZoom})},'./stars.js':{createStars:()=>{const entries=[starsData.SUN_ENTRY,...starsData.NEIGHBOURS];let mode='stars';const log=space.log;
+ const mods={'./app.js':app,'./science.js':science,'./lab-state.js':state,'./sheet.js':sheetMod,'./insights.js':insights,'./voice/lines.js':lines,'./voice-player.js':audio,'./learn.js':learn,'./stars-data.js':starsData,'./galaxy-data.js':galaxyData,'./zoom-ladder.js':ladderMod,'./galaxy.js':{createGalaxy:()=>({landmarks:galaxyData.LANDMARKS,enter(){space.log.push('galaxy:enter');},leave(){space.log.push('galaxy:leave');},render(){},pick:()=>space.galaxyPick,select(m){space.galaxySel=m;},zoomToSun(done){space.log.push('galaxy:zoomToSun');done();},zoomState:()=>space.galaxyZoom,setView(dir,d){space.galaxyView=[dir,d];},viewDir:()=>({x:0,y:1,z:0}),showLabels(v){space.log.push('galaxyLabels:'+v);},controls:{}})},'./stars.js':{createDimmer:()=>(o=>{space.dims.push(o);}),createStars:()=>{const entries=[starsData.SUN_ENTRY,...starsData.NEIGHBOURS];let mode='stars';const log=space.log;
   return {entries,get mode(){return mode;},enter(){log.push('enter');},leave(){log.push('leave');},render(){log.push('render');},pick:()=>space.pickResult,select(e){space.selected=e;},
-   zoomBackIn(done){log.push('zoomIn');done();},zoomOut(done){log.push('starsOut');done();},zoomState:()=>space.starsZoom,openSystem(e){e.sysView=starsData.systemSummary(e);mode='system';log.push('open:'+e.name);return e.sysView;},closeSystem(){mode='stars';log.push('close');}};}},'./experiments.js':{createExperiments:()=>({update(s){updates.push(s);},render(w,h,v){renders.push([w,h,v]);}})}};
+   zoomBackIn(done){log.push('zoomIn');done();},zoomOut(done){log.push('starsOut');done();},zoomState:()=>space.starsZoom,setView(dir,d){space.starsView=[dir,d];},viewDir:()=>({x:0,y:1,z:0}),showLabels(v){log.push('starsLabels:'+v);},controls:{},openSystem(e){e.sysView=starsData.systemSummary(e);mode='system';log.push('open:'+e.name);return e.sysView;},closeSystem(){mode='stars';log.push('close');}};}},'./experiments.js':{createExperiments:()=>({update(s){updates.push(s);},render(w,h,v){renders.push([w,h,v]);}})}};
  const context=vm.createContext({document,window:{},console,innerWidth:width,innerHeight:height,addEventListener(){},setTimeout,localStorage:{getItem:k=>storage[k]??null,setItem:(k,v)=>storage[k]=v}});
  const entry=new vm.SourceTextModule(fs.readFileSync('lab.js','utf8'),{context});await entry.link(s=>{const obj=mods[s];assert.ok(obj,s);return new vm.SyntheticModule(Object.keys(obj),function(){for(const[k,v]of Object.entries(obj))this.setExport(k,v);},{context});});await entry.evaluate();
  const tap=name=>app.focus(bodies.find(b=>b.data.name===name));
@@ -258,13 +258,15 @@ test('the zoom ladder reaches the Milky Way: landmarks, Sun card with galaxy fac
  a.$('back').onclick();assert.equal(a.lab.state.value.view,'stars','Back steps in one level');assert.ok(space.log.includes('galaxy:zoomToSun')&&space.log.includes('galaxy:leave'));
  assert.equal(a.document.querySelector('#ladder [aria-pressed="true"]').dataset.level,'stars');a.$('back').onclick();assert.equal(a.lab.state.value.view,'explore');assert.equal(a.document.body.classList.contains('space-mode'),false);
 });
-test('continuous zoom: pushing past a scene’s edge (wheel or pinch) steps out or in one level, with a progress hint',async()=>{
+test('seamless zoom: past a scene’s edge the gesture blends into the next scale; reversing slides back; settling arrives exactly',async()=>{
  const a=await setup(),c=a.$('c'),wheel=dy=>c.dispatchEvent(Object.assign(new a.document.defaultView.Event('wheel'),{deltaY:dy}));
- space.solarD=300;wheel(120);wheel(120);wheel(120);assert.equal(a.lab.state.value.view,'explore','not at the edge yet: OrbitControls just zooms');assert.equal(a.$('edge-hint').hidden,true);
- space.solarD=890;wheel(120);assert.equal(a.$('edge-hint').hidden,false);assert.match(a.$('edge-hint').textContent,/leave the Solar System/);
- wheel(120);wheel(120);assert.equal(a.lab.state.value.view,'stars','three pushes at the edge step out');
- space.starsZoom={d:118,min:0.4,max:120,busy:false};wheel(120);assert.match(a.$('edge-hint').textContent,/see the Milky Way/);wheel(120);wheel(120);assert.equal(a.lab.state.value.view,'galaxy');
- space.galaxyZoom={d:8.1,min:8,max:260,busy:false};wheel(-120);assert.match(a.$('edge-hint').textContent,/return to the nearby stars/);wheel(-120);wheel(-120);assert.equal(a.lab.state.value.view,'stars');
- space.starsZoom={d:0.41,min:0.4,max:120,busy:false};wheel(-120);wheel(-120);wheel(-120);assert.equal(a.lab.state.value.view,'explore','zoom in on the Sun returns home');
- space.starsZoom={d:118,min:0.4,max:120,busy:true};
+ space.solarD=300;wheel(120);assert.equal(a.document.body.classList.contains('bridging'),false,'inside the scale: ordinary zoom');
+ space.solarD=890;wheel(120);assert.equal(a.document.body.classList.contains('bridging'),true,'at the edge the blend starts at once');assert.equal(a.lab.state.value.view,'explore');
+ a.hooks.renderOverride();assert.ok(space.log.some(x=>x.startsWith('drawSolar:')),'both scenes drawn');assert.ok(space.dims.at(-1)>0&&space.dims.at(-1)<1,'partly dimmed');
+ wheel(-120);assert.equal(a.document.body.classList.contains('bridging'),false,'reversing slides back into the Solar System');assert.equal(a.lab.state.value.view,'explore');
+ for(let i=0;i<5;i++)wheel(120);assert.equal(a.lab.state.value.view,'stars','crossing completes');assert.equal(a.document.body.classList.contains('bridging'),false);
+ assert.equal(a.document.querySelector('#ladder [aria-pressed="true"]').dataset.level,'stars');
+ space.starsZoom={d:118,min:0.4,max:120,busy:false};for(let i=0;i<5;i++)wheel(120);assert.equal(a.lab.state.value.view,'galaxy');
+ space.galaxyZoom={d:12.2,min:12,max:260,busy:false};wheel(-120);assert.equal(a.document.body.classList.contains('bridging'),true);for(let i=0;i<4;i++)wheel(-120);assert.equal(a.lab.state.value.view,'stars');
+ space.starsZoom={d:0.41,min:0.4,max:120,busy:false};for(let i=0;i<5;i++)wheel(-120);assert.equal(a.lab.state.value.view,'explore','zoom in on the Sun returns home');
 });

@@ -4,6 +4,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { NEIGHBOURS, SUN_ENTRY, starPixels, starColor, systemSummary } from './stars-data.js';
+import { STAR_NEAR, STAR_FAR } from './zoom-ladder.js';
 
 const glowTex = (() => {
   if (typeof document === 'undefined' || !document.createElement) return null;
@@ -14,10 +15,10 @@ const glowTex = (() => {
 })();
 
 export function createStars({ renderer, canvas, labelsEl, onPick }) {
-  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x02030a);
+  const scene = new THREE.Scene(), bg = new THREE.Color(0x000005); scene.background = bg; // same black as the Solar System, so the zoom has no colour seam
   const camera = new THREE.PerspectiveCamera(50, 1, 0.001, 1e5);
   const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enabled = false;
-  controls.minDistance = 0.4; controls.maxDistance = 120; controls.enablePan = false; controls.zoomSpeed = 1.8; // these scales span a lot of distance: zoom faster
+  controls.minDistance = STAR_NEAR; controls.maxDistance = STAR_FAR; controls.enablePan = false; controls.zoomSpeed = 1.8; // these scales span a lot of distance: zoom faster
   // Faint background stars far beyond the neighbourhood.
   { const n = 2500, p = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(4000 + Math.random() * 2000); p.set([v.x, v.y, v.z], i * 3); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
@@ -85,7 +86,10 @@ export function createStars({ renderer, canvas, labelsEl, onPick }) {
   }
 
   // ---- Rendering ----
-  let mode = 'stars', last = 0;
+  let mode = 'stars', last = 0, labelOpacity = 1;
+  // Every material remembers its own opacity so the whole map can dissolve in or out during a zoom bridge.
+  const mats = []; scene.traverse(o => { if (o.material) { o.material.userData.base = o.material.opacity; o.material.transparent = true; mats.push(o.material); } });
+  const setFade = f => { for (const m of mats) m.opacity = m.userData.base * f; };
   const tmp = new THREE.Vector3();
   function placeLabels(cam, bounds, list) {
     const placed = [];
@@ -95,11 +99,13 @@ export function createStars({ renderer, canvas, labelsEl, onPick }) {
       const w = el.textContent.length * 4.9 + 10, h = 13, off = (px || 6) / 2 + 4;
       const box = [x - w / 2, y - off - h, x + w / 2, y - off];
       const ok = tmp.z < 1 && Math.abs(tmp.x) < 1.02 && Math.abs(tmp.y) < 1.02 && !placed.some(o => box[0] < o[2] && box[2] > o[0] && box[1] < o[3] && box[3] > o[1]);
-      el.hidden = !ok; el.style.visibility = ok ? 'visible' : 'hidden';
+      el.hidden = !ok; el.style.visibility = ok ? 'visible' : 'hidden'; el.style.opacity = labelOpacity;
       if (ok) { placed.push(box); el.style.transform = `translate(${x}px,${y}px) translate(-50%,calc(-100% - ${off}px))`; }
     }
   }
-  function render(width, height, visible) {
+  // overlay: draw over whatever is already on screen (no background), at the given opacity.
+  function render(width, height, visible, { overlay = false, opacity = 1 } = {}) {
+    scene.background = overlay ? null : bg; setFade(opacity); labelOpacity = opacity;
     const now = performance.now(), dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     renderer.setSize(width, height, false);
     const vw = Math.min(width, visible?.width ?? width), vh = Math.min(height, visible?.height ?? height);
@@ -115,7 +121,7 @@ export function createStars({ renderer, canvas, labelsEl, onPick }) {
       const k = 2.2 * Math.tan(camera.fov * Math.PI / 360) * 2 / vh;
       for (const d of dots) d.sprite.scale.setScalar(d.sprite.userData.px * k * (d.e === selected ? 1.6 : 1));
       placeLabels(camera, bounds, ordered.map(d => ({ el: d.el, pos: d.sprite.position, px: d.sprite.userData.px })).concat(ringLabels.map(r => ({ el: r.el, pos: new THREE.Vector3(r.r, 0, 0), px: 0 }))));
-      renderer.render(scene, camera);
+      const clear = renderer.autoClear; renderer.autoClear = !overlay; renderer.render(scene, camera); renderer.autoClear = clear;
     } else {
       sysT += dt; if (current?.sysView) for (const p of current.sysView.planets) { const w = Math.PI * 2 / Math.max(2.5, 2.5 * (p.period / current.sysView.planets[0].period) ** 0.5); p.pivot.rotation.y += w * dt; }
       if (current?.sysView) placeLabels(sysCam, bounds, current.sysView.planets.map(p => ({ el: p.el, pos: p.mesh.getWorldPosition(new THREE.Vector3()), px: 10 })).concat(current.sysView.compareEls));
@@ -136,10 +142,14 @@ export function createStars({ renderer, canvas, labelsEl, onPick }) {
   }
   function select(e) { selected = e; }
   // Arriving out of the Solar System ("inside"): start at the Sun and pull back. Arriving down from the Galaxy ("outside"): sweep in.
-  function enter(from = 'inside') { mode = 'stars'; setLabels('stars'); controls.enabled = true; sysControls.enabled = false; const d0 = from === 'outside' ? 110 : 0.05; camera.position.copy(fly.dir).multiplyScalar(d0); fly.start(d0, 26, from === 'outside' ? 1.4 : 1.8); }
-  function zoomOut(done) { if (mode === 'system') closeSystem(); fly.start(Math.max(camera.position.length(), 1), 110, 1.0, done); }
+  // Place the camera exactly: looking at the Sun from direction dir, at distance d light-years.
+  function setView(dir, d) { fly.t = 1; fly.done = null; fly.dir.copy(dir).normalize(); controls.target.set(0, 0, 0); camera.position.copy(fly.dir).multiplyScalar(d); controls.update(); }
+  const viewDir = () => camera.position.clone().sub(controls.target).normalize();
+  function enter(from = 'inside') {
+    if (from && typeof from === 'object') { mode = 'stars'; setLabels('stars'); controls.enabled = true; sysControls.enabled = false; setView(from.dir, from.d); return; } mode = 'stars'; setLabels('stars'); controls.enabled = true; sysControls.enabled = false; const d0 = from === 'outside' ? 110 : 0.05; camera.position.copy(fly.dir).multiplyScalar(d0); fly.start(d0, 26, from === 'outside' ? 1.4 : 1.8); }
+  function zoomOut(done) { if (mode === 'system') closeSystem(); fly.dir.copy(viewDir()); fly.start(Math.max(camera.position.length(), STAR_NEAR), STAR_FAR, 1.0, done); }
   function leave() { setLabels(null); controls.enabled = false; sysControls.enabled = false; }
-  function zoomBackIn(done) { const d = camera.position.length(); fly.start(Math.max(d, 1), 0.05, 1.1, done); }
+  function zoomBackIn(done) { fly.dir.copy(viewDir()); fly.start(Math.max(camera.position.length(), STAR_NEAR), STAR_NEAR, 1.1, done); }
   function openSystem(entry) {
     for (const p of current?.sysView?.planets || []) p.el.remove(); for (const c of current?.sysView?.compareEls || []) c.el.remove();
     const view = showSystem(entry); if (!view) return null;
@@ -153,5 +163,13 @@ export function createStars({ renderer, canvas, labelsEl, onPick }) {
     for (const p of current?.sysView?.planets || []) p.el.hidden = which !== 'system'; for (const c of current?.sysView?.compareEls || []) c.el.hidden = which !== 'system';
   }
   const zoomState = () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1 || mode !== 'stars' });
-  return { render, pick, select, enter, leave, zoomBackIn, zoomOut, zoomState, openSystem, closeSystem, get mode() { return mode; }, camera, controls, entries, scene, sys, fly };
+  return { render, pick, select, enter, leave, zoomBackIn, zoomOut, zoomState, setView, viewDir, showLabels: on => setLabels(on ? 'stars' : null), openSystem, closeSystem, get mode() { return mode; }, camera, controls, entries, scene, sys, fly };
+}
+
+// A full-screen black veil, drawn between two scenes during a zoom bridge to dim the inner one.
+export function createDimmer(renderer) {
+  const scene = new THREE.Scene(), cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const mat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthTest: false, depthWrite: false });
+  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat));
+  return opacity => { if (opacity <= 0) return; mat.opacity = Math.min(1, opacity); const clear = renderer.autoClear; renderer.autoClear = false; renderer.render(scene, cam); renderer.autoClear = clear; };
 }
