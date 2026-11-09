@@ -121,3 +121,5 @@ Solar System → nearby stars → Milky Way → Local Group → Laniakea → obs
 - **Scale readout.** `hud.js` shows width of view, distance from the Sun and light-crossing time, with caveats for the compressed Solar model, views centred away from the Sun, and viewpoints outside the observable universe.
 - **Reduced motion.** `prefers-reduced-motion` turns off momentum and makes settles instant.
 - **Diagnostics.** `?zoomlog` (and `?zoomlog=bright`) give an opt-in local frame log. Nothing is uploaded.
+
+Evidence, measurements and the open acceptance items for the continuous zoom: [docs/shots/powers-of-ten/EVIDENCE.md](docs/shots/powers-of-ten/EVIDENCE.md).
