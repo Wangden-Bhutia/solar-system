@@ -168,11 +168,6 @@ dl{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px}dt{color:va
 #moon-list button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 12px;min-height:44px;text-align:left}
 #moon-list small{font-size:11px;color:var(--muted)}
 /* Beyond the Solar System: zoom control, fade, star labels and panels. */
-.chip.zoom{padding:0 11px}
-.chip.zoom .zoom-plus{display:none}
-.chip.zoom[data-level=space] .zoom-plus{display:inline}
-.chip.zoom[data-level=space]{color:var(--gold)}
-@media (max-width:400px){.chip.zoom .zoom-text{display:none}.chip.zoom{width:36px;padding:0}}
 #fade{position:fixed;inset:0;z-index:12;background:#000;opacity:0;pointer-events:none;transition:opacity .3s ease}
 #fade.on{opacity:1}
 @media (prefers-reduced-motion:reduce){#fade{transition:none}}
@@ -191,5 +186,11 @@ body.space-mode #labels .lbl.space:not([hidden]){display:block}
 .plist li{display:grid;gap:1px;padding:8px 0;border-bottom:1px solid #1d2c42;font-size:13px}
 .plist li span{color:var(--muted);font-size:12px}
 .plist em{color:#7fd69a;font-style:normal}
-.chip.zoom.icon-only{width:36px;padding:0}
-.chip.zoom.icon-only .zoom-text{display:none}
+/* Scale ladder: where you are (Solar System · Stars · Milky Way); tap to jump, or zoom out past the edge. */
+#ladder{position:fixed;z-index:20;top:calc(var(--safe-t) + 56px);left:calc(var(--safe-l) + 12px);display:flex;padding:3px;gap:2px;border-radius:15px;background:rgba(12,20,36,.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(170,195,235,.14)}
+#ladder button{position:relative;min-height:24px;height:24px;padding:0 9px;border:0;border-radius:12px;background:none;font-size:11px;font-weight:550;color:#9fb0c9;white-space:nowrap}
+#ladder button::before{content:'';position:absolute;inset:-8px -2px}/* larger tap target */
+#ladder button[aria-pressed=true]{background:rgba(194,223,243,.92);color:#102336}
+.experiment-mode #ladder{display:none}
+#edge-hint{position:fixed;z-index:14;left:50%;top:50%;transform:translate(-50%,-50%);margin:0;padding:10px 16px 12px;border-radius:16px;background:rgba(12,20,36,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(170,195,235,.2);font-size:13.5px;color:#e9f0fb;text-align:center;pointer-events:none;max-width:80vw}
+#edge-hint i{display:block;height:3px;margin-top:8px;border-radius:2px;background:var(--gold);width:0;transition:width .12s}

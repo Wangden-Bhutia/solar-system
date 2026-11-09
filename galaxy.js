@@ -14,7 +14,7 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick }) {
   const scene = new THREE.Scene(); scene.background = new THREE.Color(0x010207);
   const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 1e5);
   const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enabled = false; controls.enablePan = false;
-  controls.minDistance = 0.3; controls.maxDistance = 260;
+  controls.zoomSpeed = 1.8; controls.minDistance = 8; controls.maxDistance = 260; // zooming in past 8 kly hands back to the nearby stars
   // Distant background stars and other galaxies' faint glow are left out on purpose: this level is our Galaxy alone.
   { const n = 1500, p = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(3000); p.set([v.x, v.y, v.z], i * 3); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
@@ -78,8 +78,9 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick }) {
   }
   function setLabels(v) { for (const x of [...marks, ...armLabels]) x.el.hidden = !v; }
   // Arriving from the star map: start right at the Sun and pull back until the whole Galaxy fits.
-  function enter() { on = true; controls.enabled = true; setLabels(true); fly.start(0.05, SUN, portrait() ? 215 : 125, CENTRE, 2.6); }
+  function enter() { on = true; controls.enabled = true; setLabels(true); controls.minDistance = 0.01; fly.start(0.05, SUN, portrait() ? 215 : 125, CENTRE, 2.6, () => { controls.minDistance = 8; }); }
   function leave() { on = false; controls.enabled = false; setLabels(false); }
-  function zoomToSun(done) { fly.start(camera.position.distanceTo(controls.target) || 140, controls.target, 0.05, SUN, 1.3, done); }
-  return { render, pick, enter, leave, zoomToSun, select(m) { selected = m; }, marks, camera, controls, scene, cloud, fly, landmarks: LANDMARKS };
+  function zoomToSun(done) { controls.minDistance = 0.01; const d0 = done; done = () => { controls.minDistance = 8; d0?.(); }; fly.start(camera.position.distanceTo(controls.target) || 140, controls.target, 0.05, SUN, 1.3, done); }
+  const zoomState = () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1 });
+  return { render, pick, enter, leave, zoomToSun, zoomState, select(m) { selected = m; }, marks, camera, controls, scene, cloud, fly, landmarks: LANDMARKS };
 }
