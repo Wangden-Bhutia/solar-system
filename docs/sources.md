@@ -119,3 +119,20 @@ Nineteen moons besides Earth's: Phobos, Deimos; Io, Europa, Ganymede, Callisto; 
   | Epsilon Eridani | 105,000 yr ago, 7 ly (its article) | 105,200 yr ago, 7.0 ly |
 
 - **"Nearest star" readout.** The nearest system to the Sun at the clock's time, by this model. Older eras (for example Luhman 16 being nearest roughly 15,000–60,000 years ago) follow from the same data but have not been checked against a published study.
+
+## Stars in pairs (`star-pairs.js`, November 2026)
+- **Relative-orbit elements and masses** come from each system's Wikipedia infobox (read 9 Nov 2026), which cites the orbit papers:
+
+  | Pair | Period | Semi-major axis | Eccentricity | Periastron | Masses |
+  |---|---|---|---|---|---|
+  | Alpha Centauri A–B | 79.762 yr | 23.299 AU | 0.51947 | 1875.66 | 1.0788 / 0.9092 M☉ |
+  | Sirius A–B | 50.1284 yr | 19.8 AU | 0.59142 | 1994.5715 | 2.063 / 1.018 M☉ |
+  | Procyon A–B | 40.840 yr | 15.137 AU | 0.39785 | 1968.076 | 1.478 / 0.592 M☉ |
+  | 61 Cygni A–B | 707.1 yr | 86.76 AU | 0.4424 | JD 2596496 (≈ 2396.85) | 0.6771 / 0.6289 M☉ |
+  | Luhman 16 A–B | 26.55 yr | 3.52 AU | 0.344 | 2018.060 | 35.4 / 29.4 Jupiter masses |
+  | Epsilon Indi Ba–Bb | 11.0197 yr | 2.4058 AU | 0.54042 | not published there | 66.92 / 53.25 Jupiter masses |
+
+  For Epsilon Indi Ba–Bb the starting point along the orbit is illustrative, and the card says so.
+- **Proxima's orbit around A–B:** period about 511,000 years, periastron about 4,100 AU, apastron about 12,300 AU (same infobox).
+- **Check:** for every pair, Kepler's third law (a³/P²) reproduces the measured total mass to within 1%, and the computed next periastrons fall in 2035 (Alpha Centauri) and 2044 (Sirius).
+- **Drawing:** each orbit is shown face on, in its own plane, so inclination and orientation on the sky are not shown. Star sizes are not to scale; white dwarfs are drawn small because they are about Earth-sized.

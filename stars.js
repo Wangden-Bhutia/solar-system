@@ -4,6 +4,8 @@
 import * as THREE from './vendor/three.module.min.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { NEIGHBOURS, SUN_ENTRY, starPixels, starColor, systemSummary, neighbourEntry } from './stars-data.js';
+import { pairOf, pairState, compareOrbits, apastron } from './star-pairs.js';
+import { starKind } from './stars-data.js';
 import { VISITORS, withMotion, positionAt, nearestAt, STAR_TIME, YEARS_PER_SEC } from './star-motion.js';
 import { STAR_NEAR, STAR_FAR } from './zoom-ladder.js';
 
@@ -15,7 +17,7 @@ const glowTex = (() => {
   x.fillStyle = g; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c);
 })();
 
-export function createStars({ renderer, canvas, labelsEl, onPick, onTime }) {
+export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair }) {
   const scene = new THREE.Scene(), bg = new THREE.Color(0x000005); scene.background = bg; // same black as the Solar System, so the zoom has no colour seam
   const camera = new THREE.PerspectiveCamera(50, 1, 0.001, 1e5);
   const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enabled = false;
@@ -165,6 +167,7 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime }) {
       placeLabels(camera, bounds, ordered.map(d => ({ el: d.el, pos: d.sprite.position, px: d.sprite.userData.px, mk: d })).concat(ringLabels.map(r => ({ el: r.el, pos: new THREE.Vector3(r.r, 0, 0), px: 0 }))));
       const clear = renderer.autoClear; renderer.autoClear = !overlay; renderer.render(scene, camera); renderer.autoClear = clear;
     } else {
+      if (pair) { pair.year += dt * pair.pr.P / 12; placePair(); onPair?.(); placeLabels(sysCam, bounds, [pair.A, pair.B].map(x => ({ el: x.el, pos: x.ball.position, px: 14 })).concat(pair.compare)); }
       sysT += dt; if (current?.sysView) for (const p of current.sysView.planets) { const w = Math.PI * 2 / Math.max(2.5, 2.5 * (p.period / current.sysView.planets[0].period) ** 0.5); p.pivot.rotation.y += w * dt; }
       if (current?.sysView) placeLabels(sysCam, bounds, current.sysView.planets.map(p => ({ el: p.el, pos: p.mesh.getWorldPosition(new THREE.Vector3()), px: 10 })).concat(current.sysView.compareEls));
       renderer.render(sys, sysCam);
@@ -193,19 +196,58 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime }) {
   function leave() { setLabels(null); controls.enabled = false; sysControls.enabled = false; setTime(0); }
   function zoomBackIn(done) { fly.dir.copy(viewDir()); fly.start(Math.max(camera.position.length(), STAR_NEAR), STAR_NEAR, 1.1, done); }
   function openSystem(entry) {
+    for (const x of pair?.els || []) x.el.remove(); pair = null;
     for (const p of current?.sysView?.planets || []) p.el.remove(); for (const c of current?.sysView?.compareEls || []) c.el.remove();
     const view = showSystem(entry); if (!view) return null;
     for (const p of view.planets) { p.el = document.createElement('span'); p.el.className = 'lbl space'; p.el.textContent = p.name.replace(/^.* (\w)$/, '$1'); labelsEl.appendChild(p.el); }
     view.compareEls = view.compare.map(c => { const el = document.createElement('span'); el.className = 'lbl space ring-lbl'; el.textContent = c.label; labelsEl.appendChild(el); return { el, pos: new THREE.Vector3(c.r * 0.72, 0, c.r * 0.72), px: 0 }; });
     entry.sysView = view; current = entry; mode = 'system'; setLabels('system'); controls.enabled = false; sysControls.enabled = true; return view;
   }
-  function closeSystem() { for (const p of current?.sysView?.planets || []) p.el.hidden = true; for (const c of current?.sysView?.compareEls || []) c.el.hidden = true; mode = 'stars'; setLabels('stars'); controls.enabled = true; sysControls.enabled = false; }
+  // A pair of stars orbiting each other, drawn in the plane of their orbit (AU), face on. Both stars go
+  // round the centre of mass; one lap takes about 12 seconds. Our planets' orbits of similar size are dashed.
+  let pair = null;
+  function openPair(entry) {
+    for (const p of current?.sysView?.planets || []) p.el.remove(); for (const c of current?.sysView?.compareEls || []) c.el.remove(); for (const x of pair?.els || []) x.el.remove();
+    const pr = pairOf(entry.name); if (!pr) return null;
+    sysGroup.clear(); current = entry; entry.sysView = null;
+    const scale = 10 / apastron(pr), typeOf = n => (entry.stars.find(x => x.name === n) || entry.stars[0]).type;
+    const mk = (name, m, frac) => {
+      const k = starKind(typeOf(name)), color = new THREE.Color(...starColor(k.temp)).lerp(new THREE.Color(0xffd2b0), pr.brown ? 0.45 : 0), r = k.kind === 'White dwarf' ? 0.1 : pr.brown ? 0.28 : Math.max(0.22, Math.min(0.6, 0.38 * m ** 0.5)); // a white dwarf is about Earth-sized: drawn tiny
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 20), new THREE.MeshBasicMaterial({ color })); sysGroup.add(ball);
+      const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending })); halo.scale.setScalar(r * 6); ball.add(halo);
+      // This star's own ellipse about the centre of mass.
+      const pts = []; for (let i = 0; i <= 240; i++) { const E = i / 240 * Math.PI * 2; pts.push(new THREE.Vector3(frac * pr.a * (Math.cos(E) - pr.e) * scale, 0, -frac * pr.a * Math.sqrt(1 - pr.e ** 2) * Math.sin(E) * scale)); }
+      const sign = name === pr.A ? -1 : 1; const ell = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(v => v.multiplyScalar(sign))), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.45 })); sysGroup.add(ell);
+      const el = document.createElement('span'); el.className = 'lbl space'; el.textContent = name; labelsEl.appendChild(el);
+      return { name, ball, el, kind: k.kind };
+    };
+    const st = pairState(pr, 2026); // only the mass fractions are used here
+    const A = mk(pr.A, pr.mA, st.fA), B = mk(pr.B, pr.mB, st.fB);
+    const cm = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), new THREE.MeshBasicMaterial({ color: 0xf3c887 })); sysGroup.add(cm);
+    const link = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(1, 0, 0)]), new THREE.LineDashedMaterial({ color: 0x9aa7c2, dashSize: 0.18, gapSize: 0.14, transparent: true, opacity: 0.6 })); link.frustumCulled = false; sysGroup.add(link);
+    const compare = compareOrbits(pr).map(([label, au]) => { sysGroup.add(circle(au * scale, 0x9aa7c2, 0.4, true)); const el = document.createElement('span'); el.className = 'lbl space ring-lbl'; el.textContent = label; labelsEl.appendChild(el); return { el, pos: new THREE.Vector3(au * scale * 0.72, 0, au * scale * 0.72), px: 0 }; });
+    const now = new Date(), y0 = now.getFullYear() + (now - new Date(now.getFullYear(), 0, 1)) / 31557600000;
+    pair = { pr, A, B, link, scale, year: y0, compare, els: [A, B, ...compare] };
+    placePair();
+    { const r = canvas.getBoundingClientRect(), k = r.height > r.width ? 1.55 : 1; sysCam.position.set(0, 14 * k, 10 * k); } sysControls.target.set(0, 0, 0); sysControls.minDistance = 3; sysControls.maxDistance = 80; sysControls.update();
+    mode = 'system'; setLabels('system'); controls.enabled = false; sysControls.enabled = true;
+    return pair;
+  }
+  function placePair() {
+    const st = pairState(pair.pr, pair.year), k = pair.scale;
+    pair.A.ball.position.set(st.A[0] * k, 0, -st.A[1] * k); pair.B.ball.position.set(st.B[0] * k, 0, -st.B[1] * k);
+    const a = pair.link.geometry.attributes.position; a.setXYZ(0, st.A[0] * k, 0, -st.A[1] * k); a.setXYZ(1, st.B[0] * k, 0, -st.B[1] * k); a.needsUpdate = true; pair.link.computeLineDistances();
+    pair.sep = st.sep;
+  }
+  const pairInfo = () => pair && { year: pair.year, sep: pair.sep, pr: pair.pr };
+  function closeSystem() { for (const x of pair?.els || []) x.el.hidden = true; pair = null; for (const p of current?.sysView?.planets || []) p.el.hidden = true; for (const c of current?.sysView?.compareEls || []) c.el.hidden = true; mode = 'stars'; setLabels('stars'); controls.enabled = true; sysControls.enabled = false; }
   function setLabels(which) {
     for (const d of dots) d.el.hidden = which !== 'stars'; for (const r of ringLabels) r.el.hidden = which !== 'stars';
     for (const p of current?.sysView?.planets || []) p.el.hidden = which !== 'system'; for (const c of current?.sysView?.compareEls || []) c.el.hidden = which !== 'system';
+    for (const x of pair?.els || []) x.el.hidden = which !== 'system';
   }
   const zoomState = () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1 || mode !== 'stars' || !!clock.rewind });
-  return { render, pick, select, enter, leave, setTime, play, pause, rewind, nearest, time: () => clock.t, playing: () => clock.playing, zoomBackIn, zoomOut, zoomState, setView, viewDir, showLabels: on => setLabels(on ? 'stars' : null), openSystem, closeSystem, get mode() { return mode; }, camera, controls, entries, scene, sys, fly };
+  return { render, pick, select, enter, leave, setTime, play, pause, rewind, nearest, time: () => clock.t, playing: () => clock.playing, zoomBackIn, zoomOut, zoomState, setView, viewDir, showLabels: on => setLabels(on ? 'stars' : null), openSystem, openPair, pairInfo, closeSystem, get mode() { return mode; }, camera, controls, entries, scene, sys, fly };
 }
 
 // A full-screen black veil, drawn between two scenes during a zoom bridge to dim the inner one.
