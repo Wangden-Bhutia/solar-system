@@ -5,7 +5,7 @@ import fs from 'node:fs';import vm from 'node:vm';import path from 'node:path';i
 import * as THREE from '../vendor/three.module.min.js';
 // fakeClock: performance.now() inside the app advances only with step() (50 ms a frame), so scene glides that
 // time themselves by the wall clock run at frame speed. Off by default.
-export async function bootApp({width=412,height=915,stored={},seed=1,fakeClock=false,reducedMotion=false}={}){
+export async function bootApp({width=412,height=915,stored={},seed=1,fakeClock=false,reducedMotion=false,onRender=null}={}){
  let t=performance.now();const perf=fakeClock?{now:()=>t}:performance;
  const {window,document}=parseHTML(fs.readFileSync('index.html','utf8'));
  const selections=new WeakMap();Object.defineProperty(window.HTMLSelectElement.prototype,'value',{configurable:true,get(){return selections.get(this)??this.querySelector('option')?.textContent??'';},set(v){selections.set(this,v);}});
@@ -20,7 +20,7 @@ export async function bootApp({width=412,height=915,stored={},seed=1,fakeClock=f
  // linkedom has no PointerEvent: a minimal one with the standard init dictionary.
  class PointerEvent extends window.Event{constructor(type,init={}){super(type,init);const d={clientX:0,clientY:0,pointerId:1,pointerType:'mouse',isPrimary:true,button:0,buttons:0,ctrlKey:false,metaKey:false,shiftKey:false,altKey:false,...init};for(const k of Object.keys(d))if(k!=='bubbles'&&k!=='cancelable')Object.defineProperty(this,k,{value:d[k]});Object.defineProperty(this,'pageX',{value:d.clientX});Object.defineProperty(this,'pageY',{value:d.clientY});}}
  const storage={...stored};let queue=[],rafId=0;const errors=[];
- class Renderer{constructor(){this.domElement=canvas;}setPixelRatio(){}setSize(){}render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}setScissorTest(){}setScissor(){}setViewport(){}setClearColor(){}clear(){}}
+ class Renderer{constructor(){this.domElement=canvas;}setPixelRatio(){}setSize(){}render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);onRender?.(scene,camera);}setScissorTest(){}setScissor(){}setViewport(){}setClearColor(){}clear(){}}
  const textures={photo:()=>false,canPhoto:()=>false,swatch:()=>new THREE.Texture(),tex:name=>['Moon','Earth','Mars','Mercury'].includes(name)?{map:new THREE.Texture(),bump:new THREE.Texture()}:new THREE.Texture(),rimShell:()=>new THREE.Object3D(),ringGeometry:()=>new THREE.RingGeometry(1,2),saturnRingTex:()=>new THREE.Texture(),uranusRingTex:()=>new THREE.Texture(),SATURN_RING:{inner:1.2,outer:2.3},URANUS_RING:{inner:1.5,outer:2}};
  // Every element can hand out a no-op 2D context (sprite glow, band textures).
  const ctx2d=new Proxy({},{get:(t,k)=>k==='createRadialGradient'||k==='createLinearGradient'?()=>({addColorStop(){}}):k==='createImageData'?(w,h)=>({data:new Uint8ClampedArray(w*h*4)}):()=>{}});
