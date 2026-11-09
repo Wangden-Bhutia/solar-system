@@ -77,13 +77,14 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
   // other landmarks fade as they merge into the Sun on screen; the Sun's marker cross-fades with the star map's Sun.
   const sunMark = marks.find(x => x.here), lod = createLod();
   lod.add(sky, 'proxy');
-  lod.add(cloud, { inner: 'model', outer: 'size', alone: 'size' }); lod.add(tracers, { inner: 'model', outer: 'size', alone: 'size' });
-  lod.add(core, { inner: 'model', outer: 'fixed', alone: 'fixed' }, { L: 13 });
+  // Exact stand-ins (proxy pairs) at the Local Group seam: the Local Group draws copies of these very objects
+  // (shared geometry, cloned materials, positions ÷ 10), so they are swapped at mid-seam rather than cross-faded.
+  lod.add(cloud, { inner: 'proxy', outer: 'size', alone: 'size' }); lod.add(tracers, { inner: 'proxy', outer: 'size', alone: 'size' });
+  lod.add(core, { inner: 'proxy', outer: 'fixed', alone: 'fixed' }, { L: 13 });
   lod.add(orbit, 'size');
   lod.add(hyg, { outer: 'proxy', inner: 'size', alone: 'size' });
   // The halo and its clusters and stream are the Galaxy's own model: they hand over to the Local Group's picture.
-  for (const o of [globulars, halo, sgr]) lod.add(o, { inner: 'model', outer: 'size', alone: 'size' });
-  lod.add(magellanic, { inner: 'model', outer: 'size', alone: 'size' });
+  for (const o of [globulars, halo, sgr, magellanic]) lod.add(o, { inner: 'proxy', outer: 'size', alone: 'size' });
   for (const x of marks) lod.add(x.sprite, x.here ? { inner: 'model', outer: 'model', alone: 'fixed' } : x.m.name === 'Sagittarius A*' ? { inner: 'model', outer: 'marker', alone: 'marker' } : 'marker');
   const fadeOf = it => it.sprite ? it.sprite.userData.fade ?? 1 : seamWindow(seamNow) * (orbit.userData.fade ?? 1);
   // The clock (Myr from today). Nebulae and young clusters live only a few million years, so away from
@@ -182,5 +183,16 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
     out.x = bounds.left + (tmp.x + 1) / 2 * bounds.width; out.y = bounds.top + (1 - tmp.y) / 2 * bounds.height; out.off = sunMark.px / 2 + 4; out.text = sunMark.el.textContent; return true;
   }
   function setUp(v) { if (v) camera.up.set(v.x, v.y, v.z); else camera.up.set(0, 1, 0); camera.lookAt(controls.target); }
-  return { camera, render, anchor, setUp, hideHere(v) { hideHere = v; if (v) for (const it of labelItems) if (it.here) { it.el.hidden = true; forgetLabel(it); } }, pick, enter, leave, zoomToSun, towardSun, zoomOut, target, zoomState, atSun, setTime, play, pause, rewind, time: () => clock.t, playing: () => clock.playing, setView, viewDir, showLabels: v => { on = v; setLabels(v); }, liveLabels(v) { labelsLive = v; }, setDistance, distance, select(m) { selected = m; }, marks, camera, controls, scene, cloud, fly, landmarks: LANDMARKS };
+  // Copies for the scale outside (Local Group): same geometry (no new arrays), a clone of each material (each
+  // scene's LOD sets its own opacity), the spin shader re-attached to the same clock uniform, scaled by `scale`.
+  const PROXIES = [cloud, tracers, core, globulars, halo, sgr, magellanic];
+  function proxyCopies(scale) {
+    return PROXIES.map(o => {
+      const m = o.material.clone(); m.opacity = o.material.userData.base ?? o.material.opacity; if (o === cloud || o === tracers) spinning(m);
+      const c = o.isSprite ? new THREE.Sprite(m) : new THREE.Points(o.geometry, m);
+      c.position.copy(o.position).multiplyScalar(scale); c.scale.copy(o.scale).multiplyScalar(scale); c.frustumCulled = false;
+      c.userData.proxyOf = o; c.userData.layer = o.userData.layer || (o === cloud ? 'mw-disc' : o === tracers ? 'mw-tracers' : 'mw-core'); return c;
+    });
+  }
+  return { camera, render, anchor, proxyCopies, proxySources: () => PROXIES, setUp, hideHere(v) { hideHere = v; if (v) for (const it of labelItems) if (it.here) { it.el.hidden = true; forgetLabel(it); } }, pick, enter, leave, zoomToSun, towardSun, zoomOut, target, zoomState, atSun, setTime, play, pause, rewind, time: () => clock.t, playing: () => clock.playing, setView, viewDir, showLabels: v => { on = v; setLabels(v); }, liveLabels(v) { labelsLive = v; }, setDistance, distance, select(m) { selected = m; }, marks, camera, controls, scene, cloud, fly, landmarks: LANDMARKS };
 }

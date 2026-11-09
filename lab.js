@@ -37,11 +37,12 @@ const ORBITS=new Set(['system','pair']); // close-up views inside the star map: 
 const levelOf=v=>v==='universe'||v==='super'||v==='local'?v:v==='galaxy'?'galaxy':v==='stars'||ORBITS.has(v)?'stars':'solar';
 const starsView=createStars({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:e=>pickStar(e),onTime:()=>paintTime(),onPair:()=>paintPairClock()});
 let shownLevel='solar',arrival=null;
-const localView=createLocal({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:g=>pickGalaxy(g)});
+const galaxyView=createGalaxy({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:m=>pickLandmark(m),onTime:()=>paintTime()});
+const localView=createLocal({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:g=>pickGalaxy(g),galaxy:galaxyView});
 // The two largest scales are built only when first visited: they hold the most points and most people start small.
 const lazy=make=>{let v=null;const f=()=>v||(v=make());f.built=()=>!!v;return f;};
 const built=l=>l==='super'?laniakeaView.built():l==='universe'?universeView.built():true;
-const laniakeaView=lazy(()=>createLaniakea({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:x=>pickCosmos('super',x)}));
+const laniakeaView=lazy(()=>createLaniakea({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:x=>pickCosmos('super',x),local:localView}));
 const universeView=lazy(()=>createUniverse({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:x=>pickCosmos('universe',x)}));
 const sceneOf=l=>l==='stars'?starsView:l==='galaxy'?galaxyView:l==='local'?localView:l==='super'?laniakeaView():l==='universe'?universeView():null;
 // Once the app has settled, build the far scales and compile every scene's shaders in idle moments, one
@@ -50,7 +51,6 @@ const idle=f=>(globalThis.requestIdleCallback?requestIdleCallback(f,{timeout:300
 function prewarm(){const steps=[()=>laniakeaView(),()=>universeView(),...['stars','galaxy','local','super','universe'].map(l=>()=>{const v=sceneOf(l);try{renderer.compile(v.scene,v.camera);}catch{}})];
  const run=()=>{const f=steps.shift();if(!f)return;f();idle(run);};idle(run);}
 if(typeof globalThis.requestAnimationFrame==='function'&&typeof setTimeout==='function')setTimeout(prewarm,2500);
-const galaxyView=createGalaxy({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:m=>pickLandmark(m),onTime:()=>paintTime()});
 // ---- Time at the big scales: one clock bar, in thousands of years for the stars (star-motion.js)
 // and millions for the Milky Way (galaxy-motion.js). Each scene keeps its own clock; leaving a scale
 // (or zooming across a seam) first returns it to today, because every map is drawn as the sky is now.
@@ -888,4 +888,4 @@ paintOffline();
 if(sw&&standalone()&&typeof setTimeout==='function')setTimeout(saveOffline,4000);
 // Offline: cache what has been loaded, so the app opens again without a connection (sw.js).
 if(globalThis.isSecureContext&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(reg=>setTimeout(()=>reg.active?.postMessage({cache:[location.href.split('#')[0],...performance.getEntriesByType('resource').map(e=>e.name)]}),3000)).catch(()=>{});
-window.__lab={state,go,experiments,player,setSheet,starsView,galaxyView,localView,zoom,placeZ,get Z(){return Zc;},get bridge(){return bridge;},get animating(){return animating;},get Zcam(){return currentZ();},get anchor(){return anchorNow;}};
+window.__lab={state,go,experiments,player,setSheet,starsView,galaxyView,localView,zoom,placeZ,get Z(){return Zc;},get bridge(){return bridge;},get animating(){return animating;},get Zcam(){return currentZ();},get anchor(){return anchorNow;},sceneOf:l=>(l==='super'||l==='universe')&&!built(l)?null:sceneOf(l)};

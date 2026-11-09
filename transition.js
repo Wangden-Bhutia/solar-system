@@ -7,7 +7,7 @@ import * as THREE from './vendor/three.module.min.js';
 import { HYG_COUNT, HYG_PACKED, GC_COUNT, GC_PACKED, GIANTS } from './transition-data.js';
 import { starPosition, starColor } from './stars-data.js';
 import { toGalactic, galacticPosition, R0, KPC } from './galaxy-data.js';
-import { base64Bytes } from './cosmos-data.js';
+import { base64Bytes, CLUSTERS } from './cosmos-data.js';
 import { GALAXIES, LOCAL_UNIT } from './local-data.js';
 
 // ---- Measured sizes (sources in docs/sources.md) ----
@@ -108,7 +108,12 @@ export function sheetPositions(n = 1400, seed = 45) {
 // The Local Void's centre (Mly, from the Milky Way) in the galactic scene frame.
 export function voidCentre() { const [l, b] = toGalactic(LOCAL_VOID.ra, LOCAL_VOID.dec); return galDir(l, b).map(v => v * LOCAL_VOID.centreMly); }
 // Council of Giants (McCall 2014) positions in Mly about the Milky Way's centre.
-export const giants = () => GIANTS.map(g => { const [l, b] = toGalactic(g.ra, g.dec); return { ...g, pos: galacticPosition(l, b, g.mly * 1000).map(v => v / 1000) }; });
+// One distance per galaxy across scales: where Laniakea's group marker (cosmos-data.js) is placed on the same galaxy
+// (same RA/Dec), its measured distance is used, so the two scales agree exactly; McCall's table, as tabulated, is
+// rounded to whole Mly (M81 12, NGC 253 11, Centaurus A 11), within those galaxies' distance uncertainties.
+export const SAME_AS_GROUP = { NGC3031: 'M81 Group', NGC0253: 'Sculptor Group', NGC5128: 'Centaurus A' };
+export const giants = () => GIANTS.map(g => { const grp = CLUSTERS.find(c => c.name === SAME_AS_GROUP[g.id]), mly = grp ? grp.mly : g.mly, src = grp ? 'cosmos-data' : 'McCall 2014 (rounded)';
+  const [l, b] = toGalactic(g.ra, g.dec); return { ...g, mly, distanceSource: src, pos: galacticPosition(l, b, mly * 1000).map(v => v / 1000) }; });
 
 // The Magellanic Clouds as soft clouds of points at their measured positions and sizes (local-data.js), in kly
 // about the Milky Way's centre: the Galaxy shows them before the Local Group takes over (cross-faded there).

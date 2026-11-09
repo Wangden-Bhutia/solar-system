@@ -116,7 +116,9 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, min, max =
     tmp.copy(h.sprite.position).project(camera); if (tmp.z >= 1) return false;
     out.x = bounds.left + (tmp.x + 1) / 2 * bounds.width; out.y = bounds.top + (1 - tmp.y) / 2 * bounds.height; out.off = h.px / 2 + 4; out.text = h.el.textContent; return true;
   }
-  const api = { scene, points, mark, ring, glowAt, render, anchor, hideHere(v) { hideHere = v; if (v) for (const it of marks) if (it.here) { it.el.hidden = true; forgetLabel(it); } }, pick, setView, viewDir, camera, controls, fly, setDistance, distance: () => camera.position.distanceTo(controls.target), liveLabels(v) { labelsLive = v; },
+  // Adopt an object made elsewhere (a proxy copy of the scale inside): drawn with a LOD rule; sprites keep their px.
+  function adopt(o, rule, lodOpts) { scene.add(o); rules.set(o, rule); if (lodOpts) o.userData.lodOpts = lodOpts; if (o.isSprite) glows.push(o); return o; }
+  const api = { scene, points, mark, ring, glowAt, adopt, render, anchor, hideHere(v) { hideHere = v; if (v) for (const it of marks) if (it.here) { it.el.hidden = true; forgetLabel(it); } }, pick, setView, viewDir, camera, controls, fly, setDistance, distance: () => camera.position.distanceTo(controls.target), liveLabels(v) { labelsLive = v; },
     enter(at) { setLabels(true); controls.enabled = true; if (at) setView(at.dir, at.d, at.tgt ? new THREE.Vector3(...at.tgt) : HOME); },
     leave() { setLabels(false); controls.enabled = false; },
     overviewDistance: () => fitRadius ? fitDistance() : portrait() ? overviewD * 1.5 : overviewD,
@@ -128,13 +130,20 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, min, max =
   return api;
 }
 
+// One style for the NGC/IC catalogue at both scales that show it (so they are an exact proxy pair).
+export const NGC_STYLE = { size: 1.5, opacity: 0.75 };
+export function ngcColours(g) { const col = new Float32Array(g.count * 3); for (let i = 0; i < g.count; i++) { const c = KIND_COLOURS[g.kind[i]], k = 0.6 + ((i * 2654435761) >>> 0) / 4294967296 * 0.4; col[i * 3] = c[0] * k; col[i * 3 + 1] = c[1] * k; col[i * 3 + 2] = c[2] * k; } return col; }
+const LOCAL_UNIT_MLY = 0.01; // the Local Group level's unit (10 kly) in Mly
 // ---- Laniakea: 1 unit = 1 million light-years ----
 export function createLaniakea(opts) {
   const s = createScene({ ...opts, near: SUPER_NEAR, far: SUPER_FAR, min: SCENE_RANGE.super[0], max: SCENE_RANGE.super[1], home: [0, 0, 0], overviewD: 520, overviewDir: new THREE.Vector3(0.3, 0.8, 0.5) });
   s.scene.add(skyPoints(0)); // the shared sky (sky.js), galactic frame
-  const g = ngcGalaxies(1), col = new Float32Array(g.count * 3);
-  for (let i = 0; i < g.count; i++) { const c = KIND_COLOURS[g.kind[i]], k = 0.6 + ((i * 2654435761) >>> 0) / 4294967296 * 0.4; col.set([c[0] * k, c[1] * k, c[2] * k], i * 3); }
-  s.points(g.pos, col, 1.5, 0.75, 0xffffff, { inner: 'model', outer: 'size', alone: 'size' }); // the same catalogue the universe shows shrunk 100×: cross-faded
+  // The NGC/IC catalogue, drawn identically here and (shrunk 100×) in the universe: an exact proxy pair, swapped at
+  // mid-seam; in both it gives way by on-screen density.
+  const g = ngcGalaxies(1);
+  const ngcL = s.points(g.pos, ngcColours(g), NGC_STYLE.size, NGC_STYLE.opacity, 0xffffff, { inner: 'proxy', outer: 'size', alone: 'size' }); ngcL.userData.lodOpts = { N: g.count }; ngcL.userData.layer = 'ngc';
+  // The Local Sheet, the Local Void and the nearby giants' glows: exact copies of the Local Group level's (proxy pairs).
+  if (opts.local?.proxyCopies) for (const c of opts.local.proxyCopies(LOCAL_UNIT_MLY)) s.adopt(c, c.isSprite ? { outer: 'proxy', inner: 'marker', alone: 'marker' } : { outer: 'proxy', inner: 'size', alone: 'size' }, { appear: [4, 15] });
   // The Local Group's own galaxies, shrunk from the level inside, drawn with the same glows (sizes, colours)
   // as the Local Group level, so they don't collapse into dots as one scale fades into the other.
   // These copies are identical on screen to the Local Group's own markers at the seam (rule 'proxy': swapped at mid-seam).
@@ -168,7 +177,7 @@ export function createUniverse(opts) {
   // Laniakea's galaxies, shrunk 100× from the level inside: a small bright knot at the centre.
   // The NGC/IC galaxies give way to the illustrated web as they crowd together on screen (lod.js density: N over
   // the area of the catalogue's disc on screen), so the catalogue is never drawn as one saturated blob.
-  const g = ngcGalaxies(100); s.points(g.pos, null, 1.3, 0.8, 0xdfe8ff, { outer: 'model', inner: 'size', alone: 'size' }).userData.lodOpts = { N: g.count };
+  const g = ngcGalaxies(100); const ngcU = s.points(g.pos, ngcColours(g), NGC_STYLE.size, NGC_STYLE.opacity, 0xffffff, { outer: 'proxy', inner: 'size', alone: 'size' }); ngcU.userData.lodOpts = { N: g.count }; ngcU.userData.layer = 'ngc';
   const web = cosmicWeb(R * 0.98); s.points(web.pos, web.col, 1.2, 0.35);
   // The cosmic microwave background: the oldest light, from the edge of what we can see. Drawn as a shell of
   // points whose warm/cool speckle is an illustration of the tiny temperature ripples in the real maps.

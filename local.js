@@ -21,7 +21,7 @@ const glow = (() => {
 const MW = { name: 'Milky Way', short: 'Milky Way', kind: 'Spiral galaxy', type: 'SBbc', mly: 0, pos: [0, 0, 0], rank: 0, here: true, stars: '100–400 billion',
   fact: 'Our own galaxy, the second biggest in the Local Group. Every star you can see in the night sky is part of it.' };
 
-export function createLocal({ renderer, canvas, labelsEl, onPick }) {
+export function createLocal({ renderer, canvas, labelsEl, onPick, galaxy = null }) {
   const scene = new THREE.Scene(), bg = new THREE.Color(0x000005); scene.background = bg;
   const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 1e5);
   const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enabled = false; controls.enablePan = false;
@@ -31,7 +31,12 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
   // Far background galaxies' glow is left out: this level is the Local Group alone. A faint star field for depth.
   const sky = skyPoints(0); scene.add(sky); // the shared sky (sky.js), galactic frame
   // The Milky Way: the Galaxy scene's own particles, shrunk 10×.
-  let mwCloud; { const { positions, colors } = galaxyParticles({ bulge: 1800, disc: 2600, arm: 4200, seed: 11 }); mwCloud = points(Array.from(positions, v => v / LOCAL_UNIT), Array.from(colors), 1.3, 0.55); }
+  // The Milky Way and what surrounds it: exact copies of the Galaxy level's own objects (galaxy.proxyCopies:
+  // the same particle disc, bright tracers, bulge glow, globular clusters, halo, Sagittarius stream and Magellanic
+  // Clouds, shrunk 10×), swapped with them at mid-seam. Without a Galaxy (tests), a reduced particle model.
+  let mwCloud; const fromGalaxy = galaxy?.proxyCopies ? galaxy.proxyCopies(1 / LOCAL_UNIT) : null;
+  if (fromGalaxy) { for (const c of fromGalaxy) { c.userData.galaxyCopy = true; scene.add(c); } mwCloud = fromGalaxy[0]; }
+  else { const { positions, colors } = galaxyParticles({ bulge: 1800, disc: 2600, arm: 4200, seed: 11 }); mwCloud = points(Array.from(positions, v => v / LOCAL_UNIT), Array.from(colors), 1.3, 0.55); }
   // Spirals and clouds, each in its real place and orientation.
   const placeDisc = (g, n, seed, opts) => {
     const { positions, colors } = spiralParticles(g.size / 2 / LOCAL_UNIT, n, seed, opts), { major, normal } = discAxes(g);
@@ -42,7 +47,7 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
   const blob = (g, n, seed) => { let x = seed; const r = () => ((x = (Math.imul(x, 1664525) + 1013904223) >>> 0) / 4294967296), s = g.size / 2 / LOCAL_UNIT, out = [], col = [];
     for (let i = 0; i < n; i++) { const u = Math.sqrt(-2 * Math.log(1 - r() * 0.999)) * 0.45, v = new THREE.Vector3().randomDirection().multiplyScalar(u * s); v.y *= 0.55; out.push(v.x + g.pos[0], v.y + g.pos[1], v.z + g.pos[2]); const k = 0.55 + r() * 0.4; col.push(0.8 * k, 0.86 * k, k); }
     const p = points(out, col, 1.3, 0.6); if (g.short === 'LMC' || g.short === 'SMC') p.userData.magellanic = true; };
-  for (const g of GALAXIES) { if (g.i != null) placeDisc(g, g.short === 'Andromeda' ? 9000 : 3200, g.short === 'Andromeda' ? 31 : 33); else if (g.blob) blob(g, g.short === 'LMC' ? 1500 : 800, g.short === 'LMC' ? 5 : 9); }
+  for (const g of GALAXIES) { if (g.i != null) placeDisc(g, g.short === 'Andromeda' ? 9000 : 3200, g.short === 'Andromeda' ? 31 : 33); else if (g.blob && !(fromGalaxy && (g.short === 'LMC' || g.short === 'SMC'))) blob(g, g.short === 'LMC' ? 1500 : 800, g.short === 'LMC' ? 5 : 9); }
   // Phase 3 transition layers (transition.js, docs/sources.md), in this scene's units (10 kly). Leaving the Local
   // Group: the Local Sheet (an illustration of its measured size, in the supergalactic plane), the Local Void
   // (an illustrative shell: centre direction from SIMBAD, at least 75 Mly away), the nearby giant galaxies of
@@ -76,9 +81,11 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
   lod.add(sky, 'proxy');
   // Leaving structures appear only once the camera is out past them (appear: camera distance from the Milky Way).
   const OUT = { appear: [400, 1500] };
-  scene.traverse(o => { if (!o.material || o === sky || o.isSprite) return;
-    lod.add(o, o === mwCloud ? { outer: 'model', inner: 'size', alone: 'size' } : o.userData.magellanic ? { outer: 'model', inner: 'size', alone: 'size' } : 'size', o === sheet || o === voidShell ? OUT : undefined); });
-  for (const sp of far) lod.add(sp, 'marker', OUT);
+  const COPY_IN = { outer: 'proxy', inner: 'size', alone: 'size' };
+  if (fromGalaxy) for (const c of fromGalaxy) lod.add(c, COPY_IN, c.isSprite ? { L: c.scale.x / 2 } : undefined);
+  scene.traverse(o => { if (!o.material || o === sky || o.isSprite || o.userData.galaxyCopy) return;
+    lod.add(o, o === mwCloud ? { outer: 'model', inner: 'size', alone: 'size' } : o.userData.magellanic ? { outer: 'model', inner: 'size', alone: 'size' } : o === sheet || o === voidShell ? { inner: 'proxy', outer: 'size', alone: 'size' } : 'size', o === sheet || o === voidShell ? OUT : undefined); });
+  for (const sp of far) lod.add(sp, { inner: 'proxy', outer: 'marker', alone: 'marker' }, OUT);
   // Going out, every marker swaps with Laniakea's identical copy of it (cosmos.js) at mid-seam.
   for (const x of marks) lod.add(x.sprite, x.here ? { outer: 'model', inner: 'proxy', alone: 'fixed' } : { inner: 'proxy', outer: 'marker', alone: 'marker' });
   const fadeOf = it => it.sprite ? it.sprite.userData.fade ?? 1 : it.ring ? it.ring.userData.fade ?? 1 : seamWindow(seamNow);
@@ -152,5 +159,14 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
     tmp.copy(mwMark.sprite.position).project(camera); if (tmp.z >= 1) return false;
     out.x = bounds.left + (tmp.x + 1) / 2 * bounds.width; out.y = bounds.top + (1 - tmp.y) / 2 * bounds.height; out.off = mwMark.px / 2 + 4; out.text = mwMark.el.textContent; return true;
   }
-  return { camera, render, anchor, hideHere(v) { hideHere = v; if (v) for (const it of labelItems) if (it.here) { it.el.hidden = true; forgetLabel(it); } }, pick, enter, leave, setView, viewDir, overview, overviewDistance, towardSun, zoomBackIn, zoomOut, zoomState, showLabels: setLabels, liveLabels(v) { labelsLive = v; }, setDistance, distance, select(g) { selected = g; }, galaxies: all, camera, controls, scene, fly };
+  // Copies for Laniakea (cosmos.js): the Local Sheet, the Local Void and the far glows (shared geometry, cloned
+  // materials, × scale), so that seam swaps them too.
+  const OUTWARD = [sheet, voidShell, ...far];
+  function proxyCopies(scale) {
+    return OUTWARD.map(o => { const m = o.material.clone(); m.opacity = o.material.userData.base ?? o.material.opacity;
+      const c = o.isSprite ? new THREE.Sprite(m) : o.isLineSegments ? new THREE.LineSegments(o.geometry, m) : new THREE.Points(o.geometry, m);
+      c.position.copy(o.position).multiplyScalar(scale); c.scale.copy(o.scale).multiplyScalar(scale); if (o.isSprite) c.userData.px = o.userData.px;
+      c.frustumCulled = false; c.userData.proxyOf = o; c.userData.layer = o.userData.layer || 'far-glow'; return c; });
+  }
+  return { camera, scene, render, anchor, proxyCopies, proxySources: () => OUTWARD, hideHere(v) { hideHere = v; if (v) for (const it of labelItems) if (it.here) { it.el.hidden = true; forgetLabel(it); } }, pick, enter, leave, setView, viewDir, overview, overviewDistance, towardSun, zoomBackIn, zoomOut, zoomState, showLabels: setLabels, liveLabels(v) { labelsLive = v; }, setDistance, distance, select(g) { selected = g; }, galaxies: all, camera, controls, scene, fly };
 }

@@ -188,3 +188,11 @@ Built by `tools/build_transition.py` into `transition-data.js` (84.8 KB); drawn 
 - **NGC → web hand-over**: OpenNGC points fade by their on-screen density (0.05 → 0.5 points per px², lod.js). The cosmic web remains an *illustration*.
 - **2MRS not used**: no explicit licence was found for redistribution, so it was not added.
 - **Solar compressed → true scale**: past a camera ~300 AU out, the compressed distance rule blends to true scale. The blend is complete at 0.08 ly (≈5,060 AU), where the seam to the stars begins (zoom-ladder.js SOLAR_METRIC). Inside ~300 AU, planet distances remain compressed.
+
+### Seam stand-ins and one distance per galaxy (correction)
+
+- Galaxy → Local Group: the Local Group scene draws the Milky Way scene's own objects (disc cloud, tracers, core, globulars, halo, Sagittarius stream, Magellanic Clouds). They use the same BufferGeometry, the same material settings and positions scaled by 1/LOCAL_UNIT. The Local scene's separate random LMC/SMC blobs are no longer drawn when these copies exist.
+- Local Group → Laniakea: the Local Sheet, the Local Void shell and the far-galaxy sprites are shared the same way, scaled by 0.01 (Mly per Local unit).
+- Laniakea → Universe: both scenes build the NGC/IC layer from the same catalogue with one style (`NGC_STYLE`).
+- One distance per galaxy: M81 (11.8 Mly), NGC 253 (11.4 Mly) and Centaurus A (12 Mly) now use the cosmos-data group values everywhere. The Council of Giants table (McCall 2014, MNRAS 440, 405) gives rounded values; the real distance uncertainty is about ±5–10%. Each Council galaxy records which source its number comes from.
+- `tests/proxies.test.js` checks these pairs numerically (style, projection, sprite size, exclusivity). That is not a check of the rendered brightness on a GPU.
