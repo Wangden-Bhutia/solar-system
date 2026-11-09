@@ -1,11 +1,13 @@
 import { bodies, focus, unfocus, hooks, renderer, controls, setHomeScope } from './app.js';
 import { createStars, createDimmer } from './stars.js';
 import { createGalaxy } from './galaxy.js';
+import { createLocal } from './local.js';
+import { LOCAL_FACTS, distanceBetween } from './local-data.js';
 import { GALAXY_FACTS } from './galaxy-data.js';
 import { STAR_TIME, yearsLabel, approachLabel } from './star-motion.js';
 import { pairOf, periastron, apastron, nextPeriastron, keplerMass } from './star-pairs.js';
 import { TIME_RANGE, timeLabel, lapsLabel, milestone, VC_SUN, OMEGA_ARMS, OMEGA_BAR, SUN_PERIOD } from './galaxy-motion.js';
-import { LEVELS, levelIndex, PAIRS, pairFor, bridgeFrame, stepBridge, atLimit, STAR_NEAR, STAR_FAR, GALAXY_NEAR } from './zoom-ladder.js';
+import { LEVELS, levelIndex, PAIRS, pairFor, bridgeFrame, stepBridge, atLimit, STAR_NEAR, STAR_FAR, GALAXY_NEAR, GALAXY_FAR, LOCAL_NEAR, LOCAL_UNIT } from './zoom-ladder.js';
 import { camera, drawSolar } from './app.js';
 import { STAR_FACTS, habitableZone, sizeFromMass, lightLeftYear } from './stars-data.js';
 import { createExperiments } from './experiments.js';
@@ -22,11 +24,12 @@ const LAB_TITLES={seasons:'Why do seasons happen?',phases:'Explore the phases',e
 const $=id=>document.getElementById(id), state=createLabState(), experiments=createExperiments(renderer);
 const sheet=$('sheet');
 // ---- Beyond the Solar System: the nearby stars and their planets ----
-const SPACE=new Set(['stars','system','pair','galaxy']);
+const SPACE=new Set(['stars','system','pair','galaxy','local']);
 const ORBITS=new Set(['system','pair']); // close-up views inside the star map: planets, or two stars orbiting each other
-const levelOf=v=>v==='galaxy'?'galaxy':v==='stars'||ORBITS.has(v)?'stars':'solar';
+const levelOf=v=>v==='local'?'local':v==='galaxy'?'galaxy':v==='stars'||ORBITS.has(v)?'stars':'solar';
 const starsView=createStars({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:e=>pickStar(e),onTime:()=>paintTime(),onPair:()=>paintPairClock()});
 let shownLevel='solar',arrival=null;
+const localView=createLocal({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:g=>pickGalaxy(g)});
 const galaxyView=createGalaxy({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:m=>pickLandmark(m),onTime:()=>paintTime()});
 // ---- Time at the big scales: one clock bar, in thousands of years for the stars (star-motion.js)
 // and millions for the Milky Way (galaxy-motion.js). Each scene keeps its own clock; leaving a scale
@@ -53,27 +56,30 @@ $('gnow').onclick=()=>{clockOf(clockLevel())?.rewind();paintTime();};
 // the outer one dissolves in, centred on the Sun and seen from the same direction. No cuts, no fades to black.
 const dim=createDimmer(renderer);
 let bridge=null,animating=false;
-const views={solar:{view:'explore',feature:'orbit'},stars:{view:'stars'},galaxy:{view:'galaxy'}};
-const viewDirOf=l=>l==='solar'?camera.position.clone().sub(controls.target).normalize():l==='stars'?starsView.viewDir():galaxyView.viewDir();
+const views={solar:{view:'explore',feature:'orbit'},stars:{view:'stars'},galaxy:{view:'galaxy'},local:{view:'local'}};
+const viewDirOf=l=>l==='solar'?camera.position.clone().sub(controls.target).normalize():l==='stars'?starsView.viewDir():l==='galaxy'?galaxyView.viewDir():localView.viewDir();
 function drawBridge(){
  const r=$('stage').getBoundingClientRect(),f=bridgeFrame(bridge.pair,bridge.t);
  if(bridge.pair==='solar>stars'){drawSolar(f.inner.recede);dim(f.inner.dim);starsView.setView(bridge.dir,f.outer.d);starsView.render(r.width,r.height,null,{overlay:true,opacity:f.outer.opacity});}
- else{starsView.setView(bridge.dir,f.inner.d);starsView.render(r.width,r.height,null,{opacity:1-f.inner.dim});dim(f.inner.dim);galaxyView.setView(bridge.dir,f.outer.d);galaxyView.render(r.width,r.height,null,{overlay:true,opacity:f.outer.opacity});}
+ else if(bridge.pair==='stars>galaxy'){starsView.setView(bridge.dir,f.inner.d);starsView.render(r.width,r.height,null,{opacity:1-f.inner.dim});dim(f.inner.dim);galaxyView.setView(bridge.dir,f.outer.d);galaxyView.render(r.width,r.height,null,{overlay:true,opacity:f.outer.opacity});}
+ else{const t=bridge.tgt;galaxyView.setView(bridge.dir,f.inner.d,t);galaxyView.render(r.width,r.height,null,{opacity:1-f.inner.dim});dim(f.inner.dim);localView.setView(bridge.dir,f.outer.d,t.clone().divideScalar(LOCAL_UNIT));localView.render(r.width,r.height,null,{overlay:true,opacity:f.outer.opacity});}
 }
 function beginBridge(pair,t){
  const cur=levelOf(state.value.view);if(ORBITS.has(state.value.view)){starsView.closeSystem();state.update({view:'stars'});}
- bridge={pair,t,dir:viewDirOf(cur)};state.update({sheet:'closed',star:null,landmark:null});
- if(pair==='solar>stars')starsView.showLabels(true);else galaxyView.showLabels(true);
+ // Galaxy ⇄ Local Group keeps the Galaxy's own centre of view (the Sun, or the Galaxy's centre after the clock ran); inward, the Local Group has already returned to the Sun.
+ bridge={pair,t,dir:viewDirOf(cur),tgt:pair==='galaxy>local'?(cur==='galaxy'?galaxyView.controls.target.clone():localView.controls.target.clone().multiplyScalar(LOCAL_UNIT)):null};state.update({sheet:'closed',star:null,landmark:null});
+ for(const l of PAIRS[pair])showLabelsOf(l,true);
  document.body.classList.add('bridging');render();
 }
 function moveBridge(amount){const {t,settled}=stepBridge(bridge.t,amount);bridge.t=t;if(settled)settle(settled);}
 function settle(end){
  const b=bridge,[inner,outer]=PAIRS[b.pair],target=end==='outer'?outer:inner,cur=levelOf(state.value.view);bridge=null;document.body.classList.remove('bridging');
- const other=target===inner?outer:inner;if(other==='stars')starsView.showLabels(false);if(other==='galaxy')galaxyView.showLabels(false);
+ const other=target===inner?outer:inner;showLabelsOf(other,false);
  // Arrive with the camera exactly where the bridge left it.
- arrival=target==='solar'?{solar:true}:target==='stars'?{dir:b.dir,d:b.pair==='solar>stars'?STAR_NEAR:STAR_FAR}:{dir:b.dir,d:GALAXY_NEAR};
+ const tg=b.tgt?.toArray();
+ arrival=target==='solar'?{solar:true}:target==='stars'?{dir:b.dir,d:b.pair==='solar>stars'?STAR_NEAR:STAR_FAR}:target==='galaxy'?(b.pair==='galaxy>local'?{dir:b.dir,d:GALAXY_FAR,tgt:tg}:{dir:b.dir,d:GALAXY_NEAR}):{dir:b.dir,d:LOCAL_NEAR,tgt:tg.map(v=>v/LOCAL_UNIT)};
  if(target!==cur)state.navigate({...views[target],star:null,landmark:null,experiment:null,sheet:'closed'});
- else{arrival=null;if(target==='stars')starsView.setView(b.dir,b.pair==='solar>stars'?STAR_NEAR:STAR_FAR);if(target==='galaxy')galaxyView.setView(b.dir,GALAXY_NEAR);}
+ else{const a=arrival;arrival=null;if(target==='stars')starsView.setView(a.dir,a.d);if(target==='galaxy')galaxyView.setView(a.dir,a.d,a.tgt&&galaxyView.controls.target.clone().fromArray(a.tgt));if(target==='local')localView.setView(a.dir,a.d,localView.controls.target.clone().fromArray(a.tgt));}
  render();
 }
 // The same blend, played automatically for the scale ladder, Back and buttons: glide to the edge, then cross.
@@ -87,30 +93,33 @@ function animateBridge(to,done){
 }
 function goLevel(target){
  const cur=levelOf(state.value.view);if(target===cur||bridge||animating)return;stopAudio();$('settings').open=false;
- const out=levelIndex(target)>levelIndex(cur),pair=pairFor(cur,out?1:-1),then=()=>{if(levelOf(state.value.view)!==target)goLevel(target);};
+ const out=levelIndex(target)>levelIndex(cur),pair=pairFor(cur,out?1:-1),then=()=>{if(levelOf(state.value.view)!==target)goLevel(target);else if(target==='local')localView.overview();};
  const play=()=>{beginBridge(pair,out?0:1);animateBridge(out?1:0,then);};
  const ck=clockOf(cur);if(ck&&ck.time()!==0){animating=true;ck.rewind(()=>{animating=false;goLevel(target);});return;} // back to today first: the star map is as the sky is now
  if(ORBITS.has(state.value.view)){starsView.closeSystem();state.update({view:'stars',sheet:'closed'});render();}
  if(out&&cur==='stars')starsView.zoomOut(play);
  else if(!out&&cur==='stars')starsView.zoomBackIn(play);
  else if(!out&&cur==='galaxy')galaxyView.zoomToSun(play);
+ else if(out&&cur==='galaxy')galaxyView.zoomOut(play);
+ else if(!out&&cur==='local')localView.zoomBackIn(play);
  else{if(state.value.sheet!=='closed'){state.update({sheet:'closed'});render();}play();}
 }
-const enterStars=()=>goLevel('stars'),leaveStars=()=>goLevel('solar'),enterGalaxy=()=>goLevel('galaxy'),leaveGalaxy=()=>goLevel('stars');
+const enterStars=()=>goLevel('stars'),leaveStars=()=>goLevel('solar'),enterGalaxy=()=>goLevel('galaxy'),leaveGalaxy=()=>goLevel('stars'),leaveLocal=()=>goLevel('galaxy');
+function showLabelsOf(l,v){if(l==='stars')starsView.showLabels(v);if(l==='galaxy')galaxyView.showLabels(v);if(l==='local')localView.showLabels(v);}
 for(const b of $('ladder').querySelectorAll('button'))b.onclick=()=>goLevel(b.dataset.level);
 // Gestures: while bridging, the wheel and pinch move the blend; otherwise they open a bridge only when the
 // active camera is already at its limit (so ordinary zooming inside a scale is untouched).
 function zoomState(){const l=levelOf(state.value.view);
  if(l==='solar'){if(state.value.view==='try'&&state.value.experiment)return null;const d=camera.position.distanceTo(controls.target);return {d,min:controls.minDistance,max:controls.maxDistance,busy:false,outer:true,inner:false};}
  if(ORBITS.has(state.value.view))return null;
- const z=(l==='stars'?starsView:galaxyView).zoomState();return {...z,outer:l==='stars',inner:true};}
+ const z=(l==='stars'?starsView:l==='galaxy'?galaxyView:localView).zoomState();return {...z,outer:l!=='local',inner:true};}
 function feedZoom(amount){
  if(animating)return;if(bridge){moveBridge(amount);return;}
  const l=levelOf(state.value.view),z=zoomState();if(!z||z.busy||state.value.sheet==='half'||state.value.sheet==='full')return;
  const lim=atLimit(z.d,z.min,z.max);
  const ck=clockOf(l);if(ck&&ck.time()!==0&&(lim.atOuter&&amount>0&&z.outer||lim.atInner&&amount<0&&z.inner)){ck.rewind();return;}
  if(amount>0&&lim.atOuter&&z.outer){beginBridge(pairFor(l,1),0);moveBridge(amount);}
- else if(amount<0&&lim.atInner&&z.inner){if(l==='galaxy'&&!galaxyView.atSun()){galaxyView.zoomToSun();return;}/* back to today and to the Sun, where the star map takes over */beginBridge(pairFor(l,-1),1);moveBridge(amount);}
+ else if(amount<0&&lim.atInner&&z.inner){if(l==='galaxy'&&!galaxyView.atSun()){galaxyView.zoomToSun();return;}if(l==='local'&&!z.atSun){localView.zoomBackIn();return;}/* back to today and to the Sun, where the star map takes over */beginBridge(pairFor(l,-1),1);moveBridge(amount);}
 }
 $('c').addEventListener('wheel',e=>feedZoom(Math.max(-120,Math.min(120,e.deltaY))),{passive:true});
 // Name labels sit above the scene and would swallow the wheel: pass it through so zooming works anywhere.
@@ -120,9 +129,11 @@ const spreadOf=()=>{const [a,b]=[...pinch.values()];return Math.hypot(a.x-b.x,a.
 document.addEventListener('pointerdown',e=>{if(e.target!==$('c'))return;pinch.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch.size===2)spread=spreadOf();},true);
 document.addEventListener('pointermove',e=>{if(!pinch.has(e.pointerId))return;pinch.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch.size!==2)return;const d=spreadOf();if(spread>0&&d>0)feedZoom(-Math.log(d/spread)*600);spread=d;},true);
 for(const t of ['pointerup','pointercancel'])document.addEventListener(t,e=>{pinch.delete(e.pointerId);if(pinch.size<2)spread=0;},true);
+function pickGalaxy(g){dismissHint();go({view:'local',landmark:g.name,sheet:'peek'});}
 function pickLandmark(m){dismissHint();galaxyView.pause();go({view:'galaxy',landmark:m.name,sheet:'peek'});}
 function pickStar(e){dismissHint();starsView.pause();go({view:'stars',star:e.name,sheet:'peek'});}
 hooks.overrideTap=(x,y)=>{const s=state.value;
+ if(s.view==='local'){const g=localView.pick(x,y);if(g)pickGalaxy(g);else if(s.sheet!=='closed')setSheet({sheet:'closed',landmark:null});return;}
  if(s.view==='galaxy'){const m=galaxyView.pick(x,y);if(m)pickLandmark(m);else if(s.sheet!=='closed')setSheet({sheet:'closed',landmark:null});return;}
  if(s.view!=='stars')return;const e=starsView.pick(x,y);if(e)pickStar(e);else if(s.sheet!=='closed')setSheet({sheet:'closed',star:null});};
 const sourceLink=(key,label='NASA source')=>`<a href="${NASA[key]}" target="_blank" rel="noopener">${label}</a>`;
@@ -148,9 +159,10 @@ function dismissHint(){hintSeen=true;}
 // At the overview (sheet closed) the same chip switches between the inner planets and all planets.
 $('back').onclick=()=>{stopAudio();const s=state.value;
  if(s.sheet!=='closed'&&state.canBack)state.back();
+ else if(s.view==='local'&&s.sheet==='closed'){leaveLocal();return;}
  else if(s.view==='galaxy'&&s.sheet==='closed'){leaveGalaxy();return;}
  else if(SPACE.has(s.view)&&s.sheet==='closed'){leaveStars();return;}
- else if(s.view==='galaxy')state.update({landmark:null,sheet:'closed'});
+ else if(s.view==='galaxy'||s.view==='local')state.update({landmark:null,sheet:'closed'});
  else if(SPACE.has(s.view))state.update({view:'stars',star:null,sheet:'closed'});
  else if(s.sheet!=='closed')state.update({view:'explore',experiment:null,feature:'orbit',sheet:'closed'});
  else setHomeScope(hooks.homeScope==='inner'?'all':'inner');
@@ -465,6 +477,33 @@ function paintExplore(){
 }
 const fmt=(n,d=0)=>n.toLocaleString('en-IN',{maximumFractionDigits:d});
 const entryOf=name=>starsView.entries.find(e=>e.name===name);
+// The Local Group: our galaxy's neighbourhood (local-data.js).
+function paintLocal(){
+ const s=state.value,g=s.landmark&&localView.galaxies.find(x=>x.name===s.landmark);narration=null;$('action').hidden=true;$('star-panel').hidden=false;
+ $('star-companions').textContent='';$('star-planets').innerHTML='';
+ const caveat='<p>Galaxies are placed by their real direction in the sky and measured distance; 1 unit here is 10,000 light-years, so the Milky Way is drawn exactly as in the previous level, shrunk ten times. The spirals’ tilts come from their measured inclination and orientation. The shapes of Andromeda, Triangulum and the Magellanic Clouds are simple models, and dwarf galaxies are drawn as glows: most are too faint and spread out to show at this scale.</p>';
+ const andromeda=localView.galaxies.find(x=>x.short==='Andromeda'),mw=localView.galaxies[0];
+ if(!g){
+  $('kicker').textContent='Our neighbourhood of galaxies';$('title').textContent='The Local Group';
+  $('fact').textContent='The Milky Way and Andromeda, the two big spirals, with Triangulum and dozens of small dwarf galaxies, all held together by gravity.';
+  $('view-caption').textContent='Rings: 1, 2 and 3 million light-years from the Milky Way · model, not a photograph';
+  $('star-facts').innerHTML=[['Across',`${LOCAL_FACTS.width} light-years`],['Galaxies',LOCAL_FACTS.members],['Total mass',LOCAL_FACTS.mass],['Biggest members','Andromeda, the Milky Way, Triangulum'],['Milky Way to Andromeda',`about ${fmt(distanceBetween(mw,andromeda)/1000,1)} million light-years`]].map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
+  $('star-depth').innerHTML=`${caveat}<a href="https://en.wikipedia.org/wiki/Local_Group" target="_blank" rel="noopener">Local Group</a> · <a href="https://en.wikipedia.org/wiki/List_of_nearest_galaxies" target="_blank" rel="noopener">List of nearest galaxies</a>${sourceNote}`;
+  return;
+ }
+ $('kicker').textContent=g.here?'Our galaxy':g.kind;$('title').textContent=g.name;
+ $('fact').textContent=g.fact||`A ${g.kind.toLowerCase()} about ${g.mly<1?fmt(g.mly*1000)+' thousand':fmt(g.mly,2)+' million'} light-years away.`;
+ $('view-caption').textContent=g.here?'You are here · the second-biggest galaxy in the Local Group':`${g.mly<1?fmt(g.mly*1000)+',000':fmt(g.mly,2)+' million'} light-years from the Sun`;
+ const rows=[];
+ if(!g.here){rows.push(['Distance',g.mly<1?`about ${fmt(g.mly*1000)},000 light-years`:`about ${fmt(g.mly,2)} million light-years`]);
+  rows.push(['The light you see left it',g.short==='Andromeda'?'about 2.5 million years ago, around when the first humans of our genus, Homo, appeared':g.mly<1?`about ${fmt(g.mly*1000)},000 years ago`:`about ${fmt(g.mly,1)} million years ago`]);}
+ rows.push(['Type',`${g.kind}${g.type?` (${g.type})`:''}`]);if(g.stars)rows.push(['Stars',g.stars]);if(g.size)rows.push(['Width',`about ${fmt(g.size)},000 light-years`]);if(g.alt)rows.push(['Also called',g.alt]);
+ if(g.short==='Andromeda')rows.push(['Moving towards us','about 110 km/s'],['Will it hit the Milky Way?','Maybe. It was long predicted for about 4.5 billion years from now; a 2025 study with newer data gives about even odds of a merger within 10 billion years']);
+ if(g.short==='Triangulum')rows.push(['Distance from Andromeda',`about ${fmt(distanceBetween(g,andromeda)/1000,2)} million light-years`]);
+ $('star-facts').innerHTML=rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
+ const wiki=g.here?'Milky_Way':g.name.replace(/’/g,"'").replace(/ /g,'_');
+ $('star-depth').innerHTML=`${caveat}${g.short==='Andromeda'?'<p>Andromeda’s light is blueshifted: it is coming towards us. Its sideways motion is much harder to measure, which is why the odds of a collision keep changing. Earlier studies predicted a head-on merger in about 4.5 billion years; Sawala et al. (2025), adding newer Gaia and Hubble data and the pull of Triangulum and the Large Magellanic Cloud, found about a 50% chance of a merger in the next 10 billion years.</p>':''}<a href="https://en.wikipedia.org/wiki/${encodeURIComponent(wiki)}" target="_blank" rel="noopener">${g.name}</a>${g.short==='Andromeda'?' · <a href="https://en.wikipedia.org/wiki/Andromeda%E2%80%93Milky_Way_collision" target="_blank" rel="noopener">Andromeda–Milky Way collision</a>':''}${sourceNote}`;
+}
 function paintGalaxy(){
  const s=state.value,m=s.landmark&&galaxyView.landmarks.find(x=>x.name===s.landmark);narration=null;$('action').hidden=true;$('star-panel').hidden=false;
  $('star-companions').textContent='';$('star-planets').innerHTML='';
@@ -545,12 +584,12 @@ function render(){
  const s=state.value,space=SPACE.has(s.view),experiment=s.view==='try'&&!!s.experiment,scene=experiment&&SCENE_LABS.has(s.experiment);
  const level=levelOf(s.view);
  if(level!==shownLevel){const from=shownLevel;shownLevel=level;
-  if(from==='stars')starsView.leave();if(from==='galaxy')galaxyView.leave();
+  if(from==='stars')starsView.leave();if(from==='galaxy')galaxyView.leave();if(from==='local')localView.leave();
   const at=arrival;arrival=null;
-  if(level==='stars')starsView.enter(at||(from==='galaxy'?'outside':'inside'));if(level==='galaxy')galaxyView.enter(at);
+  if(level==='stars')starsView.enter(at||(from==='galaxy'?'outside':'inside'));if(level==='galaxy')galaxyView.enter(at);if(level==='local')localView.enter(at);
   if(level==='solar'&&!at)unfocus(true,.01);}
 if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system'||starsView.pairInfo())starsView.openSystem(entryOf(s.star));})():s.view==='pair'?(()=>{if(starsView.pairInfo()?.pr!==pairOf(s.star))starsView.openPair(entryOf(s.star));})():starsView.mode==='system'&&starsView.closeSystem());
- if(level==='stars')starsView.select(s.star&&entryOf(s.star));if(level==='galaxy')galaxyView.select(s.landmark&&galaxyView.landmarks.find(x=>x.name===s.landmark));
+ if(level==='stars')starsView.select(s.star&&entryOf(s.star));if(level==='galaxy')galaxyView.select(s.landmark&&galaxyView.landmarks.find(x=>x.name===s.landmark));if(level==='local')localView.select(s.landmark&&localView.galaxies.find(x=>x.name===s.landmark));
  document.body.classList.toggle('space-mode',space);
  for(const b of $('ladder').querySelectorAll('button'))b.setAttribute('aria-pressed',String(b.dataset.level===level));
  if(race&&!(experiment&&s.experiment==='scale')){globalThis.cancelAnimationFrame?.(race.id);race=null;}
@@ -560,21 +599,22 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system'||starsV
  $('grip').setAttribute('aria-expanded',String(s.sheet==='half'||s.sheet==='full'));
  $('grip').setAttribute('aria-label',s.sheet==='full'?'Show less':'Show more');
  for(const v of ['explore','try','compare','journey'])$(v+'-panel').hidden=s.view!==v;
- $('star-panel').hidden=s.view!=='stars'&&s.view!=='galaxy';$('system-panel').hidden=!ORBITS.has(s.view);
+ $('star-panel').hidden=s.view!=='stars'&&s.view!=='galaxy'&&s.view!=='local';$('system-panel').hidden=!ORBITS.has(s.view);
  for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-pressed',String(b.dataset.view===s.view));
- if(!open&&space){const g=level==='galaxy';$('back').textContent=g?'← Nearby stars':'← Solar System';$('back').setAttribute('aria-label',g?'Zoom back in to the nearby stars':'Zoom back in to the Solar System');}
+ if(!open&&space){const g=level==='galaxy',lg=level==='local';$('back').textContent=lg?'← Milky Way':g?'← Nearby stars':'← Solar System';$('back').setAttribute('aria-label',lg?'Zoom back in to the Milky Way':g?'Zoom back in to the nearby stars':'Zoom back in to the Solar System');}
  else if(!open){const all=hooks.homeScope!=='inner';$('back').textContent=all?'Show inner planets':'Show all planets';$('back').setAttribute('aria-label',all?'Zoom in on the inner planets, Mercury to Mars':'Zoom out to show all eight planets');}
  else{const atOverview=!state.canBack;$('back').textContent=atOverview?'Overview':'← Back';$('back').setAttribute('aria-label',atOverview?'Close the card and show the Solar System':'Go back');}
- $('hint').hidden=(hintSeen&&!space)||open||!!clockLevel();gtime.hidden=!clockLevel()||open;if(!gtime.hidden)paintTime();$('hint').textContent=level==='galaxy'?'Tap a landmark':space?'Tap a star':'Tap a planet, the Sun or the Moon';
+ $('hint').hidden=(hintSeen&&!space)||open||!!clockLevel();gtime.hidden=!clockLevel()||open;if(!gtime.hidden)paintTime();$('hint').textContent=level==='local'?'Tap a galaxy':level==='galaxy'?'Tap a landmark':space?'Tap a star':'Tap a planet, the Sun or the Moon';
  $('world-depth').open=false;
  sheet.querySelector('.tabs').hidden=experiment||s.view==='journey'||space; // labs: controls first, Back returns to the tabs
  $('experiment-chooser').hidden=experiment;$('experiment').hidden=!scene;$('scale-lab').hidden=!(experiment&&s.experiment==='scale');$('experiment-reset').hidden=!experiment;
  $('orbit-map').hidden=!scene;
  document.body.classList.toggle('experiment-mode',scene);
  controls.enabled=!scene&&!space;hooks.hold=scene||space;
- hooks.renderOverride=level==='galaxy'?()=>{const r=$('stage').getBoundingClientRect();galaxyView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:space?()=>{const r=$('stage').getBoundingClientRect();starsView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:scene?()=>{const r=$('stage').getBoundingClientRect();experiments.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:null;
+ hooks.renderOverride=level==='local'?()=>{const r=$('stage').getBoundingClientRect();localView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:level==='galaxy'?()=>{const r=$('stage').getBoundingClientRect();galaxyView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:space?()=>{const r=$('stage').getBoundingClientRect();starsView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:scene?()=>{const r=$('stage').getBoundingClientRect();experiments.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:null;
  $('action2').hidden=true;
- if(s.view==='galaxy')paintGalaxy();
+ if(s.view==='local')paintLocal();
+ else if(s.view==='galaxy')paintGalaxy();
  else if(s.view==='stars')paintStar();
  else if(s.view==='system')paintSystem();
  else if(s.view==='pair')paintPair();
@@ -584,9 +624,9 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system'||starsV
  else if(s.view==='journey')paintJourney();
  else{narration='lab_try';$('action').hidden=true;$('kicker').textContent='Small science lab';$('title').textContent='Try an idea';$('fact').textContent=LINES.lab_try;$('view-caption').textContent='Five experiments. Change one thing and see why it matters.';}
  $('listen').hidden=!narration||!LINES[narration];
- if(bridge){hooks.renderOverride=drawBridge;hooks.hold=true;controls.enabled=false;starsView.controls.enabled=false;galaxyView.controls.enabled=false;}
- else{starsView.controls.enabled=level==='stars'&&starsView.mode==='stars';galaxyView.controls.enabled=level==='galaxy';}
+ if(bridge){hooks.renderOverride=drawBridge;hooks.hold=true;controls.enabled=false;starsView.controls.enabled=false;galaxyView.controls.enabled=false;localView.controls.enabled=false;}
+ else{starsView.controls.enabled=level==='stars'&&starsView.mode==='stars';galaxyView.controls.enabled=level==='galaxy';localView.controls.enabled=level==='local';}
 }
 addEventListener('resize',()=>{if(state.value.view==='compare')paintCompare();});
 render();
-window.__lab={state,go,experiments,player,setSheet,starsView,galaxyView};
+window.__lab={state,go,experiments,player,setSheet,starsView,galaxyView,localView};
