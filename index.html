@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#000005"><title>Our Solar System</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%229%22 fill=%22%23f3c887%22/%3E%3C/svg%3E"><link rel="stylesheet" href="style.css"></head>
 <body data-sheet="closed">
+<nav id="world-nav" aria-label="Go to a world"><label>Go to a world <select id="world"></select></label></nav>
 <main id="stage" aria-label="Interactive space scene">
  <canvas id="c" aria-label="3D Solar System. Drag to look around. Tap a planet, the Sun or the Moon to open its card. Keyboard: use Go to a world in the menu."></canvas>
  <div id="labels"></div><div id="here" hidden></div><div id="orbit-map" hidden></div>
@@ -8,13 +9,10 @@
 <nav id="topbar" aria-label="Navigation">
  <button id="back" class="chip" aria-label="Back to overview">Overview</button>
  <div class="top-right"><button id="journeys" class="chip" aria-label="Guided journeys"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1.5l1.6 4.4 4.4 1.6-4.4 1.6L8 13.5 6.4 9.1 2 7.5l4.4-1.6z"/></svg>Journeys</button><details id="settings"><summary class="chip" aria-label="Menu"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg></summary><div class="menu" role="group" aria-label="Scene controls">
-  <label>Go to a world <select id="world"></select></label>
-  <button id="play" aria-label="Pause">Pause motion</button>
-  <label class="speed"><span id="speedTxt"></span><input id="speed" type="range" min="-2" max="2" step="0.01" value="0" aria-label="Simulation speed"></label>
-  <div class="row"><button id="lbls" class="on" aria-pressed="true">Labels</button><button id="trails" class="on" aria-pressed="true">Trails</button><button id="realBtn" aria-pressed="false">Real scale</button></div>
-  <label><input id="sound" type="checkbox"> Optional voice (plays only when you tap ♫)</label>
-  <button id="reset">Solar System overview</button>
-  <p class="fine" id="scale-note">Sizes to scale (Sun shown at 1/5, and 1/10 in the overview so the planets stay visible); orbit and Moon gaps shortened. Orbits run at 1/5 speed in the overview. Real scale restores size and distance ratios, not today’s positions.</p>
+  <div class="mrow mrow-stack"><span class="mlabel">Real scale</span><button id="realBtn" class="switch" aria-pressed="false" aria-label="Real scale"><span></span></button><p class="mnote">True sizes and distances, not today’s positions.</p></div>
+  <div class="mrow"><button id="play" class="icon-btn" aria-label="Pause" data-state="playing"><svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9M11 3.5v9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L13 8z" fill="currentColor"/></svg></button><input id="speed" type="range" min="-2" max="2" step="0.01" value="0" aria-label="Simulation speed"><span id="speedTxt" class="mvalue"></span></div>
+  <div class="mrow"><span class="mlabel">Planet names</span><button id="lbls" class="switch on" aria-pressed="true" aria-label="Planet names"><span></span></button></div>
+  <div class="mrow"><span class="mlabel">Voice <small>plays only when you tap ♫</small></span><label class="switch-wrap"><input id="sound" type="checkbox" role="switch" aria-label="Voice"><span class="switch" aria-hidden="true"><span></span></span></label></div>
  </div></details></div>
 </nav>
 <p id="hint" role="status">Tap a planet, the Sun or the Moon</p>

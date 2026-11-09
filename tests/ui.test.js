@@ -56,7 +56,7 @@ test('closing the sheet or Overview flies the camera back to the whole system; r
  a.hooks.onEmpty();assert.equal(a.sheet,'closed');assert.equal(last(),'overview','empty tap returns to the overview camera');
  a.tap('Jupiter');a.$('close').onclick();assert.equal(last(),'overview','✕ returns to the overview camera');
  a.tap('Venus');a.$('back').onclick();assert.equal(a.sheet,'closed');assert.equal(last(),'overview','Back to the start state returns to the overview');
- a.tap('Saturn');a.$('reset').dispatchEvent(new a.document.defaultView.Event('click'));assert.equal(last(),'overview','menu overview');
+ a.tap('Saturn');a.$('close').onclick();assert.equal(last(),'overview','closing the card returns to the overview');
  a.tap('Saturn');assert.equal(last(),'Saturn','re-selecting after the overview glides again');
 });
 test('Explore / Try it / Compare live inside the sheet; experiments stay half-open with the scene visible, and Reset/Back work',async()=>{
@@ -83,7 +83,11 @@ test('Back with the card closed switches inner planets ↔ all planets; menu ove
  const a=await setup();a.tap('Jupiter');assert.equal(a.$('back').textContent,'← Back');a.hooks.onEmpty();assert.equal(a.$('back').textContent,'Show all planets');
  a.$('back').onclick();assert.deepEqual(a.focuses.at(-1),['overview:all']);assert.equal(a.sheet,'closed');assert.equal(a.$('back').textContent,'Show inner planets');
  a.$('back').onclick();assert.deepEqual(a.focuses.at(-1),['overview:inner']);assert.equal(a.$('back').textContent,'Show all planets');
- a.tap('Venus');a.$('reset').dispatchEvent(new a.document.defaultView.Event('click'));assert.equal(a.sheet,'closed');assert.deepEqual(a.focuses.at(-1),['overview']);
+ a.tap('Venus');a.$('back').onclick();assert.equal(a.sheet,'closed');assert.deepEqual(a.focuses.at(-1),['overview']);
+ // The menu keeps only real options: no duplicate overview button, no trails switch, no world picker.
+ const menu=a.document.querySelector('#settings .menu');for(const id of ['reset','trails','world'])assert.equal(menu.querySelector('#'+id),null,id);
+ assert.ok(a.document.querySelector('#world-nav #world'),'world picker lives in the keyboard skip-nav');
+ assert.equal(menu.querySelectorAll('.mrow').length,4);
 });
 test('every world has a working card, contextual action, facts and external source',async()=>{
  const a=await setup(412,915);

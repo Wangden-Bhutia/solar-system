@@ -233,7 +233,7 @@ canvas.addEventListener('click', e => {
 
 // Controls
 const playBtn = document.getElementById('play');
-playBtn.onclick = () => { playing = !playing; playBtn.textContent = playing ? '❚❚' : '▶'; playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play'); };
+playBtn.onclick = () => { playing = !playing; playBtn.dataset.state = playing ? 'playing' : 'paused'; playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play'); };
 const speed = document.getElementById('speed'), speedTxt = document.getElementById('speedTxt');
 function fmtSpeed() {
   const secPerYear = 20 / 10 ** speedExp;
@@ -241,9 +241,7 @@ function fmtSpeed() {
 }
 speed.oninput = () => { speedExp = +speed.value; fmtSpeed(); }; fmtSpeed();
 function toggle(id, fn) { const b = document.getElementById(id); b.onclick = () => { const on = !b.classList.contains('on'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); fn(on); }; }
-toggle('trails', on => { trailsOn = on; });
 toggle('lbls', on => labelsEl.classList.toggle('off', !on));
-document.getElementById('reset').onclick = () => unfocus(true);
 
 // Overview framing. Portrait screens are narrow, so by default they get a steeper view framed on
 // the inner Solar System (Mercury to Mars, so they are legible and tappable); "All planets" frames every
@@ -354,9 +352,9 @@ function frame(now) {
   for (const b of ordered) {
     const p = b.mesh.getWorldPosition(tmp).project(camera);
     const x = bounds.left + (p.x + 1) / 2 * bounds.width, y = bounds.top + (1 - p.y) / 2 * bounds.height;
-    const w = b.data.name.length * 5.8 + 12, h = 16; // matches the .lbl tag: 10px text, 6px side padding
+    const w = b.data.name.length * 4.9 + 10, h = 13; // matches the .lbl tag: 8px text, 5px side padding
     // Above the world if there is room, otherwise below it.
-    const spots = [[x - w / 2, y - 7 - h, x + w / 2, y - 7, 'calc(-100% - 7px)'], [x - w / 2, y + 7, x + w / 2, y + 7 + h, '7px']];
+    const spots = [[x - w / 2, y - 6 - h, x + w / 2, y - 6, 'calc(-100% - 6px)'], [x - w / 2, y + 6, x + w / 2, y + 6 + h, '6px']];
     let spot = null;
     if (p.z < 1 && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05 && !(b.satellite && !focused))
       spot = spots.find(o2 => !placed.some(o => o2[0] < o[2] && o2[2] > o[0] && o2[1] < o[3] && o2[3] > o[1])) || null;

@@ -16,7 +16,7 @@ a{color:#a9d5ff;text-underline-offset:3px}
 #stage{position:fixed;inset:0}
 #c{display:block;width:100%;height:100%;touch-action:none}
 #labels{position:fixed;inset:0;pointer-events:none;z-index:2}
-.lbl{position:absolute;left:0;top:0;pointer-events:auto;min-height:0;padding:1px 6px;font-size:10px;font-weight:500;line-height:14px;letter-spacing:.02em;color:#e6eefa;background:rgba(8,14,26,.55);border:0;border-radius:6px;text-shadow:0 1px 3px #000;cursor:pointer;white-space:nowrap;touch-action:manipulation}
+.lbl{position:absolute;left:0;top:0;pointer-events:auto;min-height:0;padding:1px 5px;font-size:8px;font-weight:600;line-height:11px;letter-spacing:.03em;color:#e6eefa;background:rgba(8,14,26,.55);border:0;border-radius:5px;text-shadow:0 1px 2px #000;cursor:pointer;white-space:nowrap;touch-action:manipulation}
 .lbl:hover{background:rgba(30,48,76,.8)}
 .lbl::after{content:'';position:absolute;inset:-14px -10px}/* hit area larger than the visible tag */
 .lbl[hidden]{display:none}
@@ -35,12 +35,34 @@ a{color:#a9d5ff;text-underline-offset:3px}
 #settings>summary{list-style:none;width:36px;padding:0;color:#e9f0fb;font-size:0}
 #settings[open]>summary{background:rgba(40,62,96,.9)}
 #settings>summary::-webkit-details-marker{display:none}
-.menu{position:absolute;right:0;top:44px;width:min(300px,calc(100vw - 20px - var(--safe-l) - var(--safe-r)));max-height:calc(100dvh - 90px - var(--safe-t) - var(--safe-b));overflow:auto;padding:14px;display:grid;gap:10px;background:#122036f2;border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 40px #000a;font-size:14px}
-.menu label{display:grid;gap:4px;color:var(--muted);font-size:13px}
-.menu label:has(input[type=checkbox]){display:block;color:var(--text)}
-.menu .row{display:flex;flex-wrap:wrap;gap:6px}.menu .row button{flex:1;padding:8px}
-.menu button[aria-pressed=true]{border-color:var(--accent);background:#25405f}
-.menu p{margin:0}
+.menu{position:absolute;right:0;top:44px;width:min(272px,calc(100vw - 24px - var(--safe-l) - var(--safe-r)));padding:6px 14px;display:grid;background:rgba(14,24,42,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(170,195,235,.16);border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,.5)}
+/* Menu rows: label left, control right; no fine print. */
+.mrow{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 0;border-top:1px solid rgba(170,195,235,.1)}
+.mrow:first-child{border-top:0}
+.mrow-stack{flex-wrap:wrap;row-gap:0}
+.mlabel{flex:1;font-size:14px;color:#e9f0fb}
+.mlabel small{display:block;font-size:11px;color:var(--muted)}
+.mnote{flex-basis:100%;margin:-4px 0 4px;font-size:11.5px;color:var(--muted)}
+.mvalue{flex:none;min-width:62px;text-align:right;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mrow input[type=range]{flex:1;min-height:32px}
+.icon-btn{flex:none;width:36px;height:36px;min-height:36px;padding:0;display:grid;place-items:center;border-radius:50%;background:#1b2c45;border:0}
+.icon-btn svg{width:16px;height:16px}
+#play[data-state=playing] .i-play,#play[data-state=paused] .i-pause{display:none}
+/* Switches (buttons with aria-pressed, or a checkbox). */
+.switch{position:relative;display:block;flex:none;width:44px;height:26px;min-height:26px;padding:0;border-radius:13px;background:#2a3a52;border:0;transition:background .18s}
+.switch>span{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#dfe8f5;transition:transform .18s}
+.switch[aria-pressed=true]{background:var(--accent)}
+.switch[aria-pressed=true]>span{transform:translateX(18px);background:#fff}
+.switch-wrap{position:relative;flex:none;display:block;cursor:pointer}
+.switch-wrap input{position:absolute;inset:-9px;width:auto;height:auto;margin:0;opacity:0;cursor:pointer;z-index:1}
+.switch-wrap input:checked+.switch{background:var(--accent)}
+.switch-wrap input:checked+.switch>span{transform:translateX(18px);background:#fff}
+.switch-wrap input:focus-visible+.switch{outline:3px solid var(--gold);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.switch,.switch>span{transition:none}}
+/* Keyboard route to every world: hidden until it receives focus (skip-link pattern). */
+#world-nav{position:fixed;z-index:30;top:calc(var(--safe-t) + 60px);left:calc(var(--safe-l) + 12px);padding:10px 12px;background:rgba(14,24,42,.96);border:1px solid var(--line);border-radius:12px;transform:translateY(-200%);opacity:0}
+#world-nav:focus-within{transform:none;opacity:1}
+#world-nav label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
 #hint{position:fixed;z-index:10;left:50%;transform:translateX(-50%);bottom:calc(var(--safe-b) + 22px);margin:0;padding:9px 16px;border-radius:18px;background:rgba(12,20,36,.66);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(170,195,235,.18);font-size:13.5px;color:#dfe8f5;white-space:nowrap;pointer-events:none;animation:hint 2.4s ease-in-out infinite}
 @keyframes hint{50%{transform:translateX(-50%) translateY(-4px)}}
 /* Bottom sheet: closed → peek → half → full. */
