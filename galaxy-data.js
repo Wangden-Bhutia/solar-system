@@ -53,18 +53,22 @@ function rng(seed) { let x = seed >>> 0; return () => ((x = (Math.imul(x, 166452
 const gauss = r => Math.sqrt(-2 * Math.log(1 - r() * 0.999999)) * Math.cos(2 * Math.PI * r());
 export const BAR = { halfLength: 16, angle: 27, axisRatio: 0.38 }; // kly; angle between the bar's near end and the Sun–centre line (estimates 10–50°)
 export function galaxyParticles({ bulge = 9000, disc = 16000, arm = 30000, seed = 11 } = {}) {
-  const r = rng(seed), pos = [], col = [];
-  const push = (p, c) => { pos.push(p[0], p[1], p[2]); col.push(c[0], c[1], c[2]); };
+  const r = rng(seed), pos = [], col = [], kind = [];
+  // kind: 0 bar/bulge (turns with the bar), 1 old disc (each star at its own orbital speed), 2 arm (the arm pattern)
+  let k0 = 0; const push = (p, c) => { pos.push(p[0], p[1], p[2]); col.push(c[0], c[1], c[2]); kind.push(k0); };
   const ba = rad(BAR.angle);
+  k0 = 0;
   for (let i = 0; i < bulge; i++) { // a boxy, tilted bar plus a round bulge
     const bar = r() < 0.6, u = gauss(r) * (bar ? BAR.halfLength / 2.2 : 4.5), v = gauss(r) * (bar ? BAR.halfLength / 2.2 * BAR.axisRatio : 4.5), h = gauss(r) * (bar ? 1.6 : 3);
     const x = u * Math.cos(ba) - v * Math.sin(ba), y = u * Math.sin(ba) + v * Math.cos(ba);
     const k = 0.55 + r() * 0.3; push([-x, h, -y], [1 * k, 0.84 * k, 0.58 * k]);
   }
+  k0 = 1;
   for (let i = 0; i < disc; i++) { // exponential disc, scale length ≈ 8.5 kly
     const R = -8.5 * Math.log(1 - r() * 0.985) + 2, b = r() * 360, h = gauss(r) * 0.5, k = 0.35 + r() * 0.3;
     if (R > 52) continue; push(discPosition(R, b, h), [1 * k, 0.9 * k, 0.75 * k]);
   }
+  k0 = 2;
   const arms = ARMS.map(a => ({ a, pts: armPoints(a, 0.5) })), total = arms.reduce((s, x) => s + x.pts.length * (x.a.spur ? 0.6 : 1), 0);
   for (const { a, pts } of arms) {
     const n = Math.round(arm * pts.length * (a.spur ? 0.6 : 1) / total);
@@ -75,7 +79,7 @@ export function galaxyParticles({ bulge = 9000, disc = 16000, arm = 30000, seed 
       push(p, knot ? [1, 0.45, 0.65] : a.color.map(c => c * k));
     }
   }
-  return { positions: new Float32Array(pos), colors: new Float32Array(col) };
+  return { positions: new Float32Array(pos), colors: new Float32Array(col), kinds: new Uint8Array(kind) };
 }
 
 // Landmarks: distances (kly from the Sun) and J2000 positions from each object's catalogue entry as

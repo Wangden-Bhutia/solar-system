@@ -193,3 +193,14 @@ body.space-mode #labels .lbl.space:not([hidden]){display:block}
 body.bridging #labels .lbl:not(.space){display:none}
 body.bridging #labels .lbl.space:not([hidden]){display:block}
 body.bridging #hint,body.bridging #sheet{visibility:hidden}
+
+/* Milky Way clock: play, scrub ±250 million years, and what that moment means. */
+#gtime{position:fixed;z-index:10;left:50%;transform:translateX(-50%);bottom:calc(var(--safe-b) + 14px);width:min(calc(100vw - 24px),440px);box-sizing:border-box;padding:8px 12px 9px;border-radius:18px;background:rgba(12,20,36,.7);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(170,195,235,.18)}
+#gtime[hidden]{display:none}
+#gtime .grow{display:flex;align-items:center;gap:10px}
+#gtime input[type=range]{flex:1;min-width:0;margin:0;accent-color:#c2dff3}
+#gplay[data-state=playing] .i-play,#gplay[data-state=paused] .i-pause{display:none}
+#gtime .gnow{flex:none;min-height:28px;height:28px;padding:0 10px;border-radius:14px;border:1px solid rgba(170,195,235,.22);background:none;font-size:11.5px;color:#c2dff3}
+#gtime .gread{margin:5px 2px 0;font-size:12px;line-height:1.35;color:#9fb0c9}
+#gtime .gread strong{color:#e8eef7;font-weight:600;margin-right:4px}
+body.bridging #gtime{visibility:hidden}
