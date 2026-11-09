@@ -43,12 +43,12 @@ const HUBBLE_GLY = 299792.458 / COSMO.H0 * 3.26156 / 1000;       // c/H0 in bill
 const HUBBLE_GYR = 977.792 / COSMO.H0;                             // 1/H0 in billions of years
 const E = z => Math.sqrt(COSMO.Or * (1 + z) ** 4 + COSMO.Om * (1 + z) ** 3 + (1 - COSMO.Om - COSMO.Or));
 // Integrals in ln(1+z) so that very high redshifts (the CMB) converge smoothly.
-function integrate(z, f, n = 4000) { const L = Math.log(1 + z); let s = 0; for (let i = 0; i < n; i++) { const x = (i + 0.5) / n * L, zz = Math.exp(x) - 1; s += f(zz) * (1 + zz); } return s * L / n; }
+function integrate(z, f, n = 600) { const L = Math.log(1 + z); let s = 0; for (let i = 0; i < n; i++) { const x = (i + 0.5) / n * L, zz = Math.exp(x) - 1; s += f(zz) * (1 + zz); } return s * L / n; }
 // Distance now ("comoving", billions of light-years) to light emitted at redshift z, and how long ago it left (billions of years).
 export const distanceNow = z => HUBBLE_GLY * integrate(z, zz => 1 / E(zz));
 export const lookback = z => HUBBLE_GYR * integrate(z, zz => 1 / ((1 + zz) * E(zz)));
 export const AGE = lookback(1e8); // age of the universe, Gyr
-export function redshiftForLookback(gyr) { let lo = 0, hi = 1e4; for (let i = 0; i < 80; i++) { const m = Math.sqrt(lo * hi) || hi / 2; if (lookback(m) < gyr) lo = m; else hi = m; } return (lo + hi) / 2; }
+export function redshiftForLookback(gyr) { let lo = 0, hi = 1e4; for (let i = 0; i < 48; i++) { const m = Math.sqrt(lo * hi) || hi / 2; if (lookback(m) < gyr) lo = m; else hi = m; } return (lo + hi) / 2; }
 export const CMB_Z = 1091.64, CMB_GLY = distanceNow(CMB_Z), EDGE_GLY = 46.5;
 // Shells of equal look-back time: light from this far left this long ago.
 export const SHELLS = [

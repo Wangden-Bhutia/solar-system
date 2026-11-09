@@ -9,7 +9,7 @@ test('Moon is independently focusable; kid/default/real scale keep radius ratios
   class Renderer{setPixelRatio(){}setSize(){}render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}}
   class Controls{constructor(camera){this.camera=camera;this.target=new THREE.Vector3();}update(){this.camera.lookAt(this.target);}}
   const three={...THREE,WebGLRenderer:Renderer};
-  const textures={photo:()=>false,tex:name=>['Moon','Earth','Mars','Mercury'].includes(name)?{map:new THREE.Texture(),bump:new THREE.Texture()}:new THREE.Texture(),rimShell:()=>new THREE.Object3D(),ringGeometry:()=>new THREE.RingGeometry(1,2),saturnRingTex:()=>new THREE.Texture(),uranusRingTex:()=>new THREE.Texture(),SATURN_RING:{inner:1.2,outer:2.3},URANUS_RING:{inner:1.5,outer:2}};
+  const textures={photo:()=>false,canPhoto:()=>false,swatch:()=>new THREE.Texture(),tex:name=>['Moon','Earth','Mars','Mercury'].includes(name)?{map:new THREE.Texture(),bump:new THREE.Texture()}:new THREE.Texture(),rimShell:()=>new THREE.Object3D(),ringGeometry:()=>new THREE.RingGeometry(1,2),saturnRingTex:()=>new THREE.Texture(),uranusRingTex:()=>new THREE.Texture(),SATURN_RING:{inner:1.2,outer:2.3},URANUS_RING:{inner:1.5,outer:2}};
   const fake=(obj)=>new vm.SyntheticModule(Object.keys(obj),function(){for(const [k,v] of Object.entries(obj))this.setExport(k,v);},{context});
   const entry=new vm.SourceTextModule(fs.readFileSync('app.js','utf8'),{context});
   await entry.link(spec=>fake(spec.includes('three.module')?three:spec.includes('OrbitControls')?{OrbitControls:Controls}:spec.includes('data.js')?data:textures));await entry.evaluate();
@@ -56,7 +56,7 @@ async function loadScene(width=390,height=844){
   const context=vm.createContext({document:{getElementById:id=>els[id]||=element(),createElement:element,body:element(),addEventListener(){}},window:{},innerWidth:width,innerHeight:height,devicePixelRatio:2,performance,addEventListener(type,fn){(listeners[type]||=[]).push(fn);},requestAnimationFrame:fn=>{frame=fn;},console});
   class Renderer{setPixelRatio(){}setSize(){}render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}}
   class Controls{constructor(camera){this.camera=camera;this.target=new THREE.Vector3();}update(){this.camera.lookAt(this.target);}}
-  const textures={photo:()=>false,tex:name=>['Moon','Earth','Mars','Mercury'].includes(name)?{map:new THREE.Texture(),bump:new THREE.Texture()}:new THREE.Texture(),rimShell:()=>new THREE.Object3D(),ringGeometry:()=>new THREE.RingGeometry(1,2),saturnRingTex:()=>new THREE.Texture(),uranusRingTex:()=>new THREE.Texture(),SATURN_RING:{inner:1.2,outer:2.3},URANUS_RING:{inner:1.5,outer:2}};
+  const textures={photo:()=>false,canPhoto:()=>false,swatch:()=>new THREE.Texture(),tex:name=>['Moon','Earth','Mars','Mercury'].includes(name)?{map:new THREE.Texture(),bump:new THREE.Texture()}:new THREE.Texture(),rimShell:()=>new THREE.Object3D(),ringGeometry:()=>new THREE.RingGeometry(1,2),saturnRingTex:()=>new THREE.Texture(),uranusRingTex:()=>new THREE.Texture(),SATURN_RING:{inner:1.2,outer:2.3},URANUS_RING:{inner:1.5,outer:2}};
   const fake=(obj)=>new vm.SyntheticModule(Object.keys(obj),function(){for(const [k,v] of Object.entries(obj))this.setExport(k,v);},{context});
   const entry=new vm.SourceTextModule(fs.readFileSync('app.js','utf8'),{context});
   await entry.link(spec=>fake(spec.includes('three.module')?{...THREE,WebGLRenderer:Renderer}:spec.includes('OrbitControls')?{OrbitControls:Controls}:spec.includes('data.js')?data:textures));await entry.evaluate();

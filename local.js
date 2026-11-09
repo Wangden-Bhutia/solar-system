@@ -107,6 +107,8 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
   function overview(done) { fly.start(portrait() ? 760 : 470, new THREE.Vector3().lerpVectors(new THREE.Vector3(), M31, 0.45), 2.2, done, new THREE.Vector3(0.25, 0.75, 0.6)); }
   // Back towards the Milky Way, ending where the bridge to the Galaxy begins (Sun-centred, closest view).
   function zoomBackIn(done) { fly.start(LOCAL_NEAR, SUN, 1.4, done); }
+  // Out to the edge of this scale, keeping the centre of view, where Laniakea takes over.
+  function zoomOut(done) { fly.start(LOCAL_FAR, controls.target, 1.2, done); }
   const zoomState = () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1, atSun: controls.target.distanceTo(SUN) < 0.01 });
-  return { render, pick, enter, leave, setView, viewDir, overview, zoomBackIn, zoomState, showLabels: setLabels, select(g) { selected = g; }, galaxies: all, camera, controls, scene, fly };
+  return { render, pick, enter, leave, setView, viewDir, overview, zoomBackIn, zoomOut, zoomState, showLabels: setLabels, select(g) { selected = g; }, galaxies: all, camera, controls, scene, fly };
 }

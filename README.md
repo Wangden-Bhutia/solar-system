@@ -40,6 +40,11 @@ Regenerate from `voice/lines.json`: install `kokoro-onnx soundfile` plus ffmpeg,
 KOKORO_MODEL=/path/kokoro-v1.0.onnx KOKORO_VOICES=/path/voices-v1.0.bin python tools/build-voice.py
 ```
 
+## Fast start and offline use
+- **Faster start.** The app no longer paints procedural planet maps that the photographs replace a moment later: planets start in a plain colour until their photo arrives (the procedural map is used only if a photo fails). The labs' 3D scene and the two largest scales are built only when first opened. On a phone-speed simulation (CPU slowed 4×), the time until the Solar System is tappable fell from about 4.9 s to about 1.4 s.
+- **Offline.** A service worker (`sw.js`) keeps everything the app has loaded, so after one visit with a connection it opens without one. The page itself is fetched fresh when online, so new versions show at once. Voice clips are kept as they are played.
+- **Install.** `manifest.webmanifest` and two icons let phones add the app to the home screen.
+
 ## Run and test
 ```
 python3 -m http.server 8780 --bind 0.0.0.0

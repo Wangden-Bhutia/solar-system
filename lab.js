@@ -23,7 +23,8 @@ import { PREDICTIONS, judge, JOURNEYS, VOYAGE, journey, canAdvance, eclipseGeome
 // Labs drawn in their own 3D scene; the scale lab keeps the live Solar System behind the sheet.
 const SCENE_LABS=new Set(['seasons','phases','eclipses','tides']);
 const LAB_TITLES={seasons:'Why do seasons happen?',phases:'Explore the phases',eclipses:'Why aren’t eclipses monthly?',tides:'What makes the tides?',scale:'How big is space?'};
-const $=id=>document.getElementById(id), state=createLabState(), experiments=createExperiments(renderer);
+let labScene=null;
+const $=id=>document.getElementById(id), state=createLabState(), experiments=new Proxy({},{get:(_,k)=>(labScene||=createExperiments(renderer))[k]}); // the labs' 3D scene is built the first time a lab opens
 const sheet=$('sheet');
 // ---- Beyond the Solar System: the nearby stars and their planets ----
 const SPACE=new Set(['stars','system','pair','galaxy','local','super','universe']);
@@ -383,7 +384,7 @@ function paintVoyage(){
  const s=state.value,i=s.voyage,st=VOYAGE.steps[i],last=i===VOYAGE.steps.length-1;narration=null;$('action').hidden=true;
  $('journey-list').hidden=true;$('journey-step').hidden=false;
  $('kicker').textContent=`${VOYAGE.title} · ${i+1} of ${VOYAGE.steps.length}`;$('title').textContent=st.title;$('fact').textContent=st.text;
- $('view-caption').textContent=voyageBusy?'Travelling…':{solar:'The Solar System',stars:'The nearest stars',galaxy:'The Milky Way',local:'The Local Group'}[st.level]+' · models built from real measurements';
+ $('view-caption').textContent=voyageBusy?'Travelling…':{solar:'The Solar System',stars:'The nearest stars',galaxy:'The Milky Way',local:'The Local Group',super:'Laniakea, our supercluster',universe:'The observable universe'}[st.level]+' · models built from real measurements';
  bindPredict($('journey-predict'),st.predict,paintVoyage);$('journey-lab').parentElement.hidden=true;
  $('journey-prev').disabled=i===0||voyageBusy;
  const ok=canAdvance(st,s.answers)&&!voyageBusy;$('journey-next').disabled=!ok;$('journey-next').textContent=last?'Finish ✓':'Next →';
@@ -718,4 +719,6 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system'||starsV
 }
 addEventListener('resize',()=>{if(state.value.view==='compare')paintCompare();});
 render();
+// Offline: cache what has been loaded, so the app opens again without a connection (sw.js).
+if(globalThis.isSecureContext&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(reg=>setTimeout(()=>reg.active?.postMessage({cache:[location.href.split('#')[0],...performance.getEntriesByType('resource').map(e=>e.name)]}),3000)).catch(()=>{});
 window.__lab={state,go,experiments,player,setSheet,starsView,galaxyView,localView};
