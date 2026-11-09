@@ -22,6 +22,9 @@ export const apparentPx = (L, D, vh, fovDeg) => D > 0 ? L / D * (vh / 2) / Math.
 const logStep = (x, a, b) => !(x > a) ? 0 : x >= b ? 1 : smooth(Math.log(x / a) / Math.log(b / a));
 export const sizeFade = px => logStep(px, PX.tinyLo, PX.tinyHi);
 export const mergeFade = px => logStep(px, PX.mergeLo, PX.mergeHi);
+export const DENSITY = [0.05, 0.5]; // points per px²
+export const densityFade = (N, px) => 1 - logStep(N / (Math.PI * px * px), DENSITY[0], DENSITY[1]);
+export { logStep };
 // seam: null (not in a seam) or { role: 'inner' | 'outer', t } with t from 0 (inner end) to 1 (outer end).
 export const seamWindow = seam => !seam ? 1 : seam.role === 'inner' ? 1 - smooth((seam.t - (1 - WINDOW)) / WINDOW) : smooth(seam.t / WINDOW);
 export const swapFade = seam => !seam ? 1 : ((seam.role === 'inner') === (seam.t < 0.5) ? 1 : 0);
@@ -44,13 +47,13 @@ export function ruleFade(kind, { px = Infinity, mergePx = Infinity, seam = null 
 export function createLod() {
   const entries = [], byMat = new Map();
   const c = { x: 0, y: 0, z: 0 };
-  function add(o, rule = 'size', { L = null, centre = null, at = null } = {}) {
+  function add(o, rule = 'size', { L = null, centre = null, at = null, appear = null, N = 0 } = {}) {
     const mat = o.material; if (!mat) return;
     let e = byMat.get(mat);
     if (!e) { e = { mat, base: mat.userData.base ?? mat.opacity, rule, objs: [], fade: 1 }; mat.userData.base = e.base; mat.transparent = true; byMat.set(mat, e); entries.push(e); }
     let len = L, cen = centre;
     if (len == null || cen == null) { const g = o.geometry; if (g && !g.boundingSphere && g.computeBoundingSphere) g.computeBoundingSphere(); const bs = g?.boundingSphere; if (len == null) len = bs ? bs.radius : 0; if (cen == null) cen = bs ? bs.center : null; }
-    e.rule = rule; e.objs.push({ o, L: len, cen, at });
+    e.rule = rule; e.objs.push({ o, L: len, cen, at, appear, N });
   }
   const has = o => byMat.has(o.material);
   // cam: camera position; anchor: the anchor's world position; vh: visible height (px); fov: degrees.
@@ -68,6 +71,11 @@ export function createLod() {
           const D = Math.hypot(p.x - cam.x, p.y - cam.y, p.z - cam.z), off = Math.hypot(p.x - anchor.x, p.y - anchor.y, p.z - anchor.z);
           g = off === 0 ? seamWindow(seam) : ruleFade(kind, { mergePx: apparentPx(off, D, vh, fov), seam });
         } else g = ruleFade(kind, { seam });
+        // appear: [a, b]: drawn only once the camera is out past the object (camera–anchor distance a → b, log).
+        if (it.appear) g *= logStep(Math.hypot(cam.x - anchor.x, cam.y - anchor.y, cam.z - anchor.z), it.appear[0], it.appear[1]);
+        // N: a catalogue of N points gives way as it crowds on screen (mean spacing below a few px): its apparent
+        // density, N over the area of its bounding disc, fades it from 0.05 to 0.5 points per px².
+        if (it.N) { const c2x = p.x + (it.cen ? it.cen.x : 0), c2y = p.y + (it.cen ? it.cen.y : 0), c2z = p.z + (it.cen ? it.cen.z : 0), px = apparentPx(it.L * (o.scale?.x ?? 1), Math.hypot(c2x - cam.x, c2y - cam.y, c2z - cam.z), vh, fov); g *= densityFade(it.N, px); }
         o.userData.fade = g; if (g > f) f = g;
       }
       e.fade = f; e.mat.opacity = e.base * f;

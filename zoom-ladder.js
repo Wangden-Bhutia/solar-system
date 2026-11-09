@@ -84,9 +84,12 @@ export const dOf = (level, Z) => Math.exp(Z) / UNIT_LY[level];
 // A planet a AU from the Sun is drawn DIST_K × a^DIST_P scene units out (sizes are true: 1 unit = 12,756 km).
 // The camera is placed by the same rule, so a Z that represents a camera D light-years away sits where the
 // compressed model puts D. metric (0…1) blends the rule towards true scale (a × UNITS_PER_AU), geometric
-// in between; metricBlend(Z) says how much, by Z. Until the solar seam becomes metric (see SOLAR_METRIC)
-// it is 0 everywhere and the Solar System → stars seam is a visual hand-over, not a physical one.
-export const SOLAR_METRIC = null; // [Z where the blend starts, Z where it is complete], or null: never metric
+// in between; metricBlend(Z) says how much, by Z. Leaving the planets (past a camera ~300 AU out) the rule
+// blends to true scale, complete where the Solar System → stars seam starts (0.08 ly ≈ 5,060 AU). So the seam
+// itself is metric: the Oort cloud, the heliosphere and the Sun's glow are at the same true distances in both
+// scenes. Inside ~300 AU the planets' distances stay compressed (and are labelled so).
+export const SOLAR_METRIC_AU = 300;
+export const SOLAR_METRIC = [Math.log(SOLAR_METRIC_AU * AU_KM / LY_KM), Math.log(SEAM_LY['solar>stars'][0])]; // [Z blend starts, Z complete]
 export const metricBlend = Z => SOLAR_METRIC ? smooth((Z - SOLAR_METRIC[0]) / (SOLAR_METRIC[1] - SOLAR_METRIC[0])) : 0;
 const LN_K = Math.log(DIST_K), LN_TRUE = Math.log(UNITS_PER_AU / DIST_K);
 // Scene units for a distance of `au` AU under blend m (also used for planet orbits).

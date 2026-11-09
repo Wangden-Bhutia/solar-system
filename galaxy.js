@@ -6,6 +6,7 @@ import { GALAXY_NEAR, GALAXY_FAR, SCENE_RANGE } from './zoom-ladder.js';
 import { createPlacer, placeAll, forgetLabel } from './labels.js';
 import { skyPoints, placeSky } from './sky.js';
 import { createLod, seamWindow } from './lod.js';
+import { hygPoints, globularPositions, haloPositions, sgrPositions, magellanicPositions, pointCloud } from './transition.js';
 import { omega, ARMS_OMEGA, BAR_OMEGA, SUN_OMEGA, turn, sunPosition, tracerStars, TIME_RANGE, MYR_PER_SEC } from './galaxy-motion.js';
 
 // Each particle carries its own angular speed (radians per Myr); the vertex shader turns it about the
@@ -49,6 +50,18 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
   // The Sun's orbit around the centre, and a marker for the Sun.
   const orbit = new THREE.Line(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 181 }, (_, i) => { const a = i / 180 * Math.PI * 2; return new THREE.Vector3(Math.cos(a) * R0, 0, Math.sin(a) * R0); })), new THREE.LineDashedMaterial({ color: 0xf3c887, dashSize: 1.2, gapSize: 1.2, transparent: true, opacity: 0.45 }));
   orbit.computeLineDistances(); scene.add(orbit);
+  // Phase 3 transition layers (transition.js, docs/sources.md). The 7,696 naked-eye HYG stars within 1,000 ly,
+  // drawn exactly as the star map draws them (a proxy pair across the seam), turning with the Sun.
+  const hyg = hygPoints('gal', 1000); hyg.geometry.setAttribute('omega', new THREE.BufferAttribute(new Float32Array(hyg.geometry.attributes.position.count).fill(SUN_OMEGA), 1));
+  spinning(hyg.material); hyg.frustumCulled = false; scene.add(hyg);
+  // The 157 globular clusters of Harris 1996 (2010 edition), at their measured positions.
+  const globulars = pointCloud(globularPositions(1), { color: 0xffe2b0, size: 2.4, opacity: 0.85, layer: 'globulars' }); scene.add(globulars);
+  // Illustrations: the stellar halo (a random sample of its density law), the Sagittarius stream's plane, and the
+  // Magellanic Clouds' glow at their measured places.
+  const halo = pointCloud(haloPositions(), { color: 0x9fb0d8, size: 1.2, opacity: 0.22, layer: 'halo' }); scene.add(halo);
+  const sgr = pointCloud(sgrPositions(), { color: 0xd8c0ff, size: 1.2, opacity: 0.26, layer: 'sgr-stream' }); scene.add(sgr);
+  const magellanic = pointCloud(magellanicPositions(), { color: 0xd8e2ff, size: 1.3, opacity: 0.5, layer: 'magellanic' }); scene.add(magellanic);
+  for (const o of [globulars, halo, sgr, magellanic]) o.frustumCulled = false;
   const marks = LANDMARKS.map(m => {
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: m.name === 'Sun' ? 0xffe38a : m.name === 'Sagittarius A*' ? 0xffb38a : 0xffffff, sizeAttenuation: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending }));
     sprite.position.fromArray(m.pos); scene.add(sprite); const home = m.pos, R = Math.hypot(m.pos[0], m.pos[2]);
@@ -67,6 +80,10 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
   lod.add(cloud, { inner: 'model', outer: 'size', alone: 'size' }); lod.add(tracers, { inner: 'model', outer: 'size', alone: 'size' });
   lod.add(core, { inner: 'model', outer: 'fixed', alone: 'fixed' }, { L: 13 });
   lod.add(orbit, 'size');
+  lod.add(hyg, { outer: 'proxy', inner: 'size', alone: 'size' });
+  // The halo and its clusters and stream are the Galaxy's own model: they hand over to the Local Group's picture.
+  for (const o of [globulars, halo, sgr]) lod.add(o, { inner: 'model', outer: 'size', alone: 'size' });
+  lod.add(magellanic, { inner: 'model', outer: 'size', alone: 'size' });
   for (const x of marks) lod.add(x.sprite, x.here ? { inner: 'model', outer: 'model', alone: 'fixed' } : x.m.name === 'Sagittarius A*' ? { inner: 'model', outer: 'marker', alone: 'marker' } : 'marker');
   const fadeOf = it => it.sprite ? it.sprite.userData.fade ?? 1 : seamWindow(seamNow) * (orbit.userData.fade ?? 1);
   // The clock (Myr from today). Nebulae and young clusters live only a few million years, so away from

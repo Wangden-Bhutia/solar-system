@@ -9,6 +9,8 @@ import { LOCAL_NEAR, LOCAL_FAR, SCENE_RANGE } from './zoom-ladder.js';
 import { createPlacer, placeAll, forgetLabel } from './labels.js';
 import { skyPoints, placeSky } from './sky.js';
 import { createLod, seamWindow } from './lod.js';
+import { sheetPositions, voidCentre, giants, pointCloud, wireShell, LOCAL_VOID } from './transition.js';
+import { CLUSTERS, skyPosition } from './cosmos-data.js';
 
 const glow = (() => {
   if (typeof document === 'undefined' || !document.createElement) return null;
@@ -39,8 +41,18 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
   };
   const blob = (g, n, seed) => { let x = seed; const r = () => ((x = (Math.imul(x, 1664525) + 1013904223) >>> 0) / 4294967296), s = g.size / 2 / LOCAL_UNIT, out = [], col = [];
     for (let i = 0; i < n; i++) { const u = Math.sqrt(-2 * Math.log(1 - r() * 0.999)) * 0.45, v = new THREE.Vector3().randomDirection().multiplyScalar(u * s); v.y *= 0.55; out.push(v.x + g.pos[0], v.y + g.pos[1], v.z + g.pos[2]); const k = 0.55 + r() * 0.4; col.push(0.8 * k, 0.86 * k, k); }
-    points(out, col, 1.3, 0.6); };
+    const p = points(out, col, 1.3, 0.6); if (g.short === 'LMC' || g.short === 'SMC') p.userData.magellanic = true; };
   for (const g of GALAXIES) { if (g.i != null) placeDisc(g, g.short === 'Andromeda' ? 9000 : 3200, g.short === 'Andromeda' ? 31 : 33); else if (g.blob) blob(g, g.short === 'LMC' ? 1500 : 800, g.short === 'LMC' ? 5 : 9); }
+  // Phase 3 transition layers (transition.js, docs/sources.md), in this scene's units (10 kly). Leaving the Local
+  // Group: the Local Sheet (an illustration of its measured size, in the supergalactic plane), the Local Void
+  // (an illustrative shell: centre direction from SIMBAD, at least 75 Mly away), the nearby giant galaxies of
+  // the "Council of Giants" (McCall 2014) at their measured places, and the Virgo Cluster's direction.
+  const M = 1000 / LOCAL_UNIT; // scene units per Mly
+  const sheet = pointCloud(sheetPositions().map(v => v * M), { color: 0x9fb4e0, size: 1.2, opacity: 0.3, layer: 'local-sheet' }); sheet.frustumCulled = false; scene.add(sheet);
+  const voidShell = wireShell({ color: 0x5b6b8f, opacity: 0.22, layer: 'local-void' }); voidShell.position.fromArray(voidCentre().map(v => v * M)); voidShell.scale.setScalar(LOCAL_VOID.radiusMly * M); scene.add(voidShell);
+  const far = [...giants().map(g => ({ pos: g.pos.map(v => v * M), px: 7, color: 0xdfe8ff, op: 0.8 })),
+    ...CLUSTERS.filter(c => c.name === 'Virgo Cluster').map(c => ({ pos: skyPosition(c.ra, c.dec, c.mly, LOCAL_UNIT / 1000), px: 34, color: 0xffe6c0, op: 0.55 }))]
+    .map(f => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: f.color, sizeAttenuation: false, depthWrite: false, transparent: true, opacity: f.op, blending: THREE.AdditiveBlending })); sp.position.fromArray(f.pos); sp.userData.px = f.px; sp.userData.far = true; scene.add(sp); return sp; });
   // Distance rings in the Milky Way's plane: 1, 2 and 3 million light-years from its centre.
   const ringLabels = [1, 2, 3].map(m => {
     const r = m * 1000 / LOCAL_UNIT, pts = []; for (let i = 0; i <= 160; i++) { const a = i / 160 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r)); }
@@ -62,7 +74,11 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
   // model of it; other galaxies fade as they shrink (discs, clouds) or merge into the Milky Way on screen (markers).
   const lod = createLod(), mwMark = marks[0], ORIGIN = new THREE.Vector3();
   lod.add(sky, 'proxy');
-  scene.traverse(o => { if (!o.material || o === sky || o.isSprite) return; lod.add(o, o === mwCloud ? { outer: 'model', inner: 'size', alone: 'size' } : 'size'); });
+  // Leaving structures appear only once the camera is out past them (appear: camera distance from the Milky Way).
+  const OUT = { appear: [400, 1500] };
+  scene.traverse(o => { if (!o.material || o === sky || o.isSprite) return;
+    lod.add(o, o === mwCloud ? { outer: 'model', inner: 'size', alone: 'size' } : o.userData.magellanic ? { outer: 'model', inner: 'size', alone: 'size' } : 'size', o === sheet || o === voidShell ? OUT : undefined); });
+  for (const sp of far) lod.add(sp, 'marker', OUT);
   // Going out, every marker swaps with Laniakea's identical copy of it (cosmos.js) at mid-seam.
   for (const x of marks) lod.add(x.sprite, x.here ? { outer: 'model', inner: 'proxy', alone: 'fixed' } : { inner: 'proxy', outer: 'marker', alone: 'marker' });
   const fadeOf = it => it.sprite ? it.sprite.userData.fade ?? 1 : it.ring ? it.ring.userData.fade ?? 1 : seamWindow(seamNow);
@@ -104,6 +120,7 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
     if (vw === width && vh === height) camera.clearViewOffset(); else camera.setViewOffset(fullW, fullH, width - vw, height - vh, width, height);
     camera.updateProjectionMatrix(); fly.step(dt); drift(dt); controls.update();
     const k = 2 * Math.tan(camera.fov * Math.PI / 360) * 2 / vh;
+    for (const sp of far) sp.scale.setScalar(sp.userData.px * k);
     for (const x of marks) x.sprite.scale.setScalar(x.sprite.userData.px * (x.g.i != null || x.g.blob || x.g.here ? 1.6 : 1) * k * (x.g === selected ? 1.7 : 1));
     camera.far = Math.max(1e5, camera.position.length() * 4); camera.updateProjectionMatrix();
     placeSky(sky, camera); lod.update(camera.position, ORIGIN, vh, camera.fov, seam);

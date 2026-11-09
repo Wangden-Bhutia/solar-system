@@ -11,6 +11,8 @@ import { STAR_NEAR, STAR_FAR, SCENE_RANGE } from './zoom-ladder.js';
 import { createPlacer, placeAll, forgetLabel } from './labels.js';
 import { skyPoints, placeSky, glowTex, glowScale } from './sky.js';
 import { createLod, seamWindow } from './lod.js';
+import { hygPoints, oortPositions, pointCloud, wireShell, LOCAL_BUBBLE_LY } from './transition.js';
+import { AU_LY } from './zoom-ladder.js';
 
 // glowTex: the shared glow (sky.js), so the Sun here and the Solar System's far-away Sun are drawn identically.
 
@@ -23,6 +25,14 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
   controls.enableZoom = false; controls.minDistance = SCENE_RANGE.stars[0]; controls.maxDistance = SCENE_RANGE.stars[1]; controls.enablePan = false;
   // Faint background stars far beyond the neighbourhood.
   const sky = skyPoints(0, { frame: 'ecl' }); scene.add(sky); // the shared sky (sky.js), in this scene's ecliptic frame
+  // Phase 3 transition layers (transition.js, docs/sources.md). The real naked-eye sky in 3D: the 7,696 HYG v4.1
+  // stars brighter than magnitude 6.5 within 1,000 ly. The Solar System draws the same stars as its sky and the
+  // Milky Way draws the same field (proxy pairs across both seams).
+  const hyg = hygPoints('ecl', 1); hyg.frustumCulled = false; scene.add(hyg);
+  // Illustrations: the Oort cloud (the same sample the Solar System draws, here in light-years) and the Local
+  // Bubble, a ~1,000-ly-wide cavity of hot thin gas around the Sun (drawn as a sphere; its real shape is irregular).
+  const oort = pointCloud(oortPositions().map(v => v * AU_LY), { color: 0x9db4dc, size: 1.2, opacity: 0.35, layer: 'oort' }); oort.frustumCulled = false; scene.add(oort);
+  const bubble = wireShell({ color: 0x7a6fb0, opacity: 0.25, layer: 'local-bubble' }); bubble.scale.setScalar(LOCAL_BUBBLE_LY / 2); scene.add(bubble);
   // Distance rings in the plane of the Solar System: 5, 10 and 15 light-years from the Sun.
   const rings = new THREE.Group(); scene.add(rings);
   for (const r of [5, 10, 15]) {
@@ -70,6 +80,9 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
     lod.add(d.sprite, 'marker'); lod.add(d.stem, 'marker', { at: d.sprite.position }); lod.add(d.trail, 'marker', { at: d.sprite.position });
   }
   lod.add(nearLine, 'fixed');
+  lod.add(hyg, { inner: 'proxy', outer: 'proxy', alone: 'size' });
+  lod.add(oort, { outer: 'proxy', inner: 'size', alone: 'size' });
+  lod.add(bubble, 'size', { appear: [60, 250] });
 
   // ---- Planetary system view (AU) ----
   const sys = new THREE.Scene(); sys.background = new THREE.Color(0x02030a);

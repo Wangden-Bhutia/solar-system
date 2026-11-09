@@ -1,5 +1,5 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import { LEVELS, PAIRS, pairFor, levelIndex, UNIT_LY, SEAM_LY, SEAM_Z, SEAMS, SCENE_RANGE, layoutAt, zOf, dOf, AU_LY, auToUnits, solarUnits, solarZ, viewRate, metricBlend, STAR_NEAR, STAR_FAR, GALAXY_NEAR, GALAXY_FAR, LOCAL_NEAR, LOCAL_FAR, LOCAL_UNIT, SUPER_NEAR, SUPER_FAR, UNIVERSE_NEAR } from '../zoom-ladder.js';
+import { LEVELS, PAIRS, pairFor, levelIndex, UNIT_LY, SEAM_LY, SEAM_Z, SEAMS, SCENE_RANGE, layoutAt, zOf, dOf, AU_LY, auToUnits, solarUnits, solarZ, viewRate, metricBlend, SOLAR_METRIC, SOLAR_METRIC_AU, STAR_NEAR, STAR_FAR, GALAXY_NEAR, GALAXY_FAR, LOCAL_NEAR, LOCAL_FAR, LOCAL_UNIT, SUPER_NEAR, SUPER_FAR, UNIVERSE_NEAR } from '../zoom-ladder.js';
 import { DIST_K, DIST_P, UNITS_PER_AU } from '../data.js';
 const near = (a, b, e = 1e-9) => assert.ok(Math.abs(a - b) <= e * Math.max(1, Math.abs(b)), `${a} vs ${b}`);
 const ORDER = Object.keys(SEAM_Z);
@@ -50,10 +50,15 @@ test('Solar System: Z is the distance the compressed model represents; the inver
   // Planet rule as drawn by app.js: DIST_K × AU^DIST_P scene units.
   for (const au of [0.39, 1, 5.2, 30.07, 100]) near(auToUnits(au, 0), DIST_K * au ** DIST_P, 1e-12);
   for (const au of [0.39, 1, 30.07]) near(auToUnits(au, 1), au * UNITS_PER_AU, 1e-12); // metric end: true scale
-  for (const au of [1, 50, 5000]) { const D = au * AU_LY; near(solarUnits(D), DIST_K * au ** DIST_P, 1e-9); near(Math.exp(solarZ(solarUnits(D))), D, 1e-8); }
-  let prev = -Infinity; for (let lu = -2; lu < 9; lu += 0.25) { const z = solarZ(Math.exp(lu)); assert.ok(z > prev); prev = z; }
+  for (const au of [1, 50, 200]) { const D = au * AU_LY; near(solarUnits(D), DIST_K * au ** DIST_P, 1e-9); near(Math.exp(solarZ(solarUnits(D))), D, 1e-8); }
+  // Leaving the planets the rule blends to true scale, complete where the seam to the stars starts.
+  for (const au of [500, 2000, 5000]) { const D = au * AU_LY; near(Math.exp(solarZ(solarUnits(D))) / D, 1, 1e-9); }
+  const seamD = SEAM_LY['solar>stars'][0]; near(solarUnits(seamD) / (seamD / AU_LY * UNITS_PER_AU), 1, 1e-12);
+  near(solarUnits(2 * seamD) / (2 * seamD / AU_LY * UNITS_PER_AU), 1, 1e-12);
+  let prev = -Infinity; for (let lu = -2; lu < 21; lu += 0.25) { const z = solarZ(Math.exp(lu)); assert.ok(z > prev); prev = z; }
   for (const d of [1, 100, 1e6]) near(Math.exp(solarZ(d, true)), d / UNITS_PER_AU * AU_LY, 1e-12); // real-scale mode is linear
-  assert.equal(metricBlend(0), 0); // until the metric hand-over lands, the compressed rule holds everywhere
+  assert.equal(metricBlend(SOLAR_METRIC[0] - 0.01), 0); assert.equal(metricBlend(SOLAR_METRIC[1]), 1); assert.equal(metricBlend(0), 1);
+  near(Math.exp(SOLAR_METRIC[0]) / AU_LY, SOLAR_METRIC_AU, 1e-9); near(SOLAR_METRIC[1], SEAM_Z['solar>stars'][0], 1e-12);
 });
 
 test('viewRate: the compressed region feels as fast as metric space, and the rate eases (no step) across the solar seam', () => {

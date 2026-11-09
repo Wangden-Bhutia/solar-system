@@ -51,7 +51,7 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, min, max =
   // "you are here" marker cross-fades with the scale next to it; copies of the next scale's objects (rule 'proxy')
   // swap with them at mid-seam.
   const ANCHOR = new THREE.Vector3(...home);
-  const buildLod = () => { lod = createLod(); scene.traverse(o => { if (o.material) lod.add(o, o.userData.sky ? 'proxy' : rules.get(o) ?? 'size'); }); };
+  const buildLod = () => { lod = createLod(); scene.traverse(o => { if (o.material) lod.add(o, o.userData.sky ? 'proxy' : rules.get(o) ?? 'size', o.userData.lodOpts); }); };
   const fadeOf = it => it.sprite ? it.sprite.userData.fade ?? 1 : it.ring ? it.ring.userData.fade ?? 1 : seamWindow(seamNow);
   const reduce = () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const portrait = () => { const r = canvas.getBoundingClientRect(); return r.height > r.width; };
@@ -166,7 +166,9 @@ export function createUniverse(opts) {
   const s = createScene({ ...opts, near: UNIVERSE_NEAR, far: UNIVERSE_FAR, min: SCENE_RANGE.universe[0], max: UNIVERSE_FAR, home: [0, 0, 0], overviewD: 960, fitRadius: R, overviewDir: new THREE.Vector3(0.35, 0.6, 0.72) });
   s.scene.add(skyPoints(0)); // the shared sky (sky.js), galactic frame
   // Laniakea's galaxies, shrunk 100× from the level inside: a small bright knot at the centre.
-  const g = ngcGalaxies(100); s.points(g.pos, null, 1.3, 0.8, 0xdfe8ff, { outer: 'model', inner: 'size', alone: 'size' });
+  // The NGC/IC galaxies give way to the illustrated web as they crowd together on screen (lod.js density: N over
+  // the area of the catalogue's disc on screen), so the catalogue is never drawn as one saturated blob.
+  const g = ngcGalaxies(100); s.points(g.pos, null, 1.3, 0.8, 0xdfe8ff, { outer: 'model', inner: 'size', alone: 'size' }).userData.lodOpts = { N: g.count };
   const web = cosmicWeb(R * 0.98); s.points(web.pos, web.col, 1.2, 0.35);
   // The cosmic microwave background: the oldest light, from the edge of what we can see. Drawn as a shell of
   // points whose warm/cool speckle is an illustration of the tiny temperature ripples in the real maps.

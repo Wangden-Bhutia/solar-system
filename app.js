@@ -5,6 +5,8 @@ let realScale = false; const D = d => realScale ? d.realDist : d.dist;
 import { skyPoints, placeSky, glowTex, glowScale } from './sky.js';
 import { createLod, sizeFade } from './lod.js';
 import { SUN_ENTRY, starPixels, starColor } from './stars-data.js';
+import { hygPoints, oortPositions, pointCloud, wireShell, HELIO } from './transition.js';
+import { solarZ, metricBlend, auToUnits, AU_LY } from './zoom-ladder.js';
 import { tex, rimShell, ringGeometry, saturnRingTex, uranusRingTex, SATURN_RING, URANUS_RING, photo, canPhoto, swatch } from './textures.js';
 
 const canvas = document.getElementById('c');
@@ -537,9 +539,35 @@ const lod = createLod(), ORIGIN = new THREE.Vector3(), LEAVING = { inner: 'size'
 lod.add(stars, 'proxy');
 for (const b of bodies) { if (b.orbit) lod.add(b.orbit, LEAVING, { L: 1 }); if (b.ellipse) lod.add(b.ellipse, LEAVING); if (b.trail) lod.add(b.trail, LEAVING, { L: Math.max(1, D(b.data)) }); }
 for (const belt of belts) lod.add(belt.pts, LEAVING);
+// Phase 3 transition layers (transition.js, docs/sources.md). The sky's real stars: the HYG naked-eye stars as
+// directions (at Solar System distances they are effectively at infinity), drawn exactly as the star map draws
+// them in 3D, swapped at mid-seam. The heliosphere (Voyager 1 crossed the termination shock at 94 AU and the
+// heliopause at 121.6 AU; drawn as spheres, an illustration: the real shape is not a sphere) and the Oort cloud
+// (an illustration, 2,000–100,000 AU; the same sample the star map draws). Their radii follow the same
+// compressed-to-true blend as the camera (zoom-ladder.js SOLAR_METRIC), so by the seam they are at true scale.
+const hygSky = hygPoints('ecl', 1);
+{ const a = hygSky.geometry.attributes.position; for (let i = 0; i < a.count; i++) { const x = a.getX(i), y = a.getY(i), z = a.getZ(i), l = Math.hypot(x, y, z) || 1; a.setXYZ(i, x / l, y / l, z / l); } }
+hygSky.frustumCulled = false; hygSky.renderOrder = -9; scene.add(hygSky);
+const oort = pointCloud(oortPositions(), { color: 0x9db4dc, size: 1.2, opacity: 0.35, layer: 'oort' }); oort.frustumCulled = false; scene.add(oort);
+const helio = [[HELIO.heliopauseAU, 0.3], [HELIO.terminationShockAU, 0.16]].map(([au, op]) => { const w = wireShell({ color: 0x7f9ccf, opacity: op, layer: 'heliosphere' }); w.userData.au = au; scene.add(w); return w; });
+lod.add(hygSky, { inner: 'proxy', alone: 'fixed' });
+lod.add(oort, { inner: 'proxy', alone: 'size' });
+for (const w of helio) lod.add(w, { inner: 'size', alone: 'size' }, { L: 1 });
+// The camera's represented distance from the Sun (AU) and the compressed→true blend there.
+let lastCamD = -1, camAU = 0, camMetric = 0;
+function solarPlace() {
+  const d = camera.position.length() || 1;
+  if (d !== lastCamD) { lastCamD = d; if (realScale) { camAU = d / UNITS_PER_AU; camMetric = 1; } else { const Z = solarZ(d); camAU = Math.exp(Z) / AU_LY; camMetric = metricBlend(Z); } }
+  const R = Math.max(2000, Math.min(100000, camAU)); oort.scale.setScalar(camMetric >= 1 || realScale ? UNITS_PER_AU : auToUnits(R, camMetric) / R);
+  for (const w of helio) w.scale.setScalar(realScale ? w.userData.au * UNITS_PER_AU : auToUnits(w.userData.au, camMetric));
+}
+export const solarCamera = () => ({ au: camAU, metric: camMetric }); // for the HUD (lab.js)
 let sunGlow = 0;
 function applyLod(vh, seam) {
-  placeSky(stars, camera); lod.update(camera.position, ORIGIN, vh, camera.fov, seam);
+  solarPlace(); placeSky(stars, camera); placeSky(hygSky, camera); lod.update(camera.position, ORIGIN, vh, camera.fov, seam);
+  // Leaving structures appear only once the camera is out past them (represented distance from the Sun).
+  oort.material.opacity *= logStep(camAU, 600, 2500); oort.visible = oort.material.opacity > 0.002;
+  for (const w of helio) { w.material.opacity *= logStep(camAU, w.userData.au * 2, w.userData.au * 5); w.visible = w.material.opacity > 0.002; }
   const pxPer = vh / 2 / Math.tan(camera.fov * Math.PI / 360), D0 = camera.position.length() || 1, disc = 2 * bodies[0].radius / D0 * pxPer;
   sunGlow = 1 - logStep(disc, 12, 60); // 1 when the disc is under 12 px across, 0 above 60 px
   const inSeam = seam ? (seam.t < 0.5 ? 1 : 0) : 1;

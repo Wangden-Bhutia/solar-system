@@ -169,3 +169,22 @@ Nineteen moons besides Earth's: Phobos, Deimos; Io, Europa, Ganymede, Callisto; 
   - The cosmic web: knots joined to their nearest neighbours by strands. The real strands are far finer.
   - The CMB's warm and cool speckle: the real map is shown in the Planck and WMAP all-sky images.
 - **Other figures.** "As many as 2 trillion galaxies" is the estimate quoted by Wikipedia. The CMB redshift is 1091.64 and it was discovered in 1965 (Penzias and Wilson).
+
+## Continuous zoom: transition structures (Phase 3)
+Built by `tools/build_transition.py` into `transition-data.js` (84.8 KB); drawn by `transition.js`. Anything marked *illustration* is a random sample of a published size or density law, not a catalogue of objects.
+- **Stars to 1,000 ly**: HYG Database v4.1 (github.com/astronexus/HYG-Database, `hyg/CURRENT/hygdata_v41.csv`, CC BY-SA 4.0, sha256 d9f69fd86bbf90a4…, fetched 10 Nov 2026). All 7,696 stars with V ≤ 6.5 and a parallax distance ≤ 1,000 ly, Sun excluded. Distances beyond a few hundred ly carry tens-of-percent errors. Colour from B−V via Ballesteros (2012, EPL 97, 34009).
+- **Globular clusters**: Harris, W. E. 1996, AJ 112, 1487 (2010 edition), Part I, physics.mcmaster.ca/~harris/mwgc.dat (free of charge; redistributed with this reference), 157 clusters, l, b and distance from the Sun.
+- **Council of Giants**: McCall, M. L. 2014, MNRAS 440, 405, distances as tabulated by Wikipedia's "Local Sheet" (read 10 Nov 2026). RA/Dec from OpenNGC (CC BY-SA 4.0) for the 9 members in NGC/IC. Maffei 1, Maffei 2 and Circinus are left out because they have no OpenNGC position.
+- **Heliosphere**: Voyager 1 crossed the termination shock at 94 AU (Dec 2004) and the heliopause at 121.6 AU (25 Aug 2012). Voyager 2 crossed the heliopause at 119 AU (Nov 2018) (NASA/JPL). Drawn as spheres, an *illustration*: the real shape is not spherical.
+- **Oort cloud**: *illustration*. Isotropic, radii log-uniform 2,000–100,000 AU (NASA, Oort Cloud overview).
+- **Kuiper belt**: about 30–50 AU (existing statistical belt, data.js).
+- **Local Bubble**: *illustration*. A sphere 1,000 ly across (Zucker et al. 2022, Nature 601, 334: a ~1,000-ly cavity); the real shape is irregular.
+- **Stellar halo**: *illustration*. Density ∝ r^−2.77, flattening q = 0.64 (Jurić et al. 2008, ApJ 673, 864), 15–300 kly.
+- **Sagittarius stream**: *illustration* of its plane. Orbital pole (l, b) = (273.8°, −13.46°) (Majewski et al. 2003, ApJ 599, 1082; Law & Majewski 2010), 15–60 kpc from the centre.
+- **Magellanic Clouds** in the Milky Way view: soft point clouds at the positions and sizes already in local-data.js (*illustration* of their extent).
+- **Local Sheet**: *illustration*. 34 Mly across, 1.52 Mly thick (McCall 2014 via Wikipedia), drawn in the supergalactic plane; Wikipedia gives an 8° tilt from that plane. Supergalactic pole (l, b) = (47.37°, 6.32°).
+- **Local Void**: *illustration* shell. Centre direction RA 18h38m, Dec +18° (SIMBAD "NAME Local Void"), centre at least 23 Mpc ≈ 75 Mly away (Tully et al. 2008, ApJ 676, 184); drawn with a 75 Mly radius.
+- **Virgo direction**: a brighter glow at the Virgo Cluster's position from cosmos-data.js.
+- **NGC → web hand-over**: OpenNGC points fade by their on-screen density (0.05 → 0.5 points per px², lod.js). The cosmic web remains an *illustration*.
+- **2MRS not used**: no explicit licence was found for redistribution, so it was not added.
+- **Solar compressed → true scale**: past a camera ~300 AU out, the compressed distance rule blends to true scale. The blend is complete at 0.08 ly (≈5,060 AU), where the seam to the stars begins (zoom-ladder.js SOLAR_METRIC). Inside ~300 AU, planet distances remain compressed.
