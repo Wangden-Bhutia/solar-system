@@ -24,6 +24,11 @@ jobs:
           mkdir -p _site
           cp -r index.html style.css app.js data.js kids.js lab.js lab-state.js sheet.js science.js insights.js experiments.js voice-player.js textures.js land.js voice vendor _site/
           touch _site/.nojekyll
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Cache-bust CSS and module URLs with the commit
+        run: node tools/stamp.mjs _site "${GITHUB_SHA::12}"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
