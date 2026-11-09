@@ -1,5 +1,7 @@
 import { bodies, focus, unfocus, hooks, renderer, controls, setHomeScope } from './app.js';
 import { createStars } from './stars.js';
+import { createGalaxy } from './galaxy.js';
+import { GALAXY_FACTS } from './galaxy-data.js';
 import { STAR_FACTS, habitableZone, sizeFromMass, lightLeftYear } from './stars-data.js';
 import { createExperiments } from './experiments.js';
 import { createLabState } from './lab-state.js';
@@ -15,17 +17,25 @@ const LAB_TITLES={seasons:'Why do seasons happen?',phases:'Explore the phases',e
 const $=id=>document.getElementById(id), state=createLabState(), experiments=createExperiments(renderer);
 const sheet=$('sheet');
 // ---- Beyond the Solar System: the nearby stars and their planets ----
-const SPACE=new Set(['stars','system']);
+const SPACE=new Set(['stars','system','galaxy']);
+const levelOf=v=>v==='galaxy'?'galaxy':v==='stars'||v==='system'?'stars':'solar';
 const starsView=createStars({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:e=>pickStar(e)});
-let spaceShown=false,fading=false;
+let shownLevel='solar',fading=false;
+const galaxyView=createGalaxy({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:m=>pickLandmark(m)});
 function fadeThen(fn,ms=320){if(typeof globalThis.requestAnimationFrame!=='function'){fn();return;}if(fading)return;fading=true;$('fade').classList.add('on');setTimeout(()=>{fn();globalThis.requestAnimationFrame(()=>{$('fade').classList.remove('on');fading=false;});},globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches?0:ms);}
 function enterStars(){stopAudio();$('settings').open=false;fadeThen(()=>{state.navigate({view:'stars',star:null,experiment:null,sheet:'closed'});render();});}
 function leaveStars(){stopAudio();$('settings').open=false;const go2=()=>fadeThen(()=>{state.navigate({view:'explore',feature:'orbit',star:null,experiment:null,sheet:'closed'});render();});
  if(state.value.view==='system'){state.update({view:'stars',sheet:'closed'});render();}
  starsView.zoomBackIn(go2);}
-$('zoom').onclick=()=>SPACE.has(state.value.view)?leaveStars():enterStars();
+// The zoom ladder: Solar System → nearby stars → Milky Way. The zoom button steps out; Back steps in.
+function enterGalaxy(){stopAudio();$('settings').open=false;starsView.zoomOut(()=>fadeThen(()=>{state.navigate({view:'galaxy',landmark:null,star:null,sheet:'closed'});render();}));}
+function leaveGalaxy(){stopAudio();$('settings').open=false;galaxyView.zoomToSun(()=>fadeThen(()=>{state.navigate({view:'stars',star:null,landmark:null,sheet:'closed'});render();}));}
+$('zoom').onclick=()=>{const l=levelOf(state.value.view);if(l==='solar')enterStars();else if(l==='stars')enterGalaxy();};
+function pickLandmark(m){dismissHint();go({view:'galaxy',landmark:m.name,sheet:'peek'});}
 function pickStar(e){dismissHint();go({view:'stars',star:e.name,sheet:'peek'});}
-hooks.overrideTap=(x,y)=>{const s=state.value;if(s.view!=='stars')return;const e=starsView.pick(x,y);if(e)pickStar(e);else if(s.sheet!=='closed')setSheet({sheet:'closed',star:null});};
+hooks.overrideTap=(x,y)=>{const s=state.value;
+ if(s.view==='galaxy'){const m=galaxyView.pick(x,y);if(m)pickLandmark(m);else if(s.sheet!=='closed')setSheet({sheet:'closed',landmark:null});return;}
+ if(s.view!=='stars')return;const e=starsView.pick(x,y);if(e)pickStar(e);else if(s.sheet!=='closed')setSheet({sheet:'closed',star:null});};
 const sourceLink=(key,label='NASA source')=>`<a href="${NASA[key]}" target="_blank" rel="noopener">${label}</a>`;
 const sourceNote=`<p class="fine">Sources checked ${CHECKED}. This is an illustrative teaching model, not a live sky, weather forecast or spacecraft view.</p>`;
 let narration='lab_earth', lastAudioState='idle', interrupted=false;
@@ -49,7 +59,9 @@ function dismissHint(){hintSeen=true;}
 // At the overview (sheet closed) the same chip switches between the inner planets and all planets.
 $('back').onclick=()=>{stopAudio();const s=state.value;
  if(s.sheet!=='closed'&&state.canBack)state.back();
+ else if(s.view==='galaxy'&&s.sheet==='closed'){leaveGalaxy();return;}
  else if(SPACE.has(s.view)&&s.sheet==='closed'){leaveStars();return;}
+ else if(s.view==='galaxy')state.update({landmark:null,sheet:'closed'});
  else if(SPACE.has(s.view))state.update({view:'stars',star:null,sheet:'closed'});
  else if(s.sheet!=='closed')state.update({view:'explore',experiment:null,feature:'orbit',sheet:'closed'});
  else setHomeScope(hooks.homeScope==='inner'?'all':'inner');
@@ -364,6 +376,26 @@ function paintExplore(){
 }
 const fmt=(n,d=0)=>n.toLocaleString('en-IN',{maximumFractionDigits:d});
 const entryOf=name=>starsView.entries.find(e=>e.name===name);
+function paintGalaxy(){
+ const s=state.value,m=s.landmark&&galaxyView.landmarks.find(x=>x.name===s.landmark);narration=null;$('action').hidden=true;$('star-panel').hidden=false;
+ $('star-companions').textContent='';$('star-planets').innerHTML='';
+ const caveat='<p>No one has seen the Milky Way from outside: we live inside its disc. This picture is a model built from maps of gas, young stars and their measured distances. The spiral arms follow published fits (Reid et al. 2019) and are best known on our side; the far side is extrapolated. Landmarks are placed by their real direction and distance.</p>';
+ if(!m||m.name==='Sun'){
+  $('kicker').textContent=m?'Our star':'Our galaxy';$('title').textContent=m?'The Sun in the Milky Way':'The Milky Way';
+  $('fact').textContent=m?m.fact:'A spiral of 100–400 billion stars. The Sun is one of them, out in a small arm called the Orion Spur.';
+  $('view-caption').textContent='Model of the Milky Way seen from above · dashed line: the Sun’s orbit · not a photograph';
+  $('star-facts').innerHTML=[['Stars',GALAXY_FACTS.stars],['Width',`${GALAXY_FACTS.diameter} light-years`],['Disc thickness',`${GALAXY_FACTS.thickness} light-years`],['Sun to centre','about 27,000 light-years'],['One orbit of the Sun',`${GALAXY_FACTS.orbitMyr} years`],['Last time the Sun was here','the first dinosaurs were just appearing']].map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
+  $('star-depth').innerHTML=`${caveat}<p>Estimates of the Galaxy’s width range from about 87,000 to over 100,000 light-years depending on where you set the edge; of the Sun’s orbit, from 212 to 240 million years. Our whole 16-light-year neighbourhood from the previous level would be smaller than a single pixel here.</p><a href="https://en.wikipedia.org/wiki/Milky_Way" target="_blank" rel="noopener">Milky Way overview</a> · <a href="https://science.nasa.gov/resource/the-milky-way-galaxy/" target="_blank" rel="noopener">NASA · The Milky Way</a>${sourceNote}`;
+  return;
+ }
+ $('kicker').textContent=m.kind;$('title').textContent=m.name;$('fact').textContent=m.fact;
+ $('view-caption').textContent=`${fmt(m.kly*1000)} light-years from the Sun · toward ${m.constellation} in our sky`;
+ const ago=Math.round(m.kly*1000);
+ const rows=[['Distance from the Sun',`about ${fmt(ago)} light-years`],['The light you see left it',m.name==='Crab Nebula'?'about 6,500 years before the 1054 explosion was seen':`about ${fmt(ago)} years ago`],['In our sky','toward '+m.constellation]];
+ if(m.name==='Sagittarius A*')rows.push(['Mass','about 4.3 million Suns'],['First image','2022, Event Horizon Telescope']);
+ $('star-facts').innerHTML=rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
+ $('star-depth').innerHTML=`${caveat}<a href="https://en.wikipedia.org/wiki/${encodeURIComponent(m.name.replace(/ /g,'_'))}" target="_blank" rel="noopener">${m.name}: distance and position</a>${sourceNote}`;
+}
 function paintStar(){
  const s=state.value,e=s.star&&entryOf(s.star);narration=null;
  $('star-panel').hidden=!e;$('action').hidden=true;
@@ -398,11 +430,16 @@ function paintSystem(){
 }
 function render(){
  const s=state.value,space=SPACE.has(s.view),experiment=s.view==='try'&&!!s.experiment,scene=experiment&&SCENE_LABS.has(s.experiment);
- if(space&&!spaceShown){spaceShown=true;starsView.enter();}else if(!space&&spaceShown){spaceShown=false;starsView.leave();unfocus(true,.01);}
- if(space)(s.view==='system'?(()=>{if(starsView.mode!=='system')starsView.openSystem(entryOf(s.star));})():starsView.mode==='system'&&starsView.closeSystem());
- if(space)starsView.select(s.star&&entryOf(s.star));
+ const level=levelOf(s.view);
+ if(level!==shownLevel){const from=shownLevel;shownLevel=level;
+  if(from==='stars')starsView.leave();if(from==='galaxy')galaxyView.leave();
+  if(level==='stars')starsView.enter(from==='galaxy'?'outside':'inside');if(level==='galaxy')galaxyView.enter();
+  if(level==='solar')unfocus(true,.01);}
+if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system')starsView.openSystem(entryOf(s.star));})():starsView.mode==='system'&&starsView.closeSystem());
+ if(level==='stars')starsView.select(s.star&&entryOf(s.star));if(level==='galaxy')galaxyView.select(s.landmark&&galaxyView.landmarks.find(x=>x.name===s.landmark));
  document.body.classList.toggle('space-mode',space);
- const z=$('zoom');z.dataset.level=space?'space':'solar';z.setAttribute('aria-label',space?'Zoom back in to the Solar System':'Zoom out to the nearby stars');z.querySelector('.zoom-text').textContent=space?'':'Stars';z.classList.toggle('icon-only',space); // in space the Back chip already says “Solar System”
+ const z=$('zoom');z.dataset.level=level;z.hidden=level==='galaxy'; // the Galaxy is the outermost level for now
+ z.setAttribute('aria-label',level==='solar'?'Zoom out to the nearby stars':'Zoom out to the Milky Way');z.querySelector('.zoom-text').textContent=level==='solar'?'Stars':'';z.classList.toggle('icon-only',level!=='solar');
  if(race&&!(experiment&&s.experiment==='scale')){globalThis.cancelAnimationFrame?.(race.id);race=null;}
  sheet.dataset.state=s.sheet;document.body.dataset.sheet=s.sheet;
  const open=s.sheet!=='closed';sheet.inert=!open;sheet.setAttribute('aria-hidden',String(!open));
@@ -410,20 +447,21 @@ function render(){
  $('grip').setAttribute('aria-expanded',String(s.sheet==='half'||s.sheet==='full'));
  $('grip').setAttribute('aria-label',s.sheet==='full'?'Show less':'Show more');
  for(const v of ['explore','try','compare','journey'])$(v+'-panel').hidden=s.view!==v;
- $('star-panel').hidden=s.view!=='stars';$('system-panel').hidden=s.view!=='system';
+ $('star-panel').hidden=s.view!=='stars'&&s.view!=='galaxy';$('system-panel').hidden=s.view!=='system';
  for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-pressed',String(b.dataset.view===s.view));
- if(!open&&space){$('back').textContent='← Solar System';$('back').setAttribute('aria-label','Zoom back in to the Solar System');}
+ if(!open&&space){const g=level==='galaxy';$('back').textContent=g?'← Nearby stars':'← Solar System';$('back').setAttribute('aria-label',g?'Zoom back in to the nearby stars':'Zoom back in to the Solar System');}
  else if(!open){const all=hooks.homeScope!=='inner';$('back').textContent=all?'Show inner planets':'Show all planets';$('back').setAttribute('aria-label',all?'Zoom in on the inner planets, Mercury to Mars':'Zoom out to show all eight planets');}
  else{const atOverview=!state.canBack;$('back').textContent=atOverview?'Overview':'← Back';$('back').setAttribute('aria-label',atOverview?'Close the card and show the Solar System':'Go back');}
- $('hint').hidden=(hintSeen&&!space)||open;$('hint').textContent=space?'Tap a star':'Tap a planet, the Sun or the Moon';
+ $('hint').hidden=(hintSeen&&!space)||open;$('hint').textContent=level==='galaxy'?'Tap a landmark':space?'Tap a star':'Tap a planet, the Sun or the Moon';
  $('world-depth').open=false;
  sheet.querySelector('.tabs').hidden=experiment||s.view==='journey'||space; // labs: controls first, Back returns to the tabs
  $('experiment-chooser').hidden=experiment;$('experiment').hidden=!scene;$('scale-lab').hidden=!(experiment&&s.experiment==='scale');$('experiment-reset').hidden=!experiment;
  $('orbit-map').hidden=!scene;
  document.body.classList.toggle('experiment-mode',scene);
  controls.enabled=!scene&&!space;hooks.hold=scene||space;
- hooks.renderOverride=space?()=>{const r=$('stage').getBoundingClientRect();starsView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:scene?()=>{const r=$('stage').getBoundingClientRect();experiments.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:null;
- if(s.view==='stars')paintStar();
+ hooks.renderOverride=level==='galaxy'?()=>{const r=$('stage').getBoundingClientRect();galaxyView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:space?()=>{const r=$('stage').getBoundingClientRect();starsView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:scene?()=>{const r=$('stage').getBoundingClientRect();experiments.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:null;
+ if(s.view==='galaxy')paintGalaxy();
+ else if(s.view==='stars')paintStar();
  else if(s.view==='system')paintSystem();
  else if(experiment){$('action').hidden=true;paintExperiment();}
  else if(s.view==='compare'){$('action').hidden=true;paintCompare();}

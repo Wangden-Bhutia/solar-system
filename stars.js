@@ -135,7 +135,9 @@ export function createStars({ renderer, canvas, labelsEl, onPick }) {
     return best;
   }
   function select(e) { selected = e; }
-  function enter() { mode = 'stars'; setLabels('stars'); controls.enabled = true; sysControls.enabled = false; camera.position.copy(fly.dir).multiplyScalar(0.05); fly.start(0.05, 26, 1.8); }
+  // Arriving out of the Solar System ("inside"): start at the Sun and pull back. Arriving down from the Galaxy ("outside"): sweep in.
+  function enter(from = 'inside') { mode = 'stars'; setLabels('stars'); controls.enabled = true; sysControls.enabled = false; const d0 = from === 'outside' ? 110 : 0.05; camera.position.copy(fly.dir).multiplyScalar(d0); fly.start(d0, 26, from === 'outside' ? 1.4 : 1.8); }
+  function zoomOut(done) { if (mode === 'system') closeSystem(); fly.start(Math.max(camera.position.length(), 1), 110, 1.0, done); }
   function leave() { setLabels(null); controls.enabled = false; sysControls.enabled = false; }
   function zoomBackIn(done) { const d = camera.position.length(); fly.start(Math.max(d, 1), 0.05, 1.1, done); }
   function openSystem(entry) {
@@ -150,5 +152,5 @@ export function createStars({ renderer, canvas, labelsEl, onPick }) {
     for (const d of dots) d.el.hidden = which !== 'stars'; for (const r of ringLabels) r.el.hidden = which !== 'stars';
     for (const p of current?.sysView?.planets || []) p.el.hidden = which !== 'system'; for (const c of current?.sysView?.compareEls || []) c.el.hidden = which !== 'system';
   }
-  return { render, pick, select, enter, leave, zoomBackIn, openSystem, closeSystem, get mode() { return mode; }, camera, controls, entries, scene, sys, fly };
+  return { render, pick, select, enter, leave, zoomBackIn, zoomOut, openSystem, closeSystem, get mode() { return mode; }, camera, controls, entries, scene, sys, fly };
 }

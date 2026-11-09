@@ -70,3 +70,6 @@ Details: [docs/sources.md](docs/sources.md).
 
 ## Zoom out: the nearby stars
 The 🔍 **Stars** button zooms out past the Solar System to a 3D map of every star and brown dwarf within 16 light-years (plus TRAPPIST-1), placed by real direction and distance, coloured by temperature, glowing by true brightness. Tap a star for its card: type, distance, the year its light left, companions. For stars with known planets, **Visit its planets** opens that system with its orbits to scale, the habitable zone, and Mercury's and Earth's orbits for comparison. Data: [docs/sources.md](docs/sources.md#beyond-the-solar-system-nearby-stars-and-their-planets-stars-datajs-november-2026).
+
+## Zoom out again: the Milky Way
+From the star map, the zoom button pulls back until our neighbourhood vanishes into a model of the whole Galaxy: bar and bulge, the spiral arms (after Reid et al. 2019), the Sun's 230-million-year orbit, and tappable landmarks placed by real direction and distance — Sagittarius A*, the Orion Nebula, Pleiades, Betelgeuse, Crab Nebula, Pillars of Creation, Carina Nebula, Omega Centauri. Back steps in one level at a time. It is a model, not a photograph, and says so.
