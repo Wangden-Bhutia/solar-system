@@ -119,6 +119,15 @@ function paintCompare(){
  $('compare-depth').innerHTML=`<p>Equatorial diameter = width across the equator. The comparison Moon diameter (3,476.2 km) is equatorial; the scene’s 3,474.8 km Moon uses its mean diameter. Gravity values are approximate surface means: Earth 9.82, Moon 1.62, Mars 3.73 m/s² (metres per second squared). Weight = mass × surface gravity. Real readings vary with location.</p><p>Mean distance = average orbital scale, not today’s separation. Moon distance is measured from Earth’s centre; planet distances are from the Sun’s centre. These are different reference points, so do not compare them as distances from the same place. Mars–Earth distance changes continually.</p><p>Moon temperature examples depend strongly on sunlight and location, not a single “Moon temperature”. Conditions are descriptive, not live readings.</p>${sourceLink(A.source,a+' data')} · ${sourceLink(B.source,b+' data')} · ${sourceLink('moon','Lunar surface and temperatures')}${sourceNote}`;
  narration='lab_compare';
 }
+// Camera: a closed sheet (start, empty tap, ✕, Overview) or the orbit feature shows the
+// whole system; an open world card glides to that world. Only re-aim when the target changes,
+// so expanding or collapsing the sheet does not restart the glide.
+let cameraKey=null;
+function aimCamera(s,body){
+ const key=s.sheet==='closed'||s.feature==='orbit'?'overview':`${s.world}`;
+ if(key===cameraKey)return;cameraKey=key;
+ if(key==='overview')unfocus(true,1.5);else focus(body,{silent:true,outside:s.world==='Earth',dur:1.1});
+}
 function paintExplore(){
  const s=state.value,body=bodies.find(b=>b.data.name===s.world),info=INSIGHTS[s.world]||genericInsight(body.data);
  $('world').value=s.world;$('kicker').textContent=s.world==='Sun'?'Our star':s.world==='Moon'?'Earth’s Moon':'Planet';$('title').textContent=s.world;
@@ -142,8 +151,7 @@ function paintExplore(){
  const url=info.source?NASA[info.source]:`https://science.nasa.gov/${s.world==='Sun'?'sun':s.world.toLowerCase()}/facts/`;
  $('world-sources').innerHTML=`<a href="${url}" target="_blank" rel="noopener">NASA · ${s.world}</a>${info.source?sourceNote:'<p class="fine">Baseline facts checked 8 November 2026 against NASA sources; see docs/sources.md. Changing moon counts are omitted.</p>'}`;
  $('world-scale').textContent='Model caveats: spherical worlds, circular mostly coplanar orbits, accelerated time, procedural surfaces. Earth coastlines use Natural Earth data. Moon craters and weather are not live or mapped observations. Sun size is 1/5 in the default view; orbit gaps and Moon gap are compressed. Real scale restores size/distance ratios, not an actual-date sky. Faint fill light reveals the night-side shape.';
- if(s.feature==='orbit')unfocus(true,1.5);
- else focus(body,{silent:true,outside:s.world==='Earth',dur:1.1});
+ aimCamera(s,body);
  $('view-caption').textContent=s.feature==='orbit'?(s.world==='Sun'?'The Sun and eight planets · schematic view, not current positions':`${s.world} orbits the Sun · schematic Solar System view; not current positions`):s.world==='Earth'?'Drag to look around · gold line: Earth’s tilted spin axis · day/night comes from sunlight':s.world==='Moon'?'Earth’s Moon · Explore the phases shows the view from Earth':`${s.world} · drag to look around · illustrative surface and lighting`;
  if(s.feature==='day'){narration='lab_day';$('world-insight').textContent=LINES[narration];}
 }

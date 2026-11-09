@@ -204,15 +204,36 @@ toggle('trails', on => { trailsOn = on; });
 toggle('lbls', on => labelsEl.classList.toggle('off', !on));
 document.getElementById('reset').onclick = () => unfocus(true);
 
+// Overview framing: the closest camera distance (along a fixed viewing direction)
+// at which every orbit ring, sampled around its full circle, sits inside the
+// frustum with a margin. Works for portrait and landscape aspects.
+export const HOME_DIRECTION = new THREE.Vector3(0, .52, .85).normalize();
+export function fitHomeDistance(radius, fovDeg, aspect, direction = HOME_DIRECTION, margin = .9) {
+  const cam = new THREE.PerspectiveCamera(fovDeg, aspect, .05, 1e9), p = new THREE.Vector3();
+  const fits = d => {
+    cam.position.copy(direction).multiplyScalar(d); cam.lookAt(0, 0, 0); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+    for (let i = 0; i < 72; i++) { const a = i / 72 * Math.PI * 2; p.set(Math.cos(a) * radius, 0, Math.sin(a) * radius).project(cam); if (p.z >= 1 || Math.abs(p.x) > margin || Math.abs(p.y) > margin) return false; }
+    return true;
+  };
+  let lo = radius * .5, hi = radius * 2;
+  while (!fits(hi)) hi *= 2;
+  for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
+  return hi;
+}
+let lastPortrait = null;
 function resize() {
   const {width:w,height:h} = canvas.getBoundingClientRect();
   renderer.setSize(w, h, false); camera.aspect = w / h;
   // Frame the whole system (grown-up), the inner system out to Jupiter (kid), or true-scale orbits
-  const direction = new THREE.Vector3(0, .52, .85).normalize();
   const outer = realScale ? Math.max(...PLANETS.map(p => p.realDist)) : Math.max(...PLANETS.map(p => p.dist));
-  HOME.pos.copy(direction).multiplyScalar((hooks.kid ? 150 : outer * 2.6) / Math.min(1, w/h));
+  const distance = hooks.kid ? 150 / Math.min(1, w/h) : fitHomeDistance(outer * 1.04, camera.fov, w / h);
+  HOME.pos.copy(HOME_DIRECTION).multiplyScalar(distance);
   controls.maxDistance = realScale ? Math.max(1.5e6,HOME.pos.length()*1.5) : Math.max(900,HOME.pos.length()*1.5);
   camera.updateProjectionMatrix();
+  // Rotating the phone while in the overview re-frames the whole system.
+  const portrait = h >= w;
+  if (lastPortrait !== null && portrait !== lastPortrait && !focused) unfocus(true, .6);
+  lastPortrait = portrait;
 }
 addEventListener('resize', resize); resize(); camera.position.copy(HOME.pos);
 
@@ -315,6 +336,6 @@ export function setRealScale(on) {
 }
 document.getElementById('realBtn').onclick = e => { const on = !realScale; e.currentTarget.classList.toggle('on', on); e.currentTarget.setAttribute('aria-pressed', on); document.getElementById('scaleNote').textContent = on ? 'true sizes & distances' : 'sizes to scale (Sun 1/5) · distances shrunk'; setRealScale(on); };
 window.__face = (name, lonDeg) => { const b = bodies.find(x => x.data.name === name); const d = camera.position.clone().sub(b.mesh.getWorldPosition(new THREE.Vector3())); const tilt = b.mesh.parent; const local = tilt.worldToLocal(camera.position.clone()).sub(tilt.worldToLocal(b.mesh.getWorldPosition(new THREE.Vector3()))); b.mesh.rotation.y = Math.atan2(-local.z, local.x) - lonDeg * Math.PI / 180; void d; };
-export { bodies, focus, unfocus, camera, controls, renderer, pickAt, applyVisibleRegion };
+export { bodies, focus, unfocus, camera, controls, renderer, pickAt, applyVisibleRegion, HOME };
 window.__solar = { pickAt, screenOf: n => { const bounds=canvas.getBoundingClientRect(); const b = bodies.find(x => x.data.name === n); const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera); return [bounds.left + (p.x + 1) / 2 * bounds.width, bounds.top + (1 - p.y) / 2 * bounds.height]; }, focusByName: n => focus(bodies.find(b => b.data.name === n)), setKid };
 window.__cam = () => [camera.position.toArray().map(v => +v.toFixed(3)), controls.target.toArray().map(v => +v.toFixed(3))];

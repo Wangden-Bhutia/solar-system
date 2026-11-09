@@ -3,6 +3,7 @@
 An interactive, static Three.js Solar System. The space scene fills the screen; everything else lives in one bottom sheet.
 
 ## Immersive layout
+- **Overview first.** The app opens on the whole Solar System, framed so every orbit fits the screen in portrait or landscape (the camera distance is fitted to the screen's aspect ratio). Closing the sheet (empty tap, ✕, Escape from peek, Overview) flies the camera back to this framing.
 - **Tap a world.** Tapping a planet, the Sun or the Moon glides the camera to it and slides up a sheet. Touch taps use a 48 px pick radius (28 px for a mouse), so planets that are only a few pixels wide in the overview are still easy to hit.
 - **Sheet states:** *closed → peek → half → full.* Peek shows the name, one striking sourced fact and the contextual action (Earth: "Why do seasons happen?"; Moon: "Explore the phases"). Swipe up (or tap/Arrow Up on the grip) for details, comparisons and sources; swipe down, Escape, ✕ or a tap on empty space closes it.
 - **Explore / Try it / Compare** are tabs inside the sheet. Experiments open at half height so the scene stays visible, keep their own Reset, and are not dismissed by a stray tap on empty space. Swiping down from an experiment returns to the world's peek card.

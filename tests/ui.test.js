@@ -17,9 +17,9 @@ async function setup(width=390,height=844,stored={}){
  const tap=name=>app.focus(bodies.find(b=>b.data.name===name));
  return {document,$:id=>document.getElementById(id),lab:context.window.__lab,focuses,updates,renders,played,app,storage,hooks,tap,get sheet(){return document.getElementById('sheet').dataset.state;},get unlocks(){return unlocks;},get stops(){return stops;}};
 }
-test('starts on Earth with a clear scene: sheet closed and inert, first-time hint shown, nothing autoplays',async()=>{
+test('starts on the whole-system overview: sheet closed and inert, first-time hint shown, nothing autoplays',async()=>{
  const a=await setup();assert.equal(a.sheet,'closed');assert.equal(a.$('sheet').getAttribute('aria-hidden'),'true');assert.equal(a.$('sheet').inert,true);
- assert.equal(a.$('hint').hidden,false);assert.deepEqual(a.focuses.at(-1).slice(0,1),['Earth']);assert.equal(a.played.length,0);
+ assert.equal(a.$('hint').hidden,false);assert.deepEqual([...a.focuses.map(f=>f[0])],['overview'],'opens on the whole-system overview, not a close-up of Earth');assert.equal(a.played.length,0);
  assert.equal(a.$('back').textContent,'Overview');
  assert.deepEqual({...a.hooks.visible(390,844)},{width:390,height:844});
 });
@@ -47,6 +47,16 @@ test('grip buttons, keyboard and swipes expand to full details and collapse; emp
  a.hooks.onEmpty();assert.equal(a.sheet,'closed');assert.equal(a.$('sheet').getAttribute('aria-hidden'),'true');
  a.hooks.onEmpty();assert.equal(a.sheet,'closed');
  a.tap('Saturn');a.$('close').onclick();assert.equal(a.sheet,'closed');
+});
+test('closing the sheet or Overview flies the camera back to the whole system; resizing the sheet does not re-aim',async()=>{
+ const a=await setup();const last=()=>a.focuses.at(-1)[0];
+ a.tap('Mars');assert.equal(last(),'Mars');const n=a.focuses.length;
+ a.$('grip').onclick();a.$('grip').onclick();assert.equal(a.sheet,'full');assert.equal(a.focuses.length,n,'expanding keeps the glide');
+ a.hooks.onEmpty();assert.equal(a.sheet,'closed');assert.equal(last(),'overview','empty tap returns to the overview camera');
+ a.tap('Jupiter');a.$('close').onclick();assert.equal(last(),'overview','✕ returns to the overview camera');
+ a.tap('Venus');a.$('back').onclick();assert.equal(a.sheet,'closed');assert.equal(last(),'overview','Back to the start state returns to the overview');
+ a.tap('Saturn');a.$('reset').dispatchEvent(new a.document.defaultView.Event('click'));assert.equal(last(),'overview','menu overview');
+ a.tap('Saturn');assert.equal(last(),'Saturn','re-selecting after the overview glides again');
 });
 test('Explore / Try it / Compare live inside the sheet; experiments stay half-open with the scene visible, and Reset/Back work',async()=>{
  const a=await setup();a.tap('Earth');

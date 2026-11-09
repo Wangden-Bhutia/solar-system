@@ -73,3 +73,33 @@ test('applyVisibleRegion: identity when uncovered; same on-screen scale as a scr
   assert.ok(Math.abs(pxPerUnit-expected)<1e-6,`${pxPerUnit} vs ${expected}`);
   assert.ok(Math.abs((1-centre.y)/2*844-200)<1e-6);
 });
+const PLANET_NAMES=data.PLANETS.map(p=>p.name);
+const inFrustum=(camera,mesh)=>{const p=mesh.getWorldPosition(new THREE.Vector3()).project(camera);return p.z<1&&Math.abs(p.x)<=1&&Math.abs(p.y)<=1;};
+for(const [w,h,label] of [[412,915,'portrait 412x915'],[390,844,'portrait 390x844'],[915,412,'landscape 915x412']]){
+  test(`overview framing (${label}): opens on the whole system with all eight planets and the Sun inside the frustum (default scale)`,async()=>{
+    const s=await loadScene(w,h);s.hooks.hold=true;s.step(2);
+    assert.ok(s.camera.position.distanceTo(s.HOME.pos)<1e-6,'starts at the overview position');
+    for(const b of s.bodies.filter(b=>b.pivot||b.data.name==='Sun'))assert.ok(inFrustum(s.camera,b.mesh),`${b.data.name} on screen`);
+    // Not wastefully far out: the outermost orbit spans at least 75% of the narrow screen dimension.
+    const ring=[0,Math.PI/2,Math.PI,Math.PI*1.5].map(a=>new THREE.Vector3(Math.cos(a),0,Math.sin(a)).multiplyScalar(Math.max(...data.PLANETS.map(p=>p.dist))).project(s.camera));
+    const spanX=(Math.max(...ring.map(p=>p.x))-Math.min(...ring.map(p=>p.x)))/2;
+    assert.ok(w<h?spanX>.75:Math.max(...ring.map(p=>Math.abs(p.y)))>.75,`span ${spanX.toFixed(2)}`);
+  });
+}
+test('Overview flies the camera from a close-up back to the full-system framing',async()=>{
+  const s=await loadScene(412,915);s.hooks.hold=true;
+  const mars=s.bodies.find(b=>b.data.name==='Mars');s.focus(mars,{silent:true,dur:.3});s.step(12);
+  const marsPos=mars.mesh.getWorldPosition(new THREE.Vector3());
+  assert.ok(s.camera.position.distanceTo(marsPos)<mars.radius*20,'close-up on Mars');
+  assert.ok(PLANET_NAMES.some(n=>!inFrustum(s.camera,s.bodies.find(b=>b.data.name===n).mesh)),'close-up hides some planets');
+  s.unfocus(true,.3);s.step(12);
+  assert.ok(s.camera.position.distanceTo(s.HOME.pos)<1e-6,'back at the overview position');
+  assert.ok(s.controls.target.length()<1e-6,'looking at the Sun');
+  for(const n of PLANET_NAMES)assert.ok(inFrustum(s.camera,s.bodies.find(b=>b.data.name===n).mesh),`${n} on screen again`);
+});
+test('fitHomeDistance: closer for landscape than portrait, and every ring point inside the frustum margin',async()=>{
+  const s=await loadScene();const portrait=s.fitHomeDistance(100,50,412/915),landscape=s.fitHomeDistance(100,50,915/412);
+  assert.ok(landscape<portrait);
+  const cam=new THREE.PerspectiveCamera(50,412/915,.05,1e6);cam.position.copy(s.HOME_DIRECTION).multiplyScalar(portrait);cam.lookAt(0,0,0);cam.updateMatrixWorld();
+  for(let i=0;i<360;i+=5){const p=new THREE.Vector3(Math.cos(i*Math.PI/180)*100,0,Math.sin(i*Math.PI/180)*100).project(cam);assert.ok(Math.abs(p.x)<=.91&&Math.abs(p.y)<=.91,`${i}°`);}
+});
