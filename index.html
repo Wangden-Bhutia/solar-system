@@ -8,7 +8,7 @@
 </main>
 <nav id="topbar" aria-label="Navigation">
  <button id="back" class="chip" aria-label="Back to overview">Overview</button>
- <div class="top-right"><button id="zoom" class="chip zoom" aria-label="Zoom out to the nearby stars" data-level="solar"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.4 10.4L14 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path class="zoom-minus" d="M4.8 7h4.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path class="zoom-plus" d="M7 4.8v4.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span class="zoom-text">Stars</span></button><button id="journeys" class="chip" aria-label="Guided journeys"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1.5l1.6 4.4 4.4 1.6-4.4 1.6L8 13.5 6.4 9.1 2 7.5l4.4-1.6z"/></svg>Journeys</button><details id="settings"><summary class="chip" aria-label="Menu"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg></summary><div class="menu" role="group" aria-label="Scene controls">
+ <div class="top-right"><button id="journeys" class="chip" aria-label="Guided journeys"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1.5l1.6 4.4 4.4 1.6-4.4 1.6L8 13.5 6.4 9.1 2 7.5l4.4-1.6z"/></svg>Journeys</button><details id="settings"><summary class="chip" aria-label="Menu"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg></summary><div class="menu" role="group" aria-label="Scene controls">
   <div class="mrow mrow-stack"><span class="mlabel">Real scale</span><button id="realBtn" class="switch" aria-pressed="false" aria-label="Real scale"><span></span></button><p class="mnote">True sizes and distances, not today’s positions.</p></div>
   <div class="mrow"><button id="play" class="icon-btn" aria-label="Pause" data-state="playing"><svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9M11 3.5v9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L13 8z" fill="currentColor"/></svg></button><input id="speed" type="range" min="-2" max="2" step="0.01" value="0" aria-label="Simulation speed"><span id="speedTxt" class="mvalue"></span></div>
   <div class="mrow"><span class="mlabel">Planet names</span><button id="lbls" class="switch on" aria-pressed="true" aria-label="Planet names"><span></span></button></div>
@@ -16,6 +16,8 @@
  </div></details></div>
 </nav>
 <div id="fade" aria-hidden="true"></div>
+<nav id="ladder" aria-label="Scale: zoom out with a pinch or scroll, or choose a level"><button data-level="solar" aria-pressed="true">Solar System</button><button data-level="stars" aria-pressed="false">Stars</button><button data-level="galaxy" aria-pressed="false">Milky Way</button></nav>
+<p id="edge-hint" role="status" hidden><span></span><i></i></p>
 <p id="hint" role="status">Tap a planet, the Sun or the Moon</p>
 <section id="sheet" data-state="closed" aria-label="World card" aria-hidden="true" inert>
  <div id="grip-zone">

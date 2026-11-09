@@ -2,6 +2,8 @@ import { bodies, focus, unfocus, hooks, renderer, controls, setHomeScope } from 
 import { createStars } from './stars.js';
 import { createGalaxy } from './galaxy.js';
 import { GALAXY_FACTS } from './galaxy-data.js';
+import { LEVELS, levelIndex, createPush, atLimit, edgeHint } from './zoom-ladder.js';
+import { camera } from './app.js';
 import { STAR_FACTS, habitableZone, sizeFromMass, lightLeftYear } from './stars-data.js';
 import { createExperiments } from './experiments.js';
 import { createLabState } from './lab-state.js';
@@ -27,10 +29,35 @@ function enterStars(){stopAudio();$('settings').open=false;fadeThen(()=>{state.n
 function leaveStars(){stopAudio();$('settings').open=false;const go2=()=>fadeThen(()=>{state.navigate({view:'explore',feature:'orbit',star:null,experiment:null,sheet:'closed'});render();});
  if(state.value.view==='system'){state.update({view:'stars',sheet:'closed'});render();}
  starsView.zoomBackIn(go2);}
-// The zoom ladder: Solar System → nearby stars → Milky Way. The zoom button steps out; Back steps in.
+// The zoom ladder: Solar System → nearby stars → Milky Way. Zooming out past a scene's edge (or the scale
+// ladder) steps out; zooming in past it, or Back, steps in.
 function enterGalaxy(){stopAudio();$('settings').open=false;starsView.zoomOut(()=>fadeThen(()=>{state.navigate({view:'galaxy',landmark:null,star:null,sheet:'closed'});render();}));}
 function leaveGalaxy(){stopAudio();$('settings').open=false;galaxyView.zoomToSun(()=>fadeThen(()=>{state.navigate({view:'stars',star:null,landmark:null,sheet:'closed'});render();}));}
-$('zoom').onclick=()=>{const l=levelOf(state.value.view);if(l==='solar')enterStars();else if(l==='stars')enterGalaxy();};
+// Jump to any level: outward glides via the levels in between; inward glides home to the Sun first.
+function goLevel(target){const cur=levelOf(state.value.view);if(target===cur||fading)return;stopAudio();$('settings').open=false;push.reset();
+ const views={solar:{view:'explore',feature:'orbit'},stars:{view:'stars'},galaxy:{view:'galaxy'}},arrive=()=>fadeThen(()=>{state.navigate({...views[target],star:null,landmark:null,experiment:null,sheet:'closed'});render();});
+ if(levelIndex(target)>levelIndex(cur)){if(cur==='stars')starsView.zoomOut(arrive);else arrive();}
+ else{if(cur==='galaxy')galaxyView.zoomToSun(arrive);else if(cur==='stars'){if(state.value.view==='system'){state.update({view:'stars',sheet:'closed'});render();}starsView.zoomBackIn(arrive);}}}
+for(const b of $('ladder').querySelectorAll('button'))b.onclick=()=>goLevel(b.dataset.level);
+// Gestures: wheel and pinch feed the push accumulator while the active camera sits at a limit.
+const push=createPush();
+function zoomState(){const l=levelOf(state.value.view);
+ if(l==='solar'){if(state.value.view==='try'&&state.value.experiment)return null;const d=camera.position.distanceTo(controls.target);return {d,min:controls.minDistance,max:controls.maxDistance,busy:false,outer:true,inner:false};}
+ const z=(l==='stars'?starsView:galaxyView).zoomState();return {...z,outer:l==='stars',inner:true};}
+function feedZoom(amount){
+ const l=levelOf(state.value.view),z=zoomState();if(!z||z.busy||fading||(state.value.sheet!=='closed'&&state.value.sheet!=='peek'))return;
+ const lim=atLimit(z.d,z.min,z.max),step=push.feed(amount,{atOuter:lim.atOuter&&z.outer,atInner:lim.atInner&&z.inner});
+ const msg=edgeHint(l,push.direction);$('edge-hint').hidden=!msg;if(msg){$('edge-hint').querySelector('span').textContent=msg;$('edge-hint').querySelector('i').style.width=`${Math.round(push.progress*100)}%`;}
+ globalThis.clearTimeout?.(feedZoom.t);feedZoom.t=setTimeout(()=>{$('edge-hint').hidden=true;},1000);
+ if(step){$('edge-hint').hidden=true;goLevel(LEVELS[levelIndex(l)+(step==='out'?1:-1)]);}}
+$('c').addEventListener('wheel',e=>feedZoom(Math.max(-120,Math.min(120,e.deltaY))),{passive:true});
+// Name labels sit above the scene and would swallow the wheel: pass it through so zooming works anywhere.
+$('labels').addEventListener('wheel',e=>{e.preventDefault();$('c').dispatchEvent(new WheelEvent('wheel',{deltaX:e.deltaX,deltaY:e.deltaY,deltaMode:e.deltaMode,clientX:e.clientX,clientY:e.clientY,ctrlKey:e.ctrlKey,bubbles:true,cancelable:true}));},{passive:false});
+const pinch=new Map();let spread=0;
+const spreadOf=()=>{const [a,b]=[...pinch.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
+document.addEventListener('pointerdown',e=>{if(e.target!==$('c'))return;pinch.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch.size===2)spread=spreadOf();},true);
+document.addEventListener('pointermove',e=>{if(!pinch.has(e.pointerId))return;pinch.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch.size!==2)return;const d=spreadOf();if(spread>0&&d>0)feedZoom(-Math.log(d/spread)*600);spread=d;},true);
+for(const t of ['pointerup','pointercancel'])document.addEventListener(t,e=>{pinch.delete(e.pointerId);if(pinch.size<2)spread=0;},true);
 function pickLandmark(m){dismissHint();go({view:'galaxy',landmark:m.name,sheet:'peek'});}
 function pickStar(e){dismissHint();go({view:'stars',star:e.name,sheet:'peek'});}
 hooks.overrideTap=(x,y)=>{const s=state.value;
@@ -438,8 +465,7 @@ function render(){
 if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system')starsView.openSystem(entryOf(s.star));})():starsView.mode==='system'&&starsView.closeSystem());
  if(level==='stars')starsView.select(s.star&&entryOf(s.star));if(level==='galaxy')galaxyView.select(s.landmark&&galaxyView.landmarks.find(x=>x.name===s.landmark));
  document.body.classList.toggle('space-mode',space);
- const z=$('zoom');z.dataset.level=level;z.hidden=level==='galaxy'; // the Galaxy is the outermost level for now
- z.setAttribute('aria-label',level==='solar'?'Zoom out to the nearby stars':'Zoom out to the Milky Way');z.querySelector('.zoom-text').textContent=level==='solar'?'Stars':'';z.classList.toggle('icon-only',level!=='solar');
+ for(const b of $('ladder').querySelectorAll('button'))b.setAttribute('aria-pressed',String(b.dataset.level===level));
  if(race&&!(experiment&&s.experiment==='scale')){globalThis.cancelAnimationFrame?.(race.id);race=null;}
  sheet.dataset.state=s.sheet;document.body.dataset.sheet=s.sheet;
  const open=s.sheet!=='closed';sheet.inert=!open;sheet.setAttribute('aria-hidden',String(!open));

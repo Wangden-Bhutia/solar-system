@@ -17,7 +17,7 @@ export function createStars({ renderer, canvas, labelsEl, onPick }) {
   const scene = new THREE.Scene(); scene.background = new THREE.Color(0x02030a);
   const camera = new THREE.PerspectiveCamera(50, 1, 0.001, 1e5);
   const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enabled = false;
-  controls.minDistance = 0.4; controls.maxDistance = 120; controls.enablePan = false;
+  controls.minDistance = 0.4; controls.maxDistance = 120; controls.enablePan = false; controls.zoomSpeed = 1.8; // these scales span a lot of distance: zoom faster
   // Faint background stars far beyond the neighbourhood.
   { const n = 2500, p = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(4000 + Math.random() * 2000); p.set([v.x, v.y, v.z], i * 3); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
@@ -152,5 +152,6 @@ export function createStars({ renderer, canvas, labelsEl, onPick }) {
     for (const d of dots) d.el.hidden = which !== 'stars'; for (const r of ringLabels) r.el.hidden = which !== 'stars';
     for (const p of current?.sysView?.planets || []) p.el.hidden = which !== 'system'; for (const c of current?.sysView?.compareEls || []) c.el.hidden = which !== 'system';
   }
-  return { render, pick, select, enter, leave, zoomBackIn, zoomOut, openSystem, closeSystem, get mode() { return mode; }, camera, controls, entries, scene, sys, fly };
+  const zoomState = () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1 || mode !== 'stars' });
+  return { render, pick, select, enter, leave, zoomBackIn, zoomOut, zoomState, openSystem, closeSystem, get mode() { return mode; }, camera, controls, entries, scene, sys, fly };
 }
