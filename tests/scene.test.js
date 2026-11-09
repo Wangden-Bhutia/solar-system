@@ -9,13 +9,13 @@ test('Moon is independently focusable; kid/default/real scale keep radius ratios
   class Renderer{setPixelRatio(){}setSize(){}render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}}
   class Controls{constructor(camera){this.camera=camera;this.target=new THREE.Vector3();}update(){this.camera.lookAt(this.target);}}
   const three={...THREE,WebGLRenderer:Renderer};
-  const textures={tex:name=>['Moon','Earth','Mars','Mercury'].includes(name)?{map:new THREE.Texture(),bump:new THREE.Texture()}:new THREE.Texture(),rimShell:()=>new THREE.Object3D(),ringGeometry:()=>new THREE.RingGeometry(1,2),saturnRingTex:()=>new THREE.Texture(),uranusRingTex:()=>new THREE.Texture(),SATURN_RING:{inner:1.2,outer:2.3},URANUS_RING:{inner:1.5,outer:2}};
+  const textures={photo:()=>false,tex:name=>['Moon','Earth','Mars','Mercury'].includes(name)?{map:new THREE.Texture(),bump:new THREE.Texture()}:new THREE.Texture(),rimShell:()=>new THREE.Object3D(),ringGeometry:()=>new THREE.RingGeometry(1,2),saturnRingTex:()=>new THREE.Texture(),uranusRingTex:()=>new THREE.Texture(),SATURN_RING:{inner:1.2,outer:2.3},URANUS_RING:{inner:1.5,outer:2}};
   const fake=(obj)=>new vm.SyntheticModule(Object.keys(obj),function(){for(const [k,v] of Object.entries(obj))this.setExport(k,v);},{context});
   const entry=new vm.SourceTextModule(fs.readFileSync('app.js','utf8'),{context});
   await entry.link(spec=>fake(spec.includes('three.module')?three:spec.includes('OrbitControls')?{OrbitControls:Controls}:spec.includes('data.js')?data:textures));await entry.evaluate();
   const {bodies,setKid,setRealScale,focus,hooks}=entry.namespace;
   const earth=bodies.find(b=>b.data.name==='Earth'),moon=bodies.find(b=>b.data.name==='Moon');
-  assert.equal(bodies.length,10+data.MOONS.length);assert.equal(moon.mesh,earth.moonMesh);assert.equal(moon.satellite,true);
+  assert.equal(bodies.length,10+data.DWARFS.length+data.MOONS.length);assert.equal(moon.mesh,earth.moonMesh);assert.equal(moon.satellite,true);
   setKid(true,{noHome:true});assert.equal(earth.radius,1);assert.equal(moon.radius,data.MOON.size*2);
   assert.equal(moon.mesh.position.x,2.4);assert.equal(moon.mesh.scale.x,2);
   hooks.hold=true;frame(performance.now()+16);focus(moon);frame(performance.now()+32);
@@ -39,6 +39,14 @@ test('Moon is independently focusable; kid/default/real scale keep radius ratios
   // Real scale puts moons at true distance.
   setRealScale(true);assert.equal(io.mesh.position.x,data.MOONS.find(m=>m.name==='Io').realDist);setRealScale(false);assert.equal(io.mesh.position.x,data.MOONS.find(m=>m.name==='Io').dist);
   // Screen speed: true below the cap, slowed but still ordered above it.
+  // Dwarf planets ride their ellipses; Pluto's moon Charon attaches to Pluto; belts fill and move.
+  const pluto=by('Pluto'),eris=by('Eris');assert.ok(pluto.kepler&&eris.ellipse);assert.equal(by('Charon').host,pluto);
+  frame(performance.now()+80);const rr=b=>b.pivot.position.length(),hy=b=>Math.abs(b.pivot.position.y);
+  assert.ok(rr(pluto)>data.DIST_K*29.6**data.DIST_P-1e-6&&rr(pluto)<data.DIST_K*49.4**data.DIST_P,'Pluto between perihelion and aphelion (compressed)');
+  const {belts}=entry.namespace;assert.equal(belts.length,2);const ap=belts[0].pts.geometry.attributes.position;
+  let lo=1e9,hi=0;for(let j=0;j<ap.count;j++){const d=Math.hypot(ap.getX(j),ap.getY(j),ap.getZ(j));lo=Math.min(lo,d);hi=Math.max(hi,d);}
+  assert.ok(lo>by('Mars').pivot.position.length()*0.85&&hi<by('Jupiter').pivot.position.length(),`belt between Mars and Jupiter: ${lo.toFixed(1)}–${hi.toFixed(1)}`);
+  setRealScale(true);assert.ok(Math.abs(Math.hypot(ap.getX(0),ap.getY(0),ap.getZ(0))/data.UNITS_PER_AU-belts[0].els[0].a)<belts[0].els[0].a*0.35,'Real scale: belt at true AU');setRealScale(false);
   assert.equal(moonScreenSpeed(1),1);assert.ok(moonScreenSpeed(100)<moonScreenSpeed(1000));assert.ok(moonScreenSpeed(1000)<MOON_CAP*6);
 });
 async function loadScene(width=390,height=844){
@@ -48,7 +56,7 @@ async function loadScene(width=390,height=844){
   const context=vm.createContext({document:{getElementById:id=>els[id]||=element(),createElement:element,body:element(),addEventListener(){}},window:{},innerWidth:width,innerHeight:height,devicePixelRatio:2,performance,addEventListener(type,fn){(listeners[type]||=[]).push(fn);},requestAnimationFrame:fn=>{frame=fn;},console});
   class Renderer{setPixelRatio(){}setSize(){}render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}}
   class Controls{constructor(camera){this.camera=camera;this.target=new THREE.Vector3();}update(){this.camera.lookAt(this.target);}}
-  const textures={tex:name=>['Moon','Earth','Mars','Mercury'].includes(name)?{map:new THREE.Texture(),bump:new THREE.Texture()}:new THREE.Texture(),rimShell:()=>new THREE.Object3D(),ringGeometry:()=>new THREE.RingGeometry(1,2),saturnRingTex:()=>new THREE.Texture(),uranusRingTex:()=>new THREE.Texture(),SATURN_RING:{inner:1.2,outer:2.3},URANUS_RING:{inner:1.5,outer:2}};
+  const textures={photo:()=>false,tex:name=>['Moon','Earth','Mars','Mercury'].includes(name)?{map:new THREE.Texture(),bump:new THREE.Texture()}:new THREE.Texture(),rimShell:()=>new THREE.Object3D(),ringGeometry:()=>new THREE.RingGeometry(1,2),saturnRingTex:()=>new THREE.Texture(),uranusRingTex:()=>new THREE.Texture(),SATURN_RING:{inner:1.2,outer:2.3},URANUS_RING:{inner:1.5,outer:2}};
   const fake=(obj)=>new vm.SyntheticModule(Object.keys(obj),function(){for(const [k,v] of Object.entries(obj))this.setExport(k,v);},{context});
   const entry=new vm.SourceTextModule(fs.readFileSync('app.js','utf8'),{context});
   await entry.link(spec=>fake(spec.includes('three.module')?{...THREE,WebGLRenderer:Renderer}:spec.includes('OrbitControls')?{OrbitControls:Controls}:spec.includes('data.js')?data:textures));await entry.evaluate();
@@ -60,16 +68,21 @@ const screen=(camera,obj,w,h)=>{const p=obj.getWorldPosition(new THREE.Vector3()
 test('tiny planets are tappable with an enlarged touch radius; empty space picks nothing',async()=>{
   const s=await loadScene();s.hooks.hold=true;s.setHomeScope('all');s.step(40);
   // In the all-planets overview, every planet is a few pixels wide. Tap 50 px outward from the outermost one.
-  const world=s.bodies.filter(b=>b.pivot).map(b=>({b,p:screen(s.camera,b.mesh,390,844)})).sort((a,c)=>Math.hypot(c.p[0]-195,c.p[1]-422)-Math.hypot(a.p[0]-195,a.p[1]-422))[0];
+  const world=s.bodies.filter(b=>b.pivot&&!b.kepler).map(b=>({b,p:screen(s.camera,b.mesh,390,844)})).sort((a,c)=>Math.hypot(c.p[0]-195,c.p[1]-422)-Math.hypot(a.p[0]-195,a.p[1]-422))[0];
   const [x,y]=world.p;assert.ok(x>0&&x<390&&y>0&&y<844,`${world.b.data.name} on screen in overview`);
   const dist=s.camera.position.distanceTo(world.b.mesh.getWorldPosition(new THREE.Vector3()));
   const projectedRadius=world.b.radius/dist*844/2/Math.tan(s.camera.fov*Math.PI/360);
   assert.ok(projectedRadius<10,`${world.b.data.name} is only ${projectedRadius.toFixed(1)} px`);
   const len=Math.hypot(x-195,y-422),ux=(x-195)/len,uy=(y-422)/len;
-  assert.equal(s.pickAt(x+ux*50,y+uy*50,'touch')?.data.name,world.b.data.name,'50 px away still selects on touch');
+  // Dwarf planets start at random places; skip the check if one happens to be nearer the tap point.
+  const tx=x+ux*50,ty=y+uy*50,dwarfNear=s.bodies.filter(b=>b.kepler).some(b=>{const q=screen(s.camera,b.mesh,390,844);return Math.hypot(q[0]-tx,q[1]-ty)*1.6<50;});
+  if(!dwarfNear)assert.equal(s.pickAt(tx,ty,'touch')?.data.name,world.b.data.name,'50 px away still selects on touch');
   assert.notEqual(s.pickAt(x+ux*40,y+uy*40,'mouse')?.data.name,world.b.data.name,'mouse keeps a tighter radius');
   assert.equal(s.PICK_RADIUS.touch,60);
-  assert.equal(s.pickAt(x+ux*80,y+uy*80,'touch')?.data.name??null,null,'empty space beyond the radius returns null');
+  const pl=s.bodies.find(b=>b.data.name==='Pluto'),pp=screen(s.camera,pl.mesh,390,844);const clear=s.bodies.filter(b=>b!==pl&&(b.pivot||b.data.name==='Sun')).every(b=>{const q=screen(s.camera,b.mesh,390,844);return Math.hypot(q[0]-pp[0],q[1]-pp[1])>70;});
+  if(clear&&pp[0]>0&&pp[0]<390&&pp[1]>0&&pp[1]<844)assert.equal(s.pickAt(pp[0],pp[1],'touch')?.data.name,'Pluto','a dwarf planet is still tappable on target');
+  { const ex=x+ux*80,ey=y+uy*80,occupied=s.bodies.filter(b=>b.kepler).some(b=>{const q=screen(s.camera,b.mesh,390,844);return Math.hypot(q[0]-ex,q[1]-ey)*1.6<60;});
+    if(!occupied)assert.equal(s.pickAt(ex,ey,'touch')?.data.name??null,null,'empty space beyond the radius returns null'); }
 });
 test('visible-region projection keeps the focused world centred above the sheet and picking aligned',async()=>{
   const s=await loadScene();s.hooks.hold=true;
@@ -114,7 +127,7 @@ for(const [w,h,label,defaultAll] of [[412,915,'portrait 412x915',false],[390,844
     if(defaultAll)assert.equal(s.hooks.homeScope,'all','landscape defaults to all planets');else s.setHomeScope('all');
     s.step(40);
     assert.ok(s.camera.position.distanceTo(s.HOME.pos)<1e-6,'at the overview position');
-    for(const b of s.bodies.filter(b=>b.pivot||b.data.name==='Sun'))assert.ok(inFrustum(s.camera,b.mesh),`${b.data.name} on screen`);
+    for(const b of s.bodies.filter(b=>(b.pivot&&!b.kepler)||b.data.name==='Sun'))assert.ok(inFrustum(s.camera,b.mesh),`${b.data.name} on screen`);
     const r=ringPx(s.camera,Math.max(...data.PLANETS.map(p=>p.dist)),w);assert.ok(r<=w/2&&(w<h?r>w*.35:true),`Neptune orbit ${r.toFixed(0)} px`);
   });
 }
@@ -163,4 +176,13 @@ test('a page first laid out at another size re-frames the overview when it becom
   const home=s.HOME.pos.clone();s.resizeTo(412,860);s.step(40);// URL bar: small change, camera keeps framing within the fitted margin
   for(const n of ['Sun',...INNER])assert.ok(inFrustum(s.camera,s.bodies.find(b=>b.data.name===n).mesh),`${n} still on screen after a URL-bar resize`);
   void home;
+});
+test('following a fast planet keeps the camera on its sunlit side (the view turns with the orbit)',async()=>{
+  const s=await loadScene(412,915);s.hooks.hold=false;
+  const mercury=s.bodies.find(b=>b.data.name==='Mercury');s.focus(mercury,{silent:true,outside:true,dur:.1});
+  const sunward=()=>s.camera.position.length()<s.controls.target.length();
+  s.step(4);assert.ok(sunward(),'starts on the day side');
+  const start=Math.atan2(-mercury.pivot.position.z,mercury.pivot.position.x);
+  s.step(60);const moved=Math.abs(Math.atan2(-mercury.pivot.position.z,mercury.pivot.position.x)-start);
+  assert.ok(moved>0.5,`Mercury moved ${moved.toFixed(2)} rad round the Sun`);assert.ok(sunward(),'still on the day side after a big slice of its orbit');
 });

@@ -45,7 +45,13 @@ export const STRIKING = {
 };
 // Known moons per planet, kept deliberately loose because the counts keep rising (Jupiter 101 and
 // Saturn at least 285 per Live Science / EarthSky, March 2026; other sources differ).
-export const MOON_COUNT = { Mercury:'no moons', Venus:'no moons', Earth:'one Moon', Mars:'two small moons', Jupiter:'more than 100 known moons', Saturn:'more than 280 known moons', Uranus:'28 confirmed moons', Neptune:'16 known moons' };
+export const MOON_COUNT = { Mercury:'no moons', Venus:'no moons', Earth:'one Moon', Mars:'two small moons', Jupiter:'more than 100 known moons', Saturn:'more than 280 known moons', Uranus:'28 confirmed moons', Neptune:'16 known moons', Pluto:'five known moons', Eris:'one known moon, Dysnomia', Haumea:'two known moons and a ring', Makemake:'one known moon', Ceres:'no moons', Vesta:'no moons', Pallas:'no moons' };
 // NASA NSSDCA satellite fact sheets used for moon cards (orbits) — read 9 November 2026.
-export const SAT_SOURCES = { Mars:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html', Jupiter:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/joviansatfact.html', Saturn:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturniansatfact.html', Uranus:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/uraniansatfact.html', Neptune:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/neptuniansatfact.html' };
+export const SAT_SOURCES = { Mars:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html', Jupiter:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/joviansatfact.html', Saturn:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturniansatfact.html', Uranus:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/uraniansatfact.html', Neptune:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/neptuniansatfact.html', Pluto:'https://nssdc.gsfc.nasa.gov/planetary/factsheet/plutofact.html' };
 export const JPL_RADII = 'https://ssd.jpl.nasa.gov/sats/phys_par/';
+// Dwarf planets and asteroids: where their size and orbit facts come from (read 9 November 2026).
+export const DWARF_SOURCES = {
+ Ceres:['NASA · asteroid fact sheet','https://nssdc.gsfc.nasa.gov/planetary/factsheet/asteroidfact.html'], Vesta:['NASA · asteroid fact sheet','https://nssdc.gsfc.nasa.gov/planetary/factsheet/asteroidfact.html'], Pallas:['NASA · asteroid fact sheet','https://nssdc.gsfc.nasa.gov/planetary/factsheet/asteroidfact.html'],
+ Pluto:['NASA · Pluto fact sheet','https://nssdc.gsfc.nasa.gov/planetary/factsheet/plutofact.html'], Eris:['NASA · Eris','https://science.nasa.gov/dwarf-planets/eris/'], Haumea:['NASA · Haumea','https://science.nasa.gov/dwarf-planets/haumea/'], Makemake:['NASA · Makemake','https://science.nasa.gov/dwarf-planets/makemake/'],
+};
+export const SBDB = name => `https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=${encodeURIComponent(name)}`;

@@ -36,6 +36,46 @@ SUN.size = rOf(SUN.km) / SUN_SHRINK; SUN.realSize = rOf(SUN.km);
 for (const d of PLANETS) { d.size = rOf(d.km); d.dist = DIST_K * d.au ** DIST_P; d.realDist = d.au * UNITS_PER_AU; }
 MOON.size = rOf(MOON.km); MOON.dist = 1.5; MOON.realDist = 2 * rOf(MOON.distKm); // Moon distance shrunk to 1.5 units by default
 
+// ---- Dwarf planets and the biggest asteroids ----
+// Orbital elements (a in AU, e, i, node om, argument of perihelion w; degrees) from JPL Small-Body
+// Database (epoch JD 2461200.5) and, for Pluto, the NASA NSSDCA Pluto fact sheet (J2000 mean
+// elements). Sizes and periods: NSSDCA (Pluto, Ceres, Vesta, Pallas) and NASA Science dwarf-planet
+// pages (Eris, Haumea, Makemake). Read 9 Nov 2026; see docs/sources.md. Positions along each orbit
+// are illustrative (not today's sky), like the planets'.
+export const DWARFS = [
+ { name:'Ceres', kind:'Dwarf planet', km:939, a:2.77, e:0.0797, i:10.6, om:80.2, w:73.3, period:4.60*365.25, rot:9.07, color:0x8f8b86,
+   fact:'Ceres is the largest object in the asteroid belt and the only dwarf planet in the inner Solar System.' },
+ { name:'Vesta', kind:'Asteroid', km:526, a:2.36, e:0.0902, i:7.14, om:104, w:151, period:3.63*365.25, rot:5.34, color:0x9b9488,
+   fact:'Vesta is the brightest asteroid; on a dark night it can sometimes be seen without a telescope.' },
+ { name:'Pallas', kind:'Asteroid', km:546, a:2.77, e:0.231, i:34.9, om:173, w:311, period:4.61*365.25, rot:7.81, color:0x8a8780,
+   fact:'Pallas’s orbit is tilted almost 35°, steeply out of the planets’ flat plane.' },
+ { name:'Pluto', kind:'Dwarf planet', km:2376, a:39.48, e:0.2488, i:17.14, om:110.30, w:113.76, period:90560, rot:-153.29, color:0xc9b39b,
+   fact:'Pluto has a vast heart-shaped plain of frozen nitrogen.' },
+ { name:'Haumea', kind:'Dwarf planet', km:1740, a:43.1, e:0.194, i:28.2, om:122, w:241, period:285*365.25, rot:3.9, color:0xe4e1dc, shape:[1, 0.78, 0.5],
+   fact:'Haumea spins once every 4 hours, so fast it is stretched into an oval.' },
+ { name:'Makemake', kind:'Dwarf planet', km:1430, a:45.6, e:0.159, i:29.0, om:79.3, w:297, period:305*365.25, rot:22.5, color:0xb8836a,
+   fact:'Makemake is coated in frozen methane and ethane, which give it a reddish-brown tint.' },
+ { name:'Eris', kind:'Dwarf planet', km:2400, a:67.9, e:0.438, i:43.9, om:36, w:151, period:557*365.25, rot:378, color:0xe9e6e1,
+   fact:'Eris is about Pluto’s size but takes 557 years to orbit, on a path tilted 44°.' },
+];
+const rad = d => d * Math.PI / 180;
+// Position on an elliptical orbit, in AU, in the scene's frame (x, ecliptic north = y, z = −ecliptic Y).
+export function keplerPosition(o, meanAnomaly) {
+  let E = meanAnomaly; for (let k = 0; k < 8; k++) E -= (E - o.e * Math.sin(E) - meanAnomaly) / (1 - o.e * Math.cos(E));
+  const xp = o.a * (Math.cos(E) - o.e), yp = o.a * Math.sqrt(1 - o.e * o.e) * Math.sin(E);
+  const [W, w, i] = [rad(o.om), rad(o.w), rad(o.i)], cW = Math.cos(W), sW = Math.sin(W), cw = Math.cos(w), sw = Math.sin(w), ci = Math.cos(i), si = Math.sin(i);
+  const X = (cW * cw - sW * sw * ci) * xp + (-cW * sw - sW * cw * ci) * yp;
+  const Y = (sW * cw + cW * sw * ci) * xp + (-sW * sw + cW * cw * ci) * yp;
+  const Z = (sw * si) * xp + (cw * si) * yp;
+  return [X, Z, -Y];
+}
+for (const d of DWARFS) {
+  d.size = rOf(d.km); d.au = d.a;
+  d.blurb = `${d.kind} in the ${d.a < 5 ? 'asteroid belt' : 'Kuiper Belt'}.`;
+  const years = d.period / 365.25;
+  d.facts = [['Diameter', `${d.shape ? 'about ' : ''}${d.km.toLocaleString('en-IN')} km${d.shape ? ' (long axis)' : ''}`], ['Average distance from Sun', `${d.a} AU`], ['One orbit', `${years < 10 ? years.toFixed(2) : Math.round(years)} years`], ['Orbit tilt', `${d.i}°`], ['Orbit stretch (eccentricity)', `${d.e}`]];
+}
+
 // ---- Major moons (besides Earth's Moon) ----
 // Orbits: semi-major axis and sidereal period from NASA NSSDCA satellite fact sheets (Mars fact sheet
 // 2025; Jovian Dec 2023; Saturnian Jul 2025; Uranian Mar 2023; Neptunian Mar 2024). Mean radii from
@@ -61,20 +101,45 @@ export const MOONS = [
  { name:'Umbriel', parent:'Uranus', r:584.7, aKm:266000, period:4.144176, color:0x6e6b67, fact:'Umbriel is the darkest of Uranus’s big moons.' },
  { name:'Titania', parent:'Uranus', r:788.9, aKm:436300, period:8.705867, color:0xa69f97, fact:'Titania is Uranus’s largest moon.' },
  { name:'Oberon', parent:'Uranus', r:761.4, aKm:583500, period:13.463234, color:0x8d857c, fact:'Oberon is the outermost of Uranus’s five big moons, old and heavily cratered.' },
+ { name:'Charon', parent:'Pluto', r:606, aKm:19596, period:6.3872, color:0x9c958d, fact:'Charon is half as wide as Pluto; the two circle a point in space between them.' },
  { name:'Triton', parent:'Neptune', r:1353.4, aKm:354760, period:5.876854, incl:157.345, color:0xd9c8be, fact:'Triton orbits Neptune backwards, against the way Neptune spins.' },
 ];
 // Scene geometry: true sizes. Orbits are compressed so each system fits between neighbouring planets:
 // distance (in planet radii) = floor + 0.5 × ln(a / a_innermost), which keeps the order and relative
 // spacing of a planet's moons. The floor keeps the innermost moon outside the drawn rings (Saturn's
 // reach 2.27 radii, Uranus's 2.0). Real scale uses the true distance.
-export const MOON_SPREAD = 0.5, MOON_FLOOR = { Mars:2.0, Jupiter:2.0, Saturn:2.45, Uranus:2.2, Neptune:3.0 };
-const PLANET_KM = Object.fromEntries(PLANETS.map(p => [p.name, p.km]));
+export const MOON_SPREAD = 0.5, MOON_FLOOR = { Mars:2.0, Jupiter:2.0, Saturn:2.45, Uranus:2.2, Neptune:3.0, Pluto:3.0 };
+const HOSTS = [...PLANETS, ...DWARFS], PLANET_KM = Object.fromEntries(HOSTS.map(p => [p.name, p.km]));
 for (const m of MOONS) {
   m.km = 2 * m.r; m.size = rOf(m.km);
-  const parent = PLANETS.find(p => p.name === m.parent);
+  const parent = HOSTS.find(p => p.name === m.parent);
   const inner = Math.min(...MOONS.filter(x => x.parent === m.parent).map(x => x.aKm));
   m.dist = parent.size * (MOON_FLOOR[m.parent] + MOON_SPREAD * Math.log(m.aKm / inner)); m.realDist = m.aKm / 12756;
   m.rot = m.period * 24; // tidally locked: one spin per orbit
   m.blurb = `A moon of ${m.parent}.`;
   m.facts = [['Mean diameter', `${Math.round(m.km).toLocaleString('en-IN')} km`], [`Mean distance from ${m.parent}`, `${m.aKm.toLocaleString('en-IN')} km`], ['One orbit', m.period < 2 ? `${(m.period * 24).toFixed(1)} hours` : `${m.period.toFixed(m.period < 10 ? 2 : 1)} days`]];
+}
+
+// ---- Asteroid belt and Kuiper Belt (statistical, not a catalogue) ----
+// Each point stands for many real bodies. Main belt: 2.06–3.28 AU (between the 4:1 and 2:1
+// resonances with Jupiter) with the Kirkwood gaps emptied at 2.50 (3:1), 2.82 (5:2) and 2.95 AU
+// (7:3); inclinations and eccentricities follow the belt's typical spread. Kuiper Belt: a "cold"
+// classical belt at 42–47.5 AU and Pluto-like bodies near 39.4 AU (2:3 with Neptune). Reproducible
+// pseudo-random positions; see docs/sources.md.
+export const KIRKWOOD = [[2.50, 0.03], [2.825, 0.025], [2.955, 0.02]];
+function rng(seed) { let x = seed >>> 0; return () => ((x = (Math.imul(x, 1664525) + 1013904223) >>> 0) / 4294967296); }
+const rayleigh = (r, sigma) => sigma * Math.sqrt(-2 * Math.log(1 - r() * 0.999));
+export function beltElements(kind, n, seed = 7) {
+  const r = rng(seed), out = [];
+  while (out.length < n) {
+    let a, e, i;
+    if (kind === 'asteroid') {
+      a = 2.06 + (3.28 - 2.06) * (r() + r()) / 2; // denser in the middle of the belt
+      if (KIRKWOOD.some(([g, h]) => Math.abs(a - g) < h)) continue;
+      e = Math.min(0.3, rayleigh(r, 0.09)); i = Math.min(30, rayleigh(r, 7));
+    } else if (r() < 0.25) { a = 39.4 + (r() - 0.5) * 0.4; e = 0.1 + r() * 0.2; i = Math.min(25, rayleigh(r, 9)); }
+    else { a = 42 + r() * 5.5; e = r() * 0.1; i = r() < 0.7 ? Math.min(10, rayleigh(r, 2.5)) : Math.min(30, rayleigh(r, 12)); }
+    out.push({ a, e, i, om: r() * 360, w: r() * 360, M: r() * Math.PI * 2 });
+  }
+  return out;
 }

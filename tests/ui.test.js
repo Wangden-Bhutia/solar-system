@@ -1,6 +1,6 @@
 // DOM emulator only: NOT a browser, rendering test or actual mobile playback test.
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import {parseHTML} from 'linkedom';
-import {SUN,PLANETS,MOON,MOONS} from '../data.js';import * as science from '../science.js';import * as state from '../lab-state.js';import * as sheetMod from '../sheet.js';import * as insights from '../insights.js';import * as learn from '../learn.js';import * as lines from '../voice/lines.js';
+import {SUN,PLANETS,MOON,MOONS,DWARFS} from '../data.js';import * as science from '../science.js';import * as state from '../lab-state.js';import * as sheetMod from '../sheet.js';import * as insights from '../insights.js';import * as learn from '../learn.js';import * as lines from '../voice/lines.js';
 async function setup(width=390,height=844,stored={}){
  const {window,document}=parseHTML(fs.readFileSync('index.html','utf8'));
  const selections=new WeakMap();Object.defineProperty(window.HTMLSelectElement.prototype,'value',{configurable:true,get(){return selections.get(this)??this.querySelector('option')?.textContent??'';},set(v){selections.set(this,v);}});
@@ -8,7 +8,7 @@ async function setup(width=390,height=844,stored={}){
  const sheet=document.getElementById('sheet');sheet.getBoundingClientRect=()=>{const h=sheetHeights[sheet.dataset.state];return {left:0,top:height-h,width,height:h};};
  document.getElementById('stage').getBoundingClientRect=()=>({left:0,top:0,width,height});
  const hooks={homeScope:'inner'},focuses=[],updates=[],renders=[],played=[],storage={...stored};let unlocks=0,stops=0;
- const bodies=[SUN,...PLANETS,MOON,...MOONS].map(data=>({data}));const controls={};
+ const bodies=[SUN,...PLANETS,MOON,...DWARFS,...MOONS].map(data=>({data}));const controls={};
  const app={hooks,bodies,controls,renderer:{},focus(b,opts={}){focuses.push([b.data.name,opts]);if(!opts.silent)hooks.onFocus?.(b);},unfocus(){focuses.push(['overview']);},setHomeScope(scope){hooks.homeScope=scope;focuses.push(['overview:'+scope]);}};
  const audio={createVoicePlayer:({onState})=>({unlock(){unlocks++;},stop(){stops++;onState('idle');},say(id){assert.ok(lines.LINES[id],id);played.push(id);onState('speaking');return Promise.resolve();}})};
  const mods={'./app.js':app,'./science.js':science,'./lab-state.js':state,'./sheet.js':sheetMod,'./insights.js':insights,'./voice/lines.js':lines,'./voice-player.js':audio,'./learn.js':learn,'./experiments.js':{createExperiments:()=>({update(s){updates.push(s);},render(w,h,v){renders.push([w,h,v]);}})}};
@@ -94,7 +94,7 @@ test('every world has a working card, contextual action, facts and external sour
  for(const b of a.app.bodies){a.tap(b.data.name);assert.equal(a.$('title').textContent,b.data.name);assert.equal(a.$('fact').textContent,insights.STRIKING[b.data.name]||b.data.fact);assert.ok(a.$('world-insight').textContent.length>20);assert.ok(a.$('world-sources').querySelector('a').getAttribute('href').startsWith('https://'));a.$('action').onclick();const v=a.lab.state.value;assert.ok(v.experiment||v.feature==='orbit'||(v.feature==='moons'&&(b.data.parent?v.world===b.data.parent:v.world===b.data.name)),b.data.name);}
 });
 test('keyboard access: menu world picker opens a card; voice is opt-in per tap and remembered',async()=>{
- const a=await setup();assert.equal(a.$('world').querySelectorAll('option').length,10+MOONS.length);
+ const a=await setup();assert.equal(a.$('world').querySelectorAll('option').length,10+DWARFS.length+MOONS.length);
  a.$('world').value='Neptune';a.$('world').onchange();assert.equal(a.sheet,'peek');assert.equal(a.$('title').textContent,'Neptune');
  a.tap('Earth');assert.equal(a.played.length,0);a.$('listen').onclick();assert.equal(a.unlocks,1);assert.equal(a.played[0],'lab_earth');
  a.$('sound').checked=false;a.$('sound').onchange();const count=a.played.length;a.$('listen').onclick();assert.equal(a.played.length,count);assert.equal(JSON.parse(a.storage['solar.kids.v1']).muted,true);
@@ -192,4 +192,20 @@ test('moons: planet cards list their big moons and count; a moon card has its ow
  a.tap('Mercury');assert.match(a.$('world-size').textContent,/Mercury has no moons/);assert.equal([...a.$('features').querySelectorAll('button')].some(b=>b.dataset.feature==='moons'),false);
  a.tap('Mars');assert.equal(a.$('action').textContent,'Meet Mars’s moons');a.$('action').onclick();assert.equal(a.sheet,'half','opens the list');assert.match(a.$('moon-count').textContent,/two small moons\. Both are drawn here/);
  a.tap('Earth');assert.equal(a.$('action').textContent,'Why do seasons happen?','Earth keeps its lab');
+});
+test('dwarf planets and asteroids: own cards, kind, facts, sources, light time; Pluto shows Charon',async()=>{
+ const a=await setup();
+ a.tap('Pluto');assert.equal(a.$('kicker').textContent,'Dwarf planet');assert.match(a.$('fact').textContent,/heart/);
+ assert.match(a.$('world-size').textContent,/Sunlight takes 5 h 28 min to get here\. Pluto has five known moons\./);
+ assert.match(a.$('world-deeper').textContent,/inside Neptune’s orbit/);assert.match(a.$('world-sources').innerHTML,/plutofact/);assert.match(a.$('world-sources').innerHTML,/sbdb_lookup/);
+ assert.equal(a.$('action').textContent,'Meet Pluto’s moons');a.$('action').onclick();assert.match(a.$('moon-count').textContent,/The biggest, Charon, is drawn here/);
+ a.tap('Vesta');assert.equal(a.$('kicker').textContent,'Asteroid');assert.match(a.$('world-deeper').textContent,/weigh less than our Moon/);
+ a.tap('Eris');assert.match(a.$('world-facts').textContent,/43\.9°/);assert.equal(a.$('action').textContent,'See its orbit');a.$('action').onclick();assert.equal(a.lab.state.value.feature,'orbit');
+ a.tap('Haumea');assert.match(a.$('world-facts').textContent,/about 1,740 km \(long axis\)/);assert.match(a.$('world-sources').innerHTML,/science\.nasa\.gov\/dwarf-planets\/haumea/);
+});
+test('photographic maps are credited (CC BY 4.0); Venus explains its cloud look; worlds are approached from the sunlit side',async()=>{
+ const a=await setup();a.tap('Mars');assert.match(a.$('world-sources').innerHTML,/solarsystemscope\.com\/textures/);assert.match(a.$('world-sources').innerHTML,/licenses\/by\/4\.0/);
+ assert.equal(a.focuses.at(-1)[1].outside,true,'camera on the day side');
+ a.tap('Venus');assert.match(a.$('world-sources').textContent,/cloud tops/);a.tap('Pluto');assert.doesNotMatch(a.$('world-sources').innerHTML,/solarsystemscope/);
+ a.tap('Sun');assert.equal(a.focuses.at(-1)[1].outside,false);
 });

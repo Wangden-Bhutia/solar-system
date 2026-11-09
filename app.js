@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.min.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
-import { SUN, PLANETS, MOON, MOONS, SUN_SHRINK } from './data.js';
+import { SUN, PLANETS, MOON, MOONS, DWARFS, keplerPosition, beltElements, SUN_SHRINK, DIST_K, DIST_P, UNITS_PER_AU } from './data.js';
 let realScale = false; const D = d => realScale ? d.realDist : d.dist;
-import { tex, rimShell, ringGeometry, saturnRingTex, uranusRingTex, SATURN_RING, URANUS_RING } from './textures.js';
+import { tex, rimShell, ringGeometry, saturnRingTex, uranusRingTex, SATURN_RING, URANUS_RING, photo } from './textures.js';
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true });
@@ -56,6 +56,7 @@ function addLabel(body) {
 
 // Sun
 const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(SUN.size, 48, 32), new THREE.MeshBasicMaterial({ map: tex('Sun') }));
+photo(sunMesh.material, 'sun');
 sunMesh.add(rimShell(SUN.size * 1.03, 0xffb347, 1.6, 1.2));
 scene.add(sunMesh);
 const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: (() => {
@@ -69,18 +70,22 @@ const sunBody = { data: SUN, mesh: sunMesh, radius: SUN.size };
 bodies.push(sunBody); addLabel(sunBody);
 
 const TRAIL_N = 160;
+const PHOTO = { Mercury:{ map:'mercury', normal:'mercury-normal' }, Earth:{ map:'earth' }, Mars:{ map:'mars', normal:'mars-normal' }, Jupiter:{ map:'jupiter' }, Saturn:{ map:'saturn' }, Uranus:{ map:'uranus' }, Neptune:{ map:'neptune' } };
 for (const d of PLANETS) {
   const pivot = new THREE.Object3D(); scene.add(pivot);
   const t = tex(d.name), tx = t.map ? t : { map: t };
   const mat = new THREE.MeshStandardMaterial({ map: tx.map, bumpMap: tx.bump || null, bumpScale: tx.bump ? d.size * 0.04 : 0, roughness: 0.85, metalness: 0 });
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(d.size, 48, 32), mat);
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(d.size, 64, 40), mat);
+  // Photographic maps for every planet except Venus: from space Venus is a featureless cloud deck,
+  // which the procedural map already shows (the available Venus map is radar of the hidden surface).
+  if (PHOTO[d.name]) photo(mat, PHOTO[d.name].map, PHOTO[d.name]);
   // Real axial tilt: tilt group holds the spinning mesh (obliquity > 90° makes Venus/Uranus spin retrograde)
   const tiltG = new THREE.Object3D(); tiltG.rotation.z = THREE.MathUtils.degToRad(d.tilt);
   pivot.add(tiltG); tiltG.add(mesh);
   mesh.add(rimShell(d.size * 1.035, d.rim || d.color, 2.6, d.name === 'Earth' ? 1.1 : 0.55, 32));
   if (d.name === 'Earth') {
     const cl = new THREE.Mesh(new THREE.SphereGeometry(d.size * 1.012, 48, 32), new THREE.MeshStandardMaterial({ map: tex('EarthClouds'), transparent: true, depthWrite: false, roughness: 1 }));
-    mesh.add(cl); mesh.userData.clouds = cl;
+    mesh.add(cl); mesh.userData.clouds = cl; photo(cl.material, 'earth-clouds');
     const axis = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-d.size*1.5,0),new THREE.Vector3(0,d.size*1.5,0)]), new THREE.LineBasicMaterial({color:0xffd286}));
     tiltG.add(axis); mesh.userData.axis = axis;
   }
@@ -103,13 +108,67 @@ for (const d of PLANETS) {
   if (d.moon) {
     const mp = new THREE.Object3D(); pivot.add(mp);
     const mm = new THREE.Mesh(new THREE.SphereGeometry(MOON.size, 20, 12), new THREE.MeshStandardMaterial({ map: tex('Moon').map, bumpMap: tex('Moon').bump, bumpScale: MOON.size * .04, roughness: 0.95 }));
-    mm.position.x = MOON.dist; mp.add(mm); body.moonPivot = mp; body.moonMesh = mm;
+    mm.position.x = MOON.dist; mp.add(mm); body.moonPivot = mp; body.moonMesh = mm; photo(mm.material, 'moon', { normal:'moon-normal' });
   }
   bodies.push(body); addLabel(body);
 }
 const earthBody = bodies.find(b => b.data.name === 'Earth');
 const moonBody = { data: MOON, mesh: earthBody.moonMesh, radius: MOON.size, satellite: true };
 bodies.push(moonBody); addLabel(moonBody);
+// Dwarf planets and the biggest asteroids, on their real tilted, stretched orbits (JPL elements).
+// Distance from the Sun is compressed the same way as the planets' (25 × AU^0.6), applied point by
+// point, so Pluto still dips inside Neptune's orbit; Real scale uses true distances.
+const auToScene = r => realScale ? r * UNITS_PER_AU : DIST_K * r ** DIST_P;
+const toScene = v => { const r = Math.hypot(v[0], v[1], v[2]), k = auToScene(r) / r; return [v[0] * k, v[1] * k, v[2] * k]; };
+function fillEllipse(b) {
+  const pos = b.ellipse.geometry.attributes.position;
+  for (let k = 0; k < pos.count; k++) { const v = toScene(keplerPosition(b.data, k / (pos.count - 1) * Math.PI * 2)); pos.setXYZ(k, v[0], v[1], v[2]); }
+  pos.needsUpdate = true; b.ellipse.geometry.computeBoundingSphere();
+}
+for (const d of DWARFS) {
+  const pivot = new THREE.Object3D(); scene.add(pivot);
+  const tiltG = new THREE.Object3D(); pivot.add(tiltG);
+  const geo = new THREE.SphereGeometry(d.size, 40, 28); if (d.shape) geo.scale(d.shape[0], d.shape[2], d.shape[1]); // Haumea: an elongated spinning egg
+  const t = tex('Moon'), mat = new THREE.MeshStandardMaterial({ map: t.map || t, bumpMap: t.bump || null, bumpScale: d.size * 0.03, color: d.color, roughness: 0.95 });
+  const mesh = new THREE.Mesh(geo, mat); tiltG.add(mesh);
+  const eg = new THREE.BufferGeometry(); eg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(257 * 3), 3));
+  const ellipse = new THREE.Line(eg, new THREE.LineBasicMaterial({ color: d.a < 5 ? 0x6b6455 : 0x4b5a7a, transparent: true, opacity: 0.4 })); scene.add(ellipse);
+  const body = { data: d, pivot, mesh, ellipse, kepler: true, radius: d.size, angle: Math.random() * Math.PI * 2 };
+  fillEllipse(body); bodies.push(body); addLabel(body);
+}
+// The asteroid belt and the Kuiper Belt as clouds of points, each moving on its own orbit at its own
+// speed (inner belt faster), so the belt slowly shears like the real one.
+function makeBelt(kind, n, color, opacity) {
+  const els = beltElements(kind, n), g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color, size: 1.6, sizeAttenuation: false, transparent: true, opacity, depthWrite: false }));
+  pts.frustumCulled = false; scene.add(pts);
+  // Precompute each orbit's orientation (perifocal P and Q axes, in scene coordinates) once; per frame
+  // only the position along the ellipse changes.
+  const k = new Float32Array(n * 10);
+  els.forEach((o, j) => {
+    const p0 = keplerPosition({ ...o, e: 0, a: 1 }, 0), q0 = keplerPosition({ ...o, e: 0, a: 1 }, Math.PI / 2);
+    k.set([o.a, o.e, o.a * Math.sqrt(1 - o.e * o.e), o.M, ...p0, ...q0], j * 10);
+  });
+  return { kind, els, pts, k, n, at: NaN };
+}
+export const belts = [makeBelt('asteroid', 4000, 0x9a8c78, 0.7), makeBelt('kuiper', 1600, 0x7d8db0, 0.5)];
+function placeBelts(force) {
+  for (const belt of belts) {
+    if (!force && belt.at === simDays) continue; belt.at = simDays;
+    const pos = belt.pts.geometry.attributes.position.array, k = belt.k;
+    for (let j = 0; j < belt.n; j++) {
+      const o = j * 10, a = k[o], e = k[o + 1], b = k[o + 2];
+      const M = k[o + 3] + simDays / (365.25 * a * Math.sqrt(a)) * Math.PI * 2;
+      let E = M + e * Math.sin(M); E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E)); // e ≤ 0.3: two steps are plenty
+      const x = a * (Math.cos(E) - e), y = b * Math.sin(E);
+      const X = k[o + 4] * x + k[o + 7] * y, Y = k[o + 5] * x + k[o + 8] * y, Z = k[o + 6] * x + k[o + 9] * y;
+      const r = Math.sqrt(X * X + Y * Y + Z * Z), s = auToScene(r) / r;
+      pos[j * 3] = X * s; pos[j * 3 + 1] = Y * s; pos[j * 3 + 2] = Z * s;
+    }
+    belt.pts.geometry.attributes.position.needsUpdate = true;
+  }
+}
 // Major moons of Mars and the giant planets. Each orbits in its planet's equatorial plane, so it
 // inherits the planet's tilt (Uranus's moons circle it on their side); Triton's orbit is flipped
 // (157°), so it goes round backwards. Sizes are true; orbit sizes are compressed (see data.js).
@@ -161,6 +220,7 @@ const fly = { t: 1, fromPos: new THREE.Vector3(), fromTgt: new THREE.Vector3(), 
 function placeBodies() {
   for (const b of bodies) {
     if (!b.pivot) continue;
+    if (b.kepler) { const v = toScene(keplerPosition(b.data, b.angle + simDays / b.data.period * Math.PI * 2)); b.pivot.position.set(v[0], v[1], v[2]); continue; }
     const a = b.angle + (simDays / b.data.period) * Math.PI * 2;
     b.pivot.position.set(Math.cos(a) * D(b.data), 0, -Math.sin(a) * D(b.data));
     if (b.moonPivot) b.moonPivot.rotation.y = (simDays / MOON.period) * Math.PI * 2;
@@ -203,6 +263,7 @@ document.getElementById('info-close').onclick = () => unfocus(false);
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 // Touch needs a generous pick radius: tiny planets are a few pixels wide.
 export const PICK_RADIUS = { touch: 60, mouse: 32 };
+export const KEPLER_PICK = 1.6;
 function pickAt(clientX, clientY, pointerType = 'touch') {
   const bounds = canvas.getBoundingClientRect();
   ndc.set((clientX - bounds.left) / bounds.width * 2 - 1, -(clientY - bounds.top) / bounds.height * 2 + 1);
@@ -212,7 +273,8 @@ function pickAt(clientX, clientY, pointerType = 'touch') {
     if (!b.pivot && !b.satellite) continue; // the Sun is big: only a direct hit (raycast) selects it
     if (!inSystem(b)) continue; // other planets' moons are not tappable from afar
     const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera);
-    const d = Math.hypot((p.x - ndc.x) * bounds.width / 2, (p.y - ndc.y) * bounds.height / 2);
+    // Dwarf planets and asteroids count as 1.6× farther, so a planet within reach wins a shared tap.
+    const d = Math.hypot((p.x - ndc.x) * bounds.width / 2, (p.y - ndc.y) * bounds.height / 2) * (b.kepler ? KEPLER_PICK : 1);
     if (p.z < 1 && d < bestD) { bestD = d; best = b; }
   }
   const hit = ray.intersectObjects(bodies.filter(inSystem).map(b => b.mesh), false)[0];
@@ -318,6 +380,7 @@ addEventListener('resize', resize); resize(); camera.position.copy(HOME.pos);
 
 const ease = t => t < .5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 const tmp = new THREE.Vector3(), prevFocus = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0);
 let last = performance.now();
 // Keep the subject centred in the part of the screen not covered by the sheet,
 // at the size it would have on a screen of that visible height. Picking and
@@ -331,7 +394,8 @@ function applyVisibleRegion(cam, width, height, visible) {
   return { width: vw, height: vh, aspect: vw / vh };
 }
 // Label priority when names would overlap: the focused world, then Earth and the most visible worlds.
-const LABEL_ORDER = ['Earth', 'Mars', 'Venus', 'Mercury', 'Jupiter', 'Saturn', 'Sun', 'Uranus', 'Neptune', 'Moon']; // the Sun is easy to tap without one
+const labelRank = b => { const i = LABEL_ORDER.indexOf(b.data.name); return i < 0 ? 99 : i; };
+const LABEL_ORDER = ['Earth', 'Mars', 'Venus', 'Mercury', 'Jupiter', 'Saturn', 'Sun', 'Uranus', 'Neptune', 'Moon', 'Pluto', 'Ceres', 'Eris', 'Makemake', 'Haumea', 'Vesta', 'Pallas']; // the Sun is easy to tap without one
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
   if (hooks.renderOverride) { hooks.renderOverride(); requestAnimationFrame(frame); return; }
@@ -346,7 +410,7 @@ function frame(now) {
   const kidMotion = kidSlow * (hooks.kid || realScale ? 1 : motionView);
   const dDays = playing && !hooks.hold ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidMotion : 0;
   simDays += dDays; advanceMoons(dt, dDays);
-  placeBodies();
+  placeBodies(); placeBelts();
   for (const b of bodies) {
     const hours = Math.abs(b.data.rot); // direction comes from the tilt (Venus 177°, Uranus 98°)
     const spin = playing && !hooks.hold ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidMotion * 24 / hours * 0.02 * Math.PI * 2 : 0;
@@ -369,10 +433,13 @@ function frame(now) {
     camera.position.lerpVectors(fly.fromPos, pos, k);
     if (fly.t >= 1 && focused) prevFocus.copy(tgt);
   } else if (focused) {
-    // Follow the focused body as it orbits
+    // Follow the focused body as it orbits, and turn with it around the Sun, so the view keeps the
+    // same angle to sunlight (otherwise a fast planet like Mercury slides round to its night side).
     const p = focused.mesh.getWorldPosition(tmp);
+    const turn = Math.atan2(-p.z, p.x) - Math.atan2(-prevFocus.z, prevFocus.x);
+    const offset = camera.position.clone().sub(controls.target).applyAxisAngle(UP, Number.isFinite(turn) && Math.abs(turn) < 1 ? turn : 0);
     const delta = p.clone().sub(prevFocus); prevFocus.copy(p);
-    camera.position.add(delta); controls.target.add(delta);
+    controls.target.add(delta); camera.position.copy(controls.target).add(offset);
   }
   // Tiny moons (Phobos is 22 km) need the camera to come closer than the default limits allow.
   { const r = focused ? focused.radius : 1; controls.minDistance = Math.min(0.6, r * 1.5); camera.near = Math.min(0.05, r * 0.2); }
@@ -380,7 +447,7 @@ function frame(now) {
 
   stars.position.copy(camera.position);
   // Labels: small tappable names; overlapping ones are hidden so the view stays uncluttered.
-  const placed = [], ordered = [...bodies].sort((a, b) => (b === focused) - (a === focused) || LABEL_ORDER.indexOf(a.data.name) - LABEL_ORDER.indexOf(b.data.name));
+  const placed = [], ordered = [...bodies].sort((a, b) => (b === focused) - (a === focused) || labelRank(a) - labelRank(b));
   for (const b of ordered) {
     const p = b.mesh.getWorldPosition(tmp).project(camera);
     const x = bounds.left + (p.x + 1) / 2 * bounds.width, y = bounds.top + (1 - p.y) / 2 * bounds.height;
@@ -430,7 +497,8 @@ let trailsHidden = false;
 export function setRealScale(on) {
   realScale = on; document.body.classList.toggle('real', on);
   const sun = bodies[0]; sun.mesh.scale.setScalar(on ? SUN_SHRINK : 1); sun.radius = SUN.size * (on ? SUN_SHRINK : 1);
-  for (const b of bodies) { if (b.orbit) b.orbit.scale.setScalar(D(b.data)); if (b.moonMesh) b.moonMesh.position.x = on ? MOON.realDist : MOON.dist; if (b.orbitPivot) b.mesh.position.x = on ? b.data.realDist : b.data.dist; }
+  for (const b of bodies) { if (b.orbit) b.orbit.scale.setScalar(D(b.data)); if (b.moonMesh) b.moonMesh.position.x = on ? MOON.realDist : MOON.dist; if (b.orbitPivot) b.mesh.position.x = on ? b.data.realDist : b.data.dist; if (b.ellipse) fillEllipse(b); }
+  placeBelts(true);
   resize(); unfocus(true, 1.6);
 }
 document.getElementById('realBtn').onclick = e => { const on = !realScale; e.currentTarget.classList.toggle('on', on); e.currentTarget.setAttribute('aria-pressed', on); document.getElementById('scaleNote').textContent = on ? 'true sizes & distances' : 'sizes to scale (Sun 1/5) · distances shrunk'; setRealScale(on); };
