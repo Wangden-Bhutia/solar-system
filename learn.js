@@ -1,6 +1,6 @@
 // Learning layer: predictions, guided journeys, scale and light-time, eclipses and tides.
 // Pure data and maths (no DOM), so it is testable in Node. Sources and limits: docs/lab-science.md.
-import { SUN, PLANETS } from './data.js';
+import { SUN, PLANETS, DWARFS } from './data.js';
 
 export const LIGHT_KM_S = 299792.458;         // exact, by definition of the metre
 export const AU_KM = 149597870.7;             // IAU 2012
@@ -22,7 +22,7 @@ export function formatDuration(s) {
   const h = Math.floor(s / 3600), m = Math.round((s - h * 3600) / 60);
   return m === 60 ? `${h + 1} h` : `${h} h ${m} min`;
 }
-export const sunlightTo = name => { const p = PLANETS.find(x => x.name === name); return p ? lightSeconds(p.au * AU_KM) : null; };
+export const sunlightTo = name => { const p = PLANETS.find(x => x.name === name) || DWARFS.find(x => x.name === name); return p ? lightSeconds(p.au * AU_KM) : null; };
 
 // ---- Scale walk: shrink the Sun to a ball of a chosen size ----
 export function scaleWalk(sunCm = FOOTBALL_CM) {

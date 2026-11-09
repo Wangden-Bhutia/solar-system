@@ -209,3 +209,20 @@ export function rimShell(radius, color, power = 2.5, strength = 0.8, seg = 40) {
 
 const cache = {};
 export function tex(name) { if (!(name in cache)) cache[name] = gen[name](); return cache[name]; }
+
+// ---- Photographic maps ----
+// Solar System Scope texture library (CC BY 4.0, based on NASA mission imagery; see textures/ and
+// docs/sources.md). The procedural map above shows at once; the photo replaces it when it arrives.
+// Without a browser image loader (tests), the procedural map simply stays.
+const photoCache = {};
+export function photo(material, name, { normal, normalScale = 0.6, keepBump = false } = {}) {
+  if (typeof document === 'undefined' || typeof document.createElementNS !== 'function' || typeof Image === 'undefined') return false;
+  const load = (file, srgb) => (photoCache[file] ||= new Promise(resolve => new THREE.TextureLoader().load(`textures/${file}.webp`, t => {
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; resolve(t);
+  }, undefined, () => resolve(null))));
+  load(name, true).then(t => {
+    if (!t) return; material.map = t; if (!keepBump) material.bumpMap = null; material.color?.set?.(0xffffff); material.needsUpdate = true;
+  });
+  if (normal) load(normal, false).then(t => { if (!t || !material.isMeshStandardMaterial) return; material.normalMap = t; material.normalScale.set(normalScale, normalScale); material.needsUpdate = true; });
+  return true;
+}

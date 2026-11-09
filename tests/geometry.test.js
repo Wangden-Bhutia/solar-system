@@ -3,7 +3,7 @@ async function make(){
  const context=vm.createContext({console});
  const fake=obj=>new vm.SyntheticModule(Object.keys(obj),function(){for(const[k,v]of Object.entries(obj))this.setExport(k,v);},{context});
  const tex=name=>name==='EarthClouds'?new THREE.Texture():{map:new THREE.Texture(),bump:new THREE.Texture()};
- const mod=new vm.SourceTextModule(fs.readFileSync('experiments.js','utf8'),{context});await mod.link(spec=>fake(spec.includes('three.module')?THREE:spec.includes('science')?science:{tex}));await mod.evaluate();
+ const mod=new vm.SourceTextModule(fs.readFileSync('experiments.js','utf8'),{context});await mod.link(spec=>fake(spec.includes('three.module')?THREE:spec.includes('science')?science:{tex,photo:()=>false}));await mod.evaluate();
  return mod.namespace.createExperiments({setSize(){},render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}});
 }
 test('rendered seasons axis/lighting agree with calculation and stay fixed across orbit',async()=>{

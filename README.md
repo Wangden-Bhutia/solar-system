@@ -60,3 +60,10 @@ Node 24 tests use linkedom (DOM emulation) and Node VM modules. They test scienc
 
 ## Moons
 Nineteen major moons orbit Mars and the giant planets, at true size, in each planet's equatorial plane (Uranus's on their side, Triton backwards). Tap a planet with moons and choose **Meet its moons** to frame its system and list them; each moon has its own card with sizes, orbit, a one-line fact and NASA/JPL sources. Data and model notes: [docs/sources.md](docs/sources.md#major-moons-datajs-moons-november-2026).
+
+## Asteroids, dwarf planets and real surfaces
+- **Asteroid belt** (with Kirkwood gaps) and **Kuiper Belt** as moving clouds of small bodies.
+- **Dwarf planets and big asteroids** on their real tilted, stretched orbits: Ceres, Vesta, Pallas, Pluto (with Charon), Haumea (egg-shaped), Makemake, Eris.
+- **Photographic maps** for the Sun, Mercury, Earth and clouds, the Moon, Mars, Jupiter, Saturn, Uranus and Neptune — Solar System Scope textures, CC BY 4.0, based on NASA imagery (credited on each card; licence in `textures/`). Venus shows its cloud tops, as it looks from space.
+- Close-ups approach from the sunlit side and turn with the planet's orbit, so the day side stays in view.
+Details: [docs/sources.md](docs/sources.md).
