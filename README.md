@@ -50,6 +50,8 @@ KOKORO_MODEL=/path/kokoro-v1.0.onnx KOKORO_VOICES=/path/voices-v1.0.bin python t
 - **Easing:** a pinch or scroll past a scale's edge sets where the blend between scales is heading, and each frame eases towards it, so gestures glide instead of stepping.
 - **A clean edge:** the Solar System's edge is the all-planets view, so zooming out never passes through a far view where the enlarged inner planets pile up, and coming back lands on that view. Using the scale ladder to go home glides back to the normal framing.
 - **No forced flights:** zooming back in re-centres gently on the Sun (or the home point of each scale) as you approach the inner edge, so the hand-over needs no automatic flight.
+- **Matching scenery at every seam:** all scales share one background sky (`sky.js`, same stars in the same directions), so nothing flickers while one scale fades into the next. Laniakea draws the Local Group's galaxies with the same glows as the Local Group level, so the group doesn't collapse into dots as you cross.
+- **The whole universe fits:** the observable universe's overview and outer zoom limit are fitted to the screen's narrower side, so a tall phone sees the entire sphere.
 - **Prepared in advance:** a few seconds after start, the far scales are built and every scene's shaders compiled in idle moments, so the first visit to a scale doesn't stall mid-zoom.
 
 ## Fast start and offline use
