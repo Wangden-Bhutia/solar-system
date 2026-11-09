@@ -3,13 +3,16 @@ export const SHEETS = ['closed', 'peek', 'half', 'full'];
 const isExperiment = s => s.view === 'try' && !!s.experiment;
 // The sheet height a view opens at: worlds peek; labs and comparisons open half-way
 // so the scene stays visible while controls are usable.
-export const openHeight = s => (s.view === 'explore' ? 'peek' : 'half');
+// Card views (a world, a star) open as a peek; labs, comparisons and planetary systems open half-way.
+const cardView = v => v === 'explore' || v === 'stars';
+export const openHeight = s => (cardView(s.view) ? 'peek' : 'half');
 export function swipe(s, dir) {
   const i = SHEETS.indexOf(s.sheet);
   if (dir === 'up') return { sheet: SHEETS[Math.min(SHEETS.length - 1, i + 1)] };
   if (dir !== 'down') throw Error('swipe direction must be up or down');
   // Labs/compare never shrink below half: leaving half returns to the world card.
-  if (s.view !== 'explore' && s.sheet === 'half') return { view: 'explore', experiment: null, sheet: 'peek' };
+  if (s.view === 'system' && s.sheet === 'half') return { view: 'stars', sheet: 'peek' };
+  if (!cardView(s.view) && s.sheet === 'half') return { view: 'explore', experiment: null, sheet: 'peek' };
   if (isExperiment(s) && s.sheet === 'full') return { sheet: 'half' };
   return { sheet: SHEETS[Math.max(0, i - 1)] };
 }

@@ -292,7 +292,7 @@ const pointers = new Map(); let multiTouch = false, lastTapAt = -1e9, lastPointe
 const onScene = t => t === canvas || (t?.closest ? !t.closest(UI) : true);
 function handleTap(x, y, type, picked) {
   lastTapAt = performance.now();
-  if (hooks.renderOverride) return; // experiments own the scene while open
+  if (hooks.renderOverride) { hooks.overrideTap?.(x, y, type); return; } // labs and the star map own the scene while open
   const best = picked === undefined ? pickAt(x, y, type) : picked;
   if (best) focus(best); else hooks.onEmpty?.();
   return best;

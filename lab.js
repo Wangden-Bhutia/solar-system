@@ -1,4 +1,6 @@
 import { bodies, focus, unfocus, hooks, renderer, controls, setHomeScope } from './app.js';
+import { createStars } from './stars.js';
+import { STAR_FACTS, habitableZone, sizeFromMass, lightLeftYear } from './stars-data.js';
 import { createExperiments } from './experiments.js';
 import { createLabState } from './lab-state.js';
 import { swipe, emptyTap, openHeight, classifyDrag, visibleRegion } from './sheet.js';
@@ -12,6 +14,18 @@ const SCENE_LABS=new Set(['seasons','phases','eclipses','tides']);
 const LAB_TITLES={seasons:'Why do seasons happen?',phases:'Explore the phases',eclipses:'Why aren’t eclipses monthly?',tides:'What makes the tides?',scale:'How big is space?'};
 const $=id=>document.getElementById(id), state=createLabState(), experiments=createExperiments(renderer);
 const sheet=$('sheet');
+// ---- Beyond the Solar System: the nearby stars and their planets ----
+const SPACE=new Set(['stars','system']);
+const starsView=createStars({renderer,canvas:$('c'),labelsEl:$('labels'),onPick:e=>pickStar(e)});
+let spaceShown=false,fading=false;
+function fadeThen(fn,ms=320){if(typeof globalThis.requestAnimationFrame!=='function'){fn();return;}if(fading)return;fading=true;$('fade').classList.add('on');setTimeout(()=>{fn();globalThis.requestAnimationFrame(()=>{$('fade').classList.remove('on');fading=false;});},globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches?0:ms);}
+function enterStars(){stopAudio();$('settings').open=false;fadeThen(()=>{state.navigate({view:'stars',star:null,experiment:null,sheet:'closed'});render();});}
+function leaveStars(){stopAudio();$('settings').open=false;const go2=()=>fadeThen(()=>{state.navigate({view:'explore',feature:'orbit',star:null,experiment:null,sheet:'closed'});render();});
+ if(state.value.view==='system'){state.update({view:'stars',sheet:'closed'});render();}
+ starsView.zoomBackIn(go2);}
+$('zoom').onclick=()=>SPACE.has(state.value.view)?leaveStars():enterStars();
+function pickStar(e){dismissHint();go({view:'stars',star:e.name,sheet:'peek'});}
+hooks.overrideTap=(x,y)=>{const s=state.value;if(s.view!=='stars')return;const e=starsView.pick(x,y);if(e)pickStar(e);else if(s.sheet!=='closed')setSheet({sheet:'closed',star:null});};
 const sourceLink=(key,label='NASA source')=>`<a href="${NASA[key]}" target="_blank" rel="noopener">${label}</a>`;
 const sourceNote=`<p class="fine">Sources checked ${CHECKED}. This is an illustrative teaching model, not a live sky, weather forecast or spacecraft view.</p>`;
 let narration='lab_earth', lastAudioState='idle', interrupted=false;
@@ -35,6 +49,8 @@ function dismissHint(){hintSeen=true;}
 // At the overview (sheet closed) the same chip switches between the inner planets and all planets.
 $('back').onclick=()=>{stopAudio();const s=state.value;
  if(s.sheet!=='closed'&&state.canBack)state.back();
+ else if(SPACE.has(s.view)&&s.sheet==='closed'){leaveStars();return;}
+ else if(SPACE.has(s.view))state.update({view:'stars',star:null,sheet:'closed'});
  else if(s.sheet!=='closed')state.update({view:'explore',experiment:null,feature:'orbit',sheet:'closed'});
  else setHomeScope(hooks.homeScope==='inner'?'all':'inner');
  render();};
@@ -346,8 +362,47 @@ function paintExplore(){
  $('view-caption').textContent=s.feature==='moons'&&sysMoons.length?`${s.world} and its big moons · true sizes, orbits drawn closer than real · not current positions`:moon?`${s.world} · a moon of ${body.data.parent} · drag to look around · illustrative colours`:s.feature==='orbit'?(s.world==='Sun'?'The Sun and eight planets · schematic view, not current positions':`${s.world} orbits the Sun · schematic Solar System view; not current positions`):s.world==='Earth'?'Drag to look around · gold line: Earth’s tilted spin axis · day/night comes from sunlight':s.world==='Moon'?'Earth’s Moon · Explore the phases shows the view from Earth':`${s.world} · drag to look around · illustrative surface and lighting`;
  if(s.feature==='day'){narration='lab_day';$('world-insight').textContent=LINES[narration];}
 }
+const fmt=(n,d=0)=>n.toLocaleString('en-IN',{maximumFractionDigits:d});
+const entryOf=name=>starsView.entries.find(e=>e.name===name);
+function paintStar(){
+ const s=state.value,e=s.star&&entryOf(s.star);narration=null;
+ $('star-panel').hidden=!e;$('action').hidden=true;
+ if(!e){$('kicker').textContent='Our neighbourhood';$('title').textContent='The nearest stars';$('fact').textContent='Every star and brown dwarf within 16 light-years.';$('view-caption').textContent='';return;}
+ const p=e.primary||e.stars[0];
+ $('kicker').textContent=`${e.kind} · ${p.type}`;$('title').textContent=e.name;
+ $('fact').textContent=e.sun?'Our own star. From here, every other star is a point of light.':STAR_FACTS[e.name]||`A ${e.kindBlurb}, ${fmt(e.ly,1)} light-years away.`;
+ $('view-caption').textContent=e.sun?'The Sun at the centre · rings at 5, 10 and 15 light-years':`${fmt(e.ly,2)} light-years from the Sun · positions to scale · star sizes show brightness, not true size`;
+ const naked=p.mag!=null&&p.mag<6;
+ const rows=e.sun?[['Type','Yellow dwarf (G2V)'],['Surface temperature','about 5,800 K'],['Sunlight reaches Earth in','about 8 minutes']]:[
+  ['Distance',`${fmt(e.ly,2)} light-years`],['The light you see left it',`around ${lightLeftYear(e.ly)}`],['Type',`${e.kind} (${p.type})`],
+  ['Surface temperature',`about ${fmt(e.temp)} K`],['Visible brightness',p.mag==null?'too faint to see; infrared only':`magnitude ${p.mag}${naked?' · visible to the naked eye':' · needs a telescope or binoculars'}`]];
+ $('star-facts').innerHTML=rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
+ $('star-companions').textContent=e.stars.length>1?`A ${['','','double','triple','quadruple'][e.stars.length]||'multiple'} system: ${e.stars.map(x=>`${x.name} (${starKindShort(x.type)})`).join(', ')}.`:'';
+ const ps=e.planets;
+ $('star-planets').innerHTML=ps?`<p><b>${ps.planets.length} known planet${ps.planets.length>1?'s':''}.</b> ${ps.logL!=null&&ps.planets.some(x=>{const hz=habitableZone(ps.logL,e.temp);return x[2]>=hz[0]&&x[2]<=hz[1];})?'At least one orbits in the habitable zone.':''}</p>`:e.sun?'':'<p class="fine">No planets confirmed yet.</p>';
+ if(ps){$('action').hidden=false;$('action').textContent=`Visit its planets`;$('action').onclick=()=>go({view:'system',star:e.name,sheet:'half'});}
+ else if(e.sun){$('action').hidden=false;$('action').textContent='Back to the Solar System';$('action').onclick=leaveStars;}
+ $('star-depth').innerHTML=`<p>Positions come from each star’s direction in the sky and its measured distance, so the 3D layout is real. The rings mark 5, 10 and 15 light-years in the plane of the Solar System; the thin lines drop to that plane. Glow size shows how bright a star really is, not its true size; at this scale every star would be far too small to see.</p><p>Temperatures are typical values for the star’s spectral type. Magnitudes are visual brightness as seen from Earth (smaller is brighter; about 6 is the limit for the naked eye).</p><a href="https://en.wikipedia.org/wiki/List_of_nearest_stars" target="_blank" rel="noopener">Nearest-stars table (RECONS / Gaia values)</a>${ps?' · <a href="https://exoplanetarchive.ipac.caltech.edu/" target="_blank" rel="noopener">NASA Exoplanet Archive</a>':''}${sourceNote}`;
+}
+const starKindShort=t=>t[0]==='D'?'white dwarf':'LTY'.includes(t[0])?'brown dwarf':t[0]==='M'?'red dwarf':t[0]==='K'?'orange dwarf':t[0]==='G'?'Sun-like':'star';
+function paintSystem(){
+ const s=state.value,e=entryOf(s.star),ps=e.planets;narration=null;$('action').hidden=true;
+ const view=e.sysView||starsView.openSystem(e);
+ $('kicker').textContent=`Planets of ${ps.host||e.name}`;$('title').textContent=`${ps.planets.length} world${ps.planets.length>1?'s':''} around ${ps.host||e.name}`;
+ const outer=view.aMax,merc=outer<0.387;
+ $('fact').textContent=merc?`All of them orbit closer to their star than Mercury is to the Sun.`:`The outermost orbits ${fmt(outer,2)} times as far as Earth is from the Sun.`;
+ $('view-caption').textContent='Orbits to scale with each other · planets drawn far larger than real · green band: habitable zone';
+ $('system-legend').innerHTML=`${view.hz?`<span><i class="sw hz"></i>Habitable zone ${fmt(view.hz[0],3)}–${fmt(view.hz[1],3)} AU</span>`:'<span class="fine">Habitable zone not drawn: star’s total brightness not in the archive.</span>'}${view.compare.length?'<span><i class="sw cmp"></i>Our planets’ orbits for comparison</span>':''}`;
+ $('system-list').innerHTML=view.planets.map(p=>`<li><b>${p.name}</b><span>${p.measured?`${fmt(p.r,2)} × Earth’s width`:`about ${fmt(p.r,1)} × Earth’s width (estimated)`}${p.mass!=null?` · at least ${fmt(p.mass,p.mass<10?2:0)} Earth masses`:''}</span><span>One orbit: ${p.period<2?fmt(p.period*24,0)+' hours':fmt(p.period,p.period<100?1:0)+' days'} · ${fmt(p.a,3)} AU${p.inHZ?' · <em>in the habitable zone</em>':''}</span></li>`).join('');
+ $('system-depth').innerHTML=`<p>${ps.transits?'These planets pass in front of their star, so their sizes are measured.':'None of these planets has been seen crossing its star. Their masses are minimum masses from the wobble they cause in the star, and their sizes are estimates from those masses.'} “Habitable zone” (the conservative zone of Kopparapu et al. 2014) is the range of distances where an Earth-like planet could keep liquid water; it depends on the star’s brightness and temperature, and it does not mean a planet is habitable.</p><p>AU = the Earth–Sun distance. Orbits are drawn circular and in one plane; motion is slowed and compressed so you can follow it.</p><a href="https://exoplanetarchive.ipac.caltech.edu/" target="_blank" rel="noopener">NASA Exoplanet Archive</a>${sourceNote}`;
+}
 function render(){
- const s=state.value,experiment=s.view==='try'&&!!s.experiment,scene=experiment&&SCENE_LABS.has(s.experiment);
+ const s=state.value,space=SPACE.has(s.view),experiment=s.view==='try'&&!!s.experiment,scene=experiment&&SCENE_LABS.has(s.experiment);
+ if(space&&!spaceShown){spaceShown=true;starsView.enter();}else if(!space&&spaceShown){spaceShown=false;starsView.leave();unfocus(true,.01);}
+ if(space)(s.view==='system'?(()=>{if(starsView.mode!=='system')starsView.openSystem(entryOf(s.star));})():starsView.mode==='system'&&starsView.closeSystem());
+ if(space)starsView.select(s.star&&entryOf(s.star));
+ document.body.classList.toggle('space-mode',space);
+ const z=$('zoom');z.dataset.level=space?'space':'solar';z.setAttribute('aria-label',space?'Zoom back in to the Solar System':'Zoom out to the nearby stars');z.querySelector('.zoom-text').textContent=space?'':'Stars';z.classList.toggle('icon-only',space); // in space the Back chip already says “Solar System”
  if(race&&!(experiment&&s.experiment==='scale')){globalThis.cancelAnimationFrame?.(race.id);race=null;}
  sheet.dataset.state=s.sheet;document.body.dataset.sheet=s.sheet;
  const open=s.sheet!=='closed';sheet.inert=!open;sheet.setAttribute('aria-hidden',String(!open));
@@ -355,18 +410,22 @@ function render(){
  $('grip').setAttribute('aria-expanded',String(s.sheet==='half'||s.sheet==='full'));
  $('grip').setAttribute('aria-label',s.sheet==='full'?'Show less':'Show more');
  for(const v of ['explore','try','compare','journey'])$(v+'-panel').hidden=s.view!==v;
+ $('star-panel').hidden=s.view!=='stars';$('system-panel').hidden=s.view!=='system';
  for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-pressed',String(b.dataset.view===s.view));
- if(!open){const all=hooks.homeScope!=='inner';$('back').textContent=all?'Show inner planets':'Show all planets';$('back').setAttribute('aria-label',all?'Zoom in on the inner planets, Mercury to Mars':'Zoom out to show all eight planets');}
+ if(!open&&space){$('back').textContent='← Solar System';$('back').setAttribute('aria-label','Zoom back in to the Solar System');}
+ else if(!open){const all=hooks.homeScope!=='inner';$('back').textContent=all?'Show inner planets':'Show all planets';$('back').setAttribute('aria-label',all?'Zoom in on the inner planets, Mercury to Mars':'Zoom out to show all eight planets');}
  else{const atOverview=!state.canBack;$('back').textContent=atOverview?'Overview':'← Back';$('back').setAttribute('aria-label',atOverview?'Close the card and show the Solar System':'Go back');}
- $('hint').hidden=hintSeen||open;
+ $('hint').hidden=(hintSeen&&!space)||open;$('hint').textContent=space?'Tap a star':'Tap a planet, the Sun or the Moon';
  $('world-depth').open=false;
- sheet.querySelector('.tabs').hidden=experiment||s.view==='journey'; // labs: controls first, Back returns to the tabs
+ sheet.querySelector('.tabs').hidden=experiment||s.view==='journey'||space; // labs: controls first, Back returns to the tabs
  $('experiment-chooser').hidden=experiment;$('experiment').hidden=!scene;$('scale-lab').hidden=!(experiment&&s.experiment==='scale');$('experiment-reset').hidden=!experiment;
  $('orbit-map').hidden=!scene;
  document.body.classList.toggle('experiment-mode',scene);
- controls.enabled=!scene;hooks.hold=scene;
- hooks.renderOverride=scene?()=>{const r=$('stage').getBoundingClientRect();experiments.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:null;
- if(experiment){$('action').hidden=true;paintExperiment();}
+ controls.enabled=!scene&&!space;hooks.hold=scene||space;
+ hooks.renderOverride=space?()=>{const r=$('stage').getBoundingClientRect();starsView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:scene?()=>{const r=$('stage').getBoundingClientRect();experiments.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:null;
+ if(s.view==='stars')paintStar();
+ else if(s.view==='system')paintSystem();
+ else if(experiment){$('action').hidden=true;paintExperiment();}
  else if(s.view==='compare'){$('action').hidden=true;paintCompare();}
  else if(s.view==='explore')paintExplore();
  else if(s.view==='journey')paintJourney();

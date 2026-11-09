@@ -1,7 +1,9 @@
 // DOM emulator only: NOT a browser, rendering test or actual mobile playback test.
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import {parseHTML} from 'linkedom';
-import {SUN,PLANETS,MOON,MOONS,DWARFS} from '../data.js';import * as science from '../science.js';import * as state from '../lab-state.js';import * as sheetMod from '../sheet.js';import * as insights from '../insights.js';import * as learn from '../learn.js';import * as lines from '../voice/lines.js';
+import {SUN,PLANETS,MOON,MOONS,DWARFS} from '../data.js';import * as science from '../science.js';import * as state from '../lab-state.js';import * as sheetMod from '../sheet.js';import * as insights from '../insights.js';import * as learn from '../learn.js';import * as starsData from '../stars-data.js';import * as lines from '../voice/lines.js';
+const space={log:[],pickResult:null,selected:null};
 async function setup(width=390,height=844,stored={}){
+ space.log=[];space.pickResult=null;
  const {window,document}=parseHTML(fs.readFileSync('index.html','utf8'));
  const selections=new WeakMap();Object.defineProperty(window.HTMLSelectElement.prototype,'value',{configurable:true,get(){return selections.get(this)??this.querySelector('option')?.textContent??'';},set(v){selections.set(this,v);}});
  const sheetHeights={closed:0,peek:190,half:height*.52,full:height-80};
@@ -11,7 +13,9 @@ async function setup(width=390,height=844,stored={}){
  const bodies=[SUN,...PLANETS,MOON,...DWARFS,...MOONS].map(data=>({data}));const controls={};
  const app={hooks,bodies,controls,renderer:{},focus(b,opts={}){focuses.push([b.data.name,opts]);if(!opts.silent)hooks.onFocus?.(b);},unfocus(){focuses.push(['overview']);},setHomeScope(scope){hooks.homeScope=scope;focuses.push(['overview:'+scope]);}};
  const audio={createVoicePlayer:({onState})=>({unlock(){unlocks++;},stop(){stops++;onState('idle');},say(id){assert.ok(lines.LINES[id],id);played.push(id);onState('speaking');return Promise.resolve();}})};
- const mods={'./app.js':app,'./science.js':science,'./lab-state.js':state,'./sheet.js':sheetMod,'./insights.js':insights,'./voice/lines.js':lines,'./voice-player.js':audio,'./learn.js':learn,'./experiments.js':{createExperiments:()=>({update(s){updates.push(s);},render(w,h,v){renders.push([w,h,v]);}})}};
+ const mods={'./app.js':app,'./science.js':science,'./lab-state.js':state,'./sheet.js':sheetMod,'./insights.js':insights,'./voice/lines.js':lines,'./voice-player.js':audio,'./learn.js':learn,'./stars-data.js':starsData,'./stars.js':{createStars:()=>{const entries=[starsData.SUN_ENTRY,...starsData.NEIGHBOURS];let mode='stars';const log=space.log;
+  return {entries,get mode(){return mode;},enter(){log.push('enter');},leave(){log.push('leave');},render(){log.push('render');},pick:()=>space.pickResult,select(e){space.selected=e;},
+   zoomBackIn(done){log.push('zoomIn');done();},openSystem(e){e.sysView=starsData.systemSummary(e);mode='system';log.push('open:'+e.name);return e.sysView;},closeSystem(){mode='stars';log.push('close');}};}},'./experiments.js':{createExperiments:()=>({update(s){updates.push(s);},render(w,h,v){renders.push([w,h,v]);}})}};
  const context=vm.createContext({document,window:{},console,innerWidth:width,innerHeight:height,addEventListener(){},setTimeout,localStorage:{getItem:k=>storage[k]??null,setItem:(k,v)=>storage[k]=v}});
  const entry=new vm.SourceTextModule(fs.readFileSync('lab.js','utf8'),{context});await entry.link(s=>{const obj=mods[s];assert.ok(obj,s);return new vm.SyntheticModule(Object.keys(obj),function(){for(const[k,v]of Object.entries(obj))this.setExport(k,v);},{context});});await entry.evaluate();
  const tap=name=>app.focus(bodies.find(b=>b.data.name===name));
@@ -208,4 +212,34 @@ test('photographic maps are credited (CC BY 4.0); Venus explains its cloud look;
  assert.equal(a.focuses.at(-1)[1].outside,true,'camera on the day side');
  a.tap('Venus');assert.match(a.$('world-sources').textContent,/cloud tops/);a.tap('Pluto');assert.doesNotMatch(a.$('world-sources').innerHTML,/solarsystemscope/);
  a.tap('Sun');assert.equal(a.focuses.at(-1)[1].outside,false);
+});
+test('zoom out to the nearby stars: star map, star cards, planets, habitable zone, and back to the Solar System',async()=>{
+ const a=await setup();
+ assert.equal(a.$('zoom').getAttribute('aria-label'),'Zoom out to the nearby stars');
+ a.$('zoom').onclick();assert.equal(a.lab.state.value.view,'stars');assert.ok(space.log.includes('enter'));
+ assert.equal(a.document.body.classList.contains('space-mode'),true);assert.equal(a.$('zoom').getAttribute('aria-label'),'Zoom back in to the Solar System');
+ assert.equal(a.sheet,'closed');assert.equal(a.$('hint').hidden,false);assert.equal(a.$('hint').textContent,'Tap a star');assert.equal(a.$('back').textContent,'← Solar System');
+ assert.equal(typeof a.hooks.renderOverride,'function');assert.equal(a.app.controls.enabled,false,'Solar System controls off');
+ // Tap a star on the map
+ space.pickResult=starsData.NEIGHBOURS.find(e=>e.name==='Sirius');a.hooks.overrideTap(100,100);
+ assert.equal(a.sheet,'peek');assert.equal(a.$('title').textContent,'Sirius');assert.match(a.$('kicker').textContent,/White star · A1V/);
+ assert.match(a.$('fact').textContent,/brightest star in our night sky/);assert.match(a.$('star-facts').textContent,/8\.71 light-years/);assert.match(a.$('star-facts').textContent,/visible to the naked eye/);
+ assert.match(a.$('star-companions').textContent,/double system: Sirius A \(star\), Sirius B \(white dwarf\)/);assert.equal(a.$('action').hidden,true,'no planets: no visit button');
+ // A system with planets
+ space.pickResult=starsData.NEIGHBOURS.find(e=>e.name==='Alpha Centauri');a.hooks.overrideTap(10,10);
+ assert.match(a.$('star-planets').textContent,/2 known planets\. At least one orbits in the habitable zone/);assert.equal(a.$('action').textContent,'Visit its planets');
+ assert.match(a.$('star-companions').textContent,/triple system/);
+ a.$('action').onclick();assert.equal(a.lab.state.value.view,'system');assert.equal(a.sheet,'half');assert.ok(space.log.includes('open:Alpha Centauri'));
+ assert.equal(a.$('kicker').textContent,'Planets of Proxima Centauri');assert.match(a.$('fact').textContent,/closer to their star than Mercury/);
+ assert.match(a.$('system-list').textContent,/Proxima b.*in the habitable zone/);assert.match(a.$('system-list').textContent,/estimated/);assert.match(a.$('system-depth').textContent,/minimum masses/);
+ // Back returns to the star card, then to the map, then home
+ a.$('back').onclick();assert.equal(a.lab.state.value.view,'stars');assert.equal(a.$('title').textContent,'Alpha Centauri');
+ space.pickResult=null;a.hooks.overrideTap(5,5);assert.equal(a.sheet,'closed','empty tap closes the star card');
+ a.$('back').onclick();assert.equal(a.lab.state.value.view,'explore');assert.ok(space.log.includes('zoomIn')&&space.log.includes('leave'));
+ assert.equal(a.document.body.classList.contains('space-mode'),false);assert.equal(a.hooks.renderOverride,null);assert.equal(a.app.controls.enabled,true);
+ // TRAPPIST-1: measured sizes, three in the habitable zone
+ a.$('zoom').onclick();space.pickResult=starsData.NEIGHBOURS.find(e=>e.name==='TRAPPIST-1');a.hooks.overrideTap(1,1);a.$('action').onclick();
+ const hz=[...a.$('system-list').querySelectorAll('li')].filter(li=>/habitable zone/.test(li.textContent)).map(li=>li.querySelector('b').textContent);
+ assert.deepEqual(hz,['TRAPPIST-1 e','TRAPPIST-1 f','TRAPPIST-1 g']);assert.match(a.$('system-list').textContent,/0\.92 × Earth’s width/);assert.match(a.$('system-depth').textContent,/sizes are measured/);
+ a.$('zoom').onclick();assert.equal(a.lab.state.value.view,'explore','zoom chip returns from a planetary system too');
 });
