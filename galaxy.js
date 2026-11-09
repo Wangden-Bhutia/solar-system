@@ -2,7 +2,8 @@
 import * as THREE from './vendor/three.module.min.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { R0, ARMS, armRadius, discPosition, galaxyParticles, LANDMARKS } from './galaxy-data.js';
-import { GALAXY_NEAR, GALAXY_FAR } from './zoom-ladder.js';
+import { GALAXY_NEAR, GALAXY_FAR, SCENE_RANGE } from './zoom-ladder.js';
+import { createPlacer, placeAll, forgetLabel } from './labels.js';
 import { skyPoints } from './sky.js';
 import { omega, ARMS_OMEGA, BAR_OMEGA, SUN_OMEGA, turn, sunPosition, tracerStars, TIME_RANGE, MYR_PER_SEC } from './galaxy-motion.js';
 
@@ -29,7 +30,7 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
   const scene = new THREE.Scene(), bg = new THREE.Color(0x000005); scene.background = bg; // same black at every scale
   const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 1e5);
   const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enabled = false; controls.enablePan = false;
-  controls.zoomSpeed = 1.8; controls.minDistance = GALAXY_NEAR; controls.maxDistance = GALAXY_FAR; // zooming in past this hands back to the nearby stars
+  controls.enableZoom = false; controls.minDistance = SCENE_RANGE.galaxy[0]; controls.maxDistance = SCENE_RANGE.galaxy[1]; // zoom: zoom.js via lab.js (OrbitControls only rotates)
   // Distant background stars and other galaxies' faint glow are left out on purpose: this level is our Galaxy alone.
   scene.add(skyPoints(3000)); // the shared sky (sky.js)
   const { positions, colors, kinds } = galaxyParticles();
@@ -51,9 +52,10 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
     sprite.position.fromArray(m.pos); scene.add(sprite); const home = m.pos, R = Math.hypot(m.pos[0], m.pos[2]);
     const el = document.createElement('button'); el.type = 'button'; el.className = 'lbl space galaxy' + (m.name === 'Sun' ? ' here' : ''); el.textContent = m.name === 'Sun' ? 'You are here' : m.name; el.tabIndex = -1; el.hidden = true;
     el.addEventListener('click', ev => { ev.stopPropagation(); onPick?.(m); }); labelsEl.appendChild(el);
-    return { m, sprite, el, home, w: m.name === 'Sun' ? SUN_OMEGA : omega(R), always: m.name === 'Sun' || m.name === 'Sagittarius A*' };
+    return { m, sprite, el, home, pos: sprite.position, px: 10, w: m.name === 'Sun' ? SUN_OMEGA : omega(R), always: m.name === 'Sun' || m.name === 'Sagittarius A*' };
   });
-  const armLabels = ARMS.map(a => { const b = a.spur ? 22 : 60; const el = document.createElement('span'); el.className = 'lbl space galaxy arm-lbl'; el.textContent = a.name; el.hidden = true; labelsEl.appendChild(el); return { el, home: discPosition(armRadius(a, b), b), pos: new THREE.Vector3(...discPosition(armRadius(a, b), b)) }; });
+  const armLabels = ARMS.map(a => { const b = a.spur ? 22 : 60; const el = document.createElement('span'); el.className = 'lbl space galaxy arm-lbl'; el.textContent = a.name; el.hidden = true; labelsEl.appendChild(el); return { el, home: discPosition(armRadius(a, b), b), pos: new THREE.Vector3(...discPosition(armRadius(a, b), b)), px: 0 }; });
+  const labelItems = [...marks, ...armLabels], placer = createPlacer(labelItems.length + 8);
   const tmp = new THREE.Vector3(); let last = 0, selected = null, on = false, labelOpacity = 1;
   // The clock (Myr from today). Nebulae and young clusters live only a few million years, so away from
   // today only the Sun and the black hole keep their markers.
@@ -87,22 +89,15 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
   const driftStep = new THREE.Vector3();
   function drift(dt) {
     if (fly.t < 1 || !controls.enabled) return;
-    const d = camera.position.distanceTo(controls.target), f = Math.min(1, Math.max(0, (GALAXY_NEAR * 5 - d) / (GALAXY_NEAR * 4)));
+    const d = camera.position.distanceTo(controls.target), f = Math.min(1, Math.max(0, (GALAXY_NEAR * 20 - d) / (GALAXY_NEAR * 19))); // from 60 kly in, complete at the seam
     if (f <= 0 || controls.target.distanceTo(SUN) < 1e-9) return;
     driftStep.copy(SUN).sub(controls.target).multiplyScalar(Math.min(1, f * dt * 3.5)); controls.target.add(driftStep); camera.position.add(driftStep);
   }
-  function placeLabels(bounds) {
-    const placed = [];
-    const list = [...marks.map(x => ({ el: x.el, pos: x.sprite.position, px: 10, mk: x })), ...armLabels.map(a => ({ el: a.el, pos: a.pos, px: 0 }))];
-    for (const { el, pos, px, mk } of list) {
-      tmp.copy(pos).project(camera);
-      const x = bounds.left + (tmp.x + 1) / 2 * bounds.width, y = bounds.top + (1 - tmp.y) / 2 * bounds.height, w = el.textContent.length * 4.9 + 10, h = 13, off = px / 2 + 4;
-      const box = [x - w / 2, y - off - h, x + w / 2, y - off];
-      const ok = on && (!mk || mk.sprite.visible) && tmp.z < 1 && Math.abs(tmp.x) < 1.02 && Math.abs(tmp.y) < 1.02 && !placed.some(o => box[0] < o[2] && box[2] > o[0] && box[1] < o[3] && box[3] > o[1]);
-      el.hidden = !ok; el.style.visibility = ok ? 'visible' : 'hidden'; el.style.opacity = labelOpacity;
-      if (ok) { placed.push(box); el.style.transform = `translate(${x}px,${y}px) translate(-50%,calc(-100% - ${off}px))`; }
-    }
-  }
+  // Allocation-free label placement (labels.js).
+  const project = (it, out) => { tmp.copy(it.pos).project(camera); out.x = tmp.x; out.y = tmp.y; out.z = tmp.z; return true; };
+  const labelOpts = { enabled: true, visible: it => !it.sprite || it.sprite.visible, opacity: () => labelOpacity };
+  function placeLabels(bounds) { labelOpts.enabled = on && labelsLive; placeAll(labelItems, labelItems.length, placer, bounds, project, labelOpts); }
+  let labelsLive = true;
   function render(width, height, visible, { overlay = false, opacity = 1 } = {}) {
     scene.background = overlay ? null : bg; setFade(opacity); labelOpacity = opacity;
     const now = performance.now(), dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
@@ -122,11 +117,15 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
     for (const x of marks) { if (!x.sprite.visible) continue; tmp.copy(x.sprite.position).project(camera); if (tmp.z >= 1) continue; const px = b.left + (tmp.x + 1) / 2 * b.width, py = b.top + (1 - tmp.y) / 2 * b.height, d = Math.hypot(px - cx, py - cy); if (d < bestD) { bestD = d; best = x.m; } }
     return best;
   }
-  function setLabels(v) { for (const x of [...marks, ...armLabels]) x.el.hidden = !v; }
+  function setLabels(v) { for (const x of labelItems) { forgetLabel(x); x.el.hidden = !v; } }
   // Look at the Sun from direction dir at distance d (kly): the Galaxy bridge hands over at exactly
   // the star map's view, ÷ 1,000. The Sun stays the centre of rotation, so “You are here” never drifts.
   function setView(dir, d, tgt = SUN) { fly.t = 1; fly.done = null; fly.dir.copy(dir).normalize(); controls.target.copy(tgt); camera.position.copy(SUN).addScaledVector(fly.dir, d); controls.update(); }
   const viewDir = () => camera.position.clone().sub(controls.target).normalize();
+  // The zoom controller's hook: same direction and centre, new distance (kly). No allocation.
+  const off = new THREE.Vector3();
+  function setDistance(d) { fly.t = 1; fly.done = null; off.copy(camera.position).sub(controls.target); const l = off.length() || 1; camera.position.copy(controls.target).addScaledVector(off, d / l); }
+  const distance = () => camera.position.distanceTo(controls.target);
   function enter(at) { on = true; controls.enabled = true; setLabels(true); if (at) setView(at.dir, at.d, at.tgt ? new THREE.Vector3(...at.tgt) : SUN); else fly.start(0.05, SUN, portrait() ? 215 : 125, SUN, 2.6); }
   function leave() { on = false; controls.enabled = false; setLabels(false); setTime(0, false); }
   // Time controls. Leaving the Galaxy always returns to today, so the zoom back into the nearby stars
@@ -136,14 +135,17 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
   // It centres on the galactic centre, seen from above at a slight tilt, so the whole disc turns in view.
   const TILT = new THREE.Vector3(0.12, 0.93, 0.35).normalize();
   function overview() { if (fly.t < 1 || controls.target.distanceTo(CENTRE) < 0.01) return; fly.dir.copy(viewDir()); fly.start(camera.position.distanceTo(controls.target), controls.target, portrait() ? 240 : 125, CENTRE, 1.6, null, TILT); }
-  const atSun = () => controls.target.distanceTo(SUN) < GALAXY_NEAR * 0.01 && fly.t >= 1;
+  const atSun = () => controls.target.distanceTo(SUN) < GALAXY_NEAR * 1e-3 && fly.t >= 1;
   function play() { overview(); clock.rewind = null; if (clock.t >= TIME_RANGE[1]) clock.t = 0; clock.playing = true; place(); onTime?.(); }
   function pause() { clock.playing = false; onTime?.(); }
   function rewind(done) { clock.playing = false; if (clock.t === 0 || reduce()) { setTime(0, false); done?.(); return; } clock.rewind = { from: clock.t, k: 0, dur: Math.min(1.4, 0.5 + Math.abs(clock.t) / 250), done }; onTime?.(); }
   // Out to the edge of this scale, keeping the same centre, where the Local Group takes over.
   function zoomOut(done) { fly.dir.copy(viewDir()); fly.start(camera.position.distanceTo(controls.target) || 140, controls.target, GALAXY_FAR, controls.target, 1.1, done); }
   const target = () => controls.target.toArray();
+  // Move the centre of view a fraction k of the way to the Sun, the camera keeping its offset (lab.js uses it while it
+  // plays the zoom inwards, so the view is centred on the Sun exactly when it reaches the seam to the star map).
+  function towardSun(k) { driftStep.copy(SUN).sub(controls.target).multiplyScalar(k); controls.target.add(driftStep); camera.position.add(driftStep); }
   function zoomToSun(done) { fly.dir.copy(viewDir()); fly.start(camera.position.distanceTo(controls.target) || 140, controls.target, GALAXY_NEAR, SUN, 1.1, done); }
   const zoomState = () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1 || !!clock.rewind });
-  return { render, pick, enter, leave, zoomToSun, zoomOut, target, zoomState, atSun, setTime, play, pause, rewind, time: () => clock.t, playing: () => clock.playing, setView, viewDir, showLabels: v => { on = v; setLabels(v); }, select(m) { selected = m; }, marks, camera, controls, scene, cloud, fly, landmarks: LANDMARKS };
+  return { render, pick, enter, leave, zoomToSun, towardSun, zoomOut, target, zoomState, atSun, setTime, play, pause, rewind, time: () => clock.t, playing: () => clock.playing, setView, viewDir, showLabels: v => { on = v; setLabels(v); }, liveLabels(v) { labelsLive = v; }, setDistance, distance, select(m) { selected = m; }, marks, camera, controls, scene, cloud, fly, landmarks: LANDMARKS };
 }

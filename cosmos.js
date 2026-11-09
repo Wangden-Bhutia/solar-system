@@ -6,7 +6,8 @@ import * as THREE from './vendor/three.module.min.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { GALAXIES } from './local-data.js';
 import { ngcGalaxies, skyPosition, CLUSTERS, SHELLS, FAR_GALAXY, CMB_GLY } from './cosmos-data.js';
-import { SUPER_NEAR, SUPER_FAR, UNIVERSE_NEAR, UNIVERSE_FAR } from './zoom-ladder.js';
+import { SUPER_NEAR, SUPER_FAR, UNIVERSE_NEAR, UNIVERSE_FAR, SCENE_RANGE } from './zoom-ladder.js';
+import { createPlacer, placeAll, forgetLabel } from './labels.js';
 import { skyPoints } from './sky.js';
 
 const glow = (() => {
@@ -18,12 +19,13 @@ const glow = (() => {
 const KIND_COLOURS = [[1, 0.86, 0.66], [0.72, 0.82, 1], [0.85, 0.85, 0.9]]; // elliptical, spiral, other
 
 // Shared scene machinery: camera, controls, labels, glides, picking, fading for the zoom bridge.
-function createScene({ renderer, canvas, labelsEl, onPick, near, far, home, overviewD, overviewDir, fitRadius = 0 }) {
+function createScene({ renderer, canvas, labelsEl, onPick, near, far, min, max = Infinity, home, overviewD, overviewDir, fitRadius = 0 }) {
   const scene = new THREE.Scene(), bg = new THREE.Color(0x000005); scene.background = bg;
   const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 1e6);
   const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enabled = false; controls.enablePan = false;
-  controls.zoomSpeed = 1.8; controls.minDistance = near; controls.maxDistance = far;
-  const marks = [], extras = [], glows = [];
+  // Zoom: zoom.js via lab.js (OrbitControls only rotates). Limits: the whole range, seams included.
+  controls.enableZoom = false; controls.minDistance = min; controls.maxDistance = max;
+  const marks = [], extras = [], glows = []; let labelsDirty = true, labelItems = []; const placer = createPlacer(256);
   const points = (pos, col, size, opacity, color = 0xffffff) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos instanceof Float32Array ? pos : new Float32Array(pos), 3)); if (col) g.setAttribute('color', new THREE.BufferAttribute(col instanceof Float32Array ? col : new Float32Array(col), 3));
     const p = new THREE.Points(g, new THREE.PointsMaterial({ size, sizeAttenuation: false, vertexColors: !!col, color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false })); p.frustumCulled = false; scene.add(p); return p; };
   function mark(item, { px = 8, color = 0xdfe8ff, opacity = 0.8, label = item.name } = {}) {
@@ -31,16 +33,16 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, home, over
     sprite.position.fromArray(item.pos); sprite.userData.px = px; scene.add(sprite);
     const el = document.createElement('button'); el.type = 'button'; el.className = 'lbl space galaxy' + (item.here ? ' here' : ''); el.textContent = label; el.tabIndex = -1; el.hidden = true;
     el.addEventListener('click', ev => { ev.stopPropagation(); onPick?.(item); }); labelsEl.appendChild(el);
-    marks.push({ item, sprite, el }); return sprite;
+    marks.push({ item, sprite, el, pos: sprite.position, px }); labelsDirty = true; return sprite;
   }
   // A glow without a label (constant size on screen, like the marks).
   function glowAt(pos, px, color, opacity) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color, sizeAttenuation: false, depthWrite: false, transparent: true, opacity, blending: THREE.AdditiveBlending })); sp.position.fromArray(pos); sp.userData.px = px; scene.add(sp); glows.push(sp); return sp; }
   function ring(r, text, color = 0x33415c, opacity = 0.45) {
     const pts = []; for (let i = 0; i <= 200; i++) { const a = i / 200 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r)); }
     scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color, transparent: true, opacity })));
-    if (text) { const el = document.createElement('span'); el.className = 'lbl space ring-lbl'; el.textContent = text; el.hidden = true; labelsEl.appendChild(el); extras.push({ el, pos: new THREE.Vector3(r * 0.7071, 0, r * 0.7071) }); }
+    if (text) { const el = document.createElement('span'); el.className = 'lbl space ring-lbl'; el.textContent = text; el.hidden = true; labelsEl.appendChild(el); extras.push({ el, pos: new THREE.Vector3(r * 0.7071, 0, r * 0.7071), px: 0 }); labelsDirty = true; }
   }
-  const tmp = new THREE.Vector3(); let last = 0, selected = null, on = false, labelOpacity = 1, mats = null;
+  let fitMax = max; const tmp = new THREE.Vector3(); let last = 0, selected = null, on = false, labelOpacity = 1, mats = null;
   const setFade = f => { if (!mats) { mats = []; scene.traverse(o => { if (o.material) { o.material.userData.base = o.material.opacity; o.material.transparent = true; mats.push(o.material); } }); } for (const m of mats) m.opacity = m.userData.base * f; };
   const reduce = () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const portrait = () => { const r = canvas.getBoundingClientRect(); return r.height > r.width; };
@@ -54,6 +56,9 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, home, over
       controls.target.lerpVectors(this.from.tgt, this.to.tgt, k); this.dir.lerpVectors(this.from.dir, this.to.dir, k).normalize(); camera.position.copy(controls.target).addScaledVector(this.dir, d);
       if (this.t >= 1) { const f = this.done; this.done = null; f?.(); } } };
   const viewDir = () => { const v = camera.position.clone().sub(controls.target); return v.lengthSq() ? v.normalize() : fly.dir.clone(); };
+  // The zoom controller's hook: same direction and centre, new distance. No allocation.
+  const off = new THREE.Vector3();
+  function setDistance(d) { fly.t = 1; fly.done = null; off.copy(camera.position).sub(controls.target); const l = off.length(); if (l) camera.position.copy(controls.target).addScaledVector(off, d / l); else camera.position.copy(controls.target).addScaledVector(fly.dir, d); }
   // Zooming in re-centres gently on HOME as the camera nears this scale's inner edge, so the hand-over to the
   // scale inside needs no automatic flight: it is just the zoom you are already doing.
   const driftStep = new THREE.Vector3();
@@ -63,16 +68,13 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, home, over
     if (f <= 0 || controls.target.distanceTo(HOME) < 1e-9) return;
     driftStep.copy(HOME).sub(controls.target).multiplyScalar(Math.min(1, f * dt * 3.5)); controls.target.add(driftStep); camera.position.add(driftStep);
   }
+  // Allocation-free label placement (labels.js); the priority list is rebuilt only when marks are added.
+  const project = (it, out) => { tmp.copy(it.pos).project(camera); out.x = tmp.x; out.y = tmp.y; out.z = tmp.z; return true; };
+  const labelOpts = { enabled: true, visible: null, opacity: () => labelOpacity };
+  let labelsLive = true;
   function placeLabels(bounds) {
-    const placed = [], list = [...[...marks].sort((a, b) => (a.item.rank ?? 9) - (b.item.rank ?? 9)).map(x => ({ el: x.el, pos: x.sprite.position, px: x.sprite.userData.px })), ...extras.map(r => ({ el: r.el, pos: r.pos, px: 0 }))];
-    for (const { el, pos, px } of list) {
-      tmp.copy(pos).project(camera);
-      const x = bounds.left + (tmp.x + 1) / 2 * bounds.width, y = bounds.top + (1 - tmp.y) / 2 * bounds.height, w = el.textContent.length * 4.9 + 10, h = 13, off = px / 2 + 4;
-      const box = [x - w / 2, y - off - h, x + w / 2, y - off];
-      const ok = on && tmp.z < 1 && Math.abs(tmp.x) < 1.02 && Math.abs(tmp.y) < 1.02 && !placed.some(o => box[0] < o[2] && box[2] > o[0] && box[1] < o[3] && box[3] > o[1]);
-      el.hidden = !ok; el.style.visibility = ok ? 'visible' : 'hidden'; el.style.opacity = labelOpacity;
-      if (ok) { placed.push(box); el.style.transform = `translate(${x}px,${y}px) translate(-50%,calc(-100% - ${off}px))`; }
-    }
+    if (labelsDirty) { labelItems = [...[...marks].sort((a, b) => (a.item.rank ?? 9) - (b.item.rank ?? 9)), ...extras]; labelsDirty = false; }
+    labelOpts.enabled = on && labelsLive; placeAll(labelItems, labelItems.length, placer, bounds, project, labelOpts);
   }
   function render(width, height, visible, { overlay = false, opacity = 1 } = {}) {
     scene.background = overlay ? null : bg; setFade(opacity); labelOpacity = opacity;
@@ -81,7 +83,7 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, home, over
     const vw = Math.min(width, visible?.width ?? width), vh = Math.min(height, visible?.height ?? height), fullW = 2 * width - vw, fullH = 2 * height - vh;
     camera.aspect = fullW / fullH; camera.zoom = vh / fullH;
     if (vw === width && vh === height) camera.clearViewOffset(); else camera.setViewOffset(fullW, fullH, width - vw, height - vh, width, height);
-    if (fitRadius) controls.maxDistance = Math.max(far, fitDistance() * 1.12);
+    if (fitRadius) controls.maxDistance = Math.max(far, fitDistance() * 1.12); fitMax = controls.maxDistance;
     camera.far = Math.max(1e4, camera.position.length() * 6); camera.updateProjectionMatrix(); fly.step(dt); drift(dt); controls.update();
     const k = 2 * Math.tan(camera.fov * Math.PI / 360) * 2 / vh;
     for (const x of marks) x.sprite.scale.setScalar(x.sprite.userData.px * k * (x.item === selected ? 1.7 : 1));
@@ -94,22 +96,23 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, home, over
     for (const x of marks) { tmp.copy(x.sprite.position).project(camera); if (tmp.z >= 1) continue; const d = Math.hypot(b.left + (tmp.x + 1) / 2 * b.width - cx, b.top + (1 - tmp.y) / 2 * b.height - cy) - (x.item.rank <= 1 ? 8 : 0); if (d < bestD) { bestD = d; best = x.item; } }
     return best;
   }
-  function setLabels(v) { on = v; for (const x of [...marks, ...extras]) x.el.hidden = !v; }
+  function setLabels(v) { on = v; for (const x of marks) { forgetLabel(x); x.el.hidden = !v; } for (const x of extras) { forgetLabel(x); x.el.hidden = !v; } }
   function setView(dir, d, tgt = HOME) { fly.t = 1; fly.done = null; fly.dir.copy(dir).normalize(); controls.target.copy(tgt); camera.position.copy(controls.target).addScaledVector(fly.dir, d); controls.update(); }
-  const api = { scene, points, mark, ring, glowAt, render, pick, setView, viewDir, camera, controls, fly,
+  const api = { scene, points, mark, ring, glowAt, render, pick, setView, viewDir, camera, controls, fly, setDistance, distance: () => camera.position.distanceTo(controls.target), liveLabels(v) { labelsLive = v; },
     enter(at) { setLabels(true); controls.enabled = true; if (at) setView(at.dir, at.d, at.tgt ? new THREE.Vector3(...at.tgt) : HOME); },
     leave() { setLabels(false); controls.enabled = false; },
+    overviewDistance: () => fitRadius ? fitDistance() : portrait() ? overviewD * 1.5 : overviewD,
     overview(done) { fly.start(fitRadius ? fitDistance() : portrait() ? overviewD * 1.5 : overviewD, HOME, 2.2, done, overviewDir); },
     zoomOut(done) { fly.start(far, controls.target, 1.2, done); },
     zoomBackIn(done) { fly.start(near, HOME, 1.4, done); },
-    zoomState: () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1 }),
+    zoomState: () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: fitMax, busy: fly.t < 1 }),
     showLabels: setLabels, select(item) { selected = item; }, items: () => marks.map(m => m.item) };
   return api;
 }
 
 // ---- Laniakea: 1 unit = 1 million light-years ----
 export function createLaniakea(opts) {
-  const s = createScene({ ...opts, near: SUPER_NEAR, far: SUPER_FAR, home: [0, 0, 0], overviewD: 520, overviewDir: new THREE.Vector3(0.3, 0.8, 0.5) });
+  const s = createScene({ ...opts, near: SUPER_NEAR, far: SUPER_FAR, min: SCENE_RANGE.super[0], max: SCENE_RANGE.super[1], home: [0, 0, 0], overviewD: 520, overviewDir: new THREE.Vector3(0.3, 0.8, 0.5) });
   s.scene.add(skyPoints(9000)); // the shared sky (sky.js)
   const g = ngcGalaxies(1), col = new Float32Array(g.count * 3);
   for (let i = 0; i < g.count; i++) { const c = KIND_COLOURS[g.kind[i]], k = 0.6 + ((i * 2654435761) >>> 0) / 4294967296 * 0.4; col.set([c[0] * k, c[1] * k, c[2] * k], i * 3); }
@@ -140,7 +143,7 @@ export function cosmicWeb(radius, nodes = 900, perEdge = 12, seed = 4) {
 }
 export function createUniverse(opts) {
   const R = CMB_GLY * 10; // units of 100 million ly
-  const s = createScene({ ...opts, near: UNIVERSE_NEAR, far: UNIVERSE_FAR, home: [0, 0, 0], overviewD: 960, fitRadius: R, overviewDir: new THREE.Vector3(0.35, 0.6, 0.72) });
+  const s = createScene({ ...opts, near: UNIVERSE_NEAR, far: UNIVERSE_FAR, min: SCENE_RANGE.universe[0], max: UNIVERSE_FAR, home: [0, 0, 0], overviewD: 960, fitRadius: R, overviewDir: new THREE.Vector3(0.35, 0.6, 0.72) });
   s.scene.add(skyPoints(9000)); // the shared sky (sky.js)
   // Laniakea's galaxies, shrunk 100× from the level inside: a small bright knot at the centre.
   const g = ngcGalaxies(100); s.points(g.pos, null, 1.3, 0.8, 0xdfe8ff);

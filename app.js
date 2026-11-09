@@ -13,7 +13,8 @@ const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 5e6);
 const HOME = { pos: new THREE.Vector3(0, 45, 75), target: new THREE.Vector3() };
 camera.position.copy(HOME.pos);
 const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true; controls.minDistance = 0.6; controls.maxDistance = 900;
+// Zoom belongs to the one zoom controller (zoom.js, driven by lab.js); OrbitControls only rotates and pans here.
+controls.enableDamping = true; controls.enableZoom = false; controls.minDistance = 0.6; controls.maxDistance = Infinity;
 
 // Starfield (re-centred on the camera every frame, so it always surrounds the view)
 let stars;
@@ -354,7 +355,7 @@ export function fitHomeDistance(radius, fovDeg, aspect, direction = HOME_DIRECTI
   for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
   return hi;
 }
-let chosenScope = null, lastHome = null;
+let chosenScope = null, lastHome = null, edgeDistance = 900;
 export function homeRadius(scope) {
   // 'inner': the rocky planets, Mercury to Mars (all within 2 AU).
   const list = scope === 'inner' ? PLANETS.filter(p => p.au < 2) : PLANETS;
@@ -370,7 +371,9 @@ function resize() {
   else { const dir = homeDirection(w / h); HOME.pos.copy(dir).multiplyScalar(fitHomeDistance(homeRadius(hooks.homeScope), camera.fov, w / h, dir)); }
   // The edge of this scale is the all-planets view: zooming further hands over to the stars, so you never pass
   // through a far view where the Sun shrinks and the enlarged inner planets pile up on top of each other.
-  controls.maxDistance = realScale ? Math.max(1.5e6,HOME.pos.length()*1.5) : fitHomeDistance(homeRadius('all'), camera.fov, w / h, homeDirection(w / h)) * 1.06;
+  // (Zooming further hands over to the stars: lab.js and zoom-ladder.js own those limits; edgeDistance is
+  // kept for reference as the all-planets framing.)
+  edgeDistance = realScale ? Math.max(1.5e6,HOME.pos.length()*1.5) : fitHomeDistance(homeRadius('all'), camera.fov, w / h, homeDirection(w / h)) * 1.06;
   camera.updateProjectionMatrix();
   // In the overview, re-frame when the framing changes noticeably: rotation, or a page first laid
   // out at another size (DevTools device emulation, split screen). Small changes such as the
@@ -400,8 +403,16 @@ function applyVisibleRegion(cam, width, height, visible) {
 // Label priority when names would overlap: the focused world, then Earth and the most visible worlds.
 const labelRank = b => { const i = LABEL_ORDER.indexOf(b.data.name); return i < 0 ? 99 : i; };
 const LABEL_ORDER = ['Earth', 'Mars', 'Venus', 'Mercury', 'Jupiter', 'Saturn', 'Sun', 'Uranus', 'Neptune', 'Moon', 'Pluto', 'Ceres', 'Eris', 'Makemake', 'Haumea', 'Vesta', 'Pallas']; // the Sun is easy to tap without one
+// Label placement scratch, reused every frame (no per-frame arrays). The priority order changes only when the
+// focused world changes.
+const labelOrder = [...bodies]; let labelOrderFor;
+const placedBoxes = new Float64Array(bodies.length * 4 + 8);
+const offset = new THREE.Vector3(), delta = new THREE.Vector3();
+let placed = 0;
+const free = (x0, y0, x1, y1) => { for (let i = 0; i < placed * 4; i += 4) if (x0 < placedBoxes[i + 2] && x1 > placedBoxes[i] && y0 < placedBoxes[i + 3] && y1 > placedBoxes[i + 1]) return false; return true; };
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
+  hooks.beforeFrame?.(dt); // the zoom controller moves the camera (or a seam) first
   if (hooks.renderOverride) { hooks.renderOverride(); requestAnimationFrame(frame); return; }
   const bounds = canvas.getBoundingClientRect();
   if (bounds.width !== lastSize[0] || bounds.height !== lastSize[1]) { renderer.setSize(bounds.width, bounds.height, false); lastSize = [bounds.width, bounds.height]; } // resizing every frame reallocates the drawing buffer
@@ -441,30 +452,35 @@ function frame(now) {
     // same angle to sunlight (otherwise a fast planet like Mercury slides round to its night side).
     const p = focused.mesh.getWorldPosition(tmp);
     const turn = Math.atan2(-p.z, p.x) - Math.atan2(-prevFocus.z, prevFocus.x);
-    const offset = camera.position.clone().sub(controls.target).applyAxisAngle(UP, Number.isFinite(turn) && Math.abs(turn) < 1 ? turn : 0);
-    const delta = p.clone().sub(prevFocus); prevFocus.copy(p);
+    offset.copy(camera.position).sub(controls.target).applyAxisAngle(UP, Number.isFinite(turn) && Math.abs(turn) < 1 ? turn : 0);
+    delta.copy(p).sub(prevFocus); prevFocus.copy(p);
     controls.target.add(delta); camera.position.copy(controls.target).add(offset);
   }
   // Tiny moons (Phobos is 22 km) need the camera to come closer than the default limits allow.
   { const r = focused ? focused.radius : 1; controls.minDistance = Math.min(0.6, r * 1.5); camera.near = Math.min(0.05, r * 0.2); }
+  drift(dt);
   controls.update();
+  { const far = Math.max(5e6, camera.position.distanceTo(controls.target) * 4); if (far !== camera.far) { camera.far = far; camera.updateProjectionMatrix(); } }
 
   stars.position.copy(camera.position);
   // Labels: small tappable names; overlapping ones are hidden so the view stays uncluttered.
-  const placed = [], ordered = [...bodies].sort((a, b) => (b === focused) - (a === focused) || labelRank(a) - labelRank(b));
-  for (const b of ordered) {
+  if (labelOrderFor !== focused) { labelOrderFor = focused; labelOrder.sort((a, b) => (b === focused) - (a === focused) || labelRank(a) - labelRank(b)); }
+  placed = 0;
+  for (const b of labelOrder) {
     const p = b.mesh.getWorldPosition(tmp).project(camera);
     const x = bounds.left + (p.x + 1) / 2 * bounds.width, y = bounds.top + (1 - p.y) / 2 * bounds.height;
     const w = b.data.name.length * 4.9 + 10, h = 13; // matches the .lbl tag: 8px text, 5px side padding
-    // Above the world if there is room, otherwise below it.
-    const spots = [[x - w / 2, y - 6 - h, x + w / 2, y - 6, 'calc(-100% - 6px)'], [x - w / 2, y + 6, x + w / 2, y + 6 + h, '6px']];
-    let spot = null;
-    if (p.z < 1 && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05 && !(b.satellite && !(b.host ? inSystem(b) : focused)))
-      spot = spots.find(o2 => !placed.some(o => o2[0] < o[2] && o2[2] > o[0] && o2[1] < o[3] && o2[3] > o[1])) || null;
-    if (spot) placed.push(spot);
-    b.label.style.visibility = spot ? 'visible' : 'hidden';
-    b.label.hidden = !spot;
-    if (spot) { b.label.style.transform = `translate(${x}px,${y}px) translate(-50%,${spot[4]})`; b.label.dataset.box = spot.slice(0, 4).map(v => v.toFixed(1)).join(','); }
+    // Above the world if there is room, otherwise below it. Too small to matter (lod) → no label.
+    let spot = 0, x0 = x - w / 2, x1 = x + w / 2, y0 = 0, y1 = 0;
+    if (p.z < 1 && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05 && !(b.satellite && !(b.host ? inSystem(b) : focused)) && !(hooks.labelsOff?.(b))) {
+      if (free(x0, y - 6 - h, x1, y - 6)) { spot = 1; y0 = y - 6 - h; y1 = y - 6; } else if (free(x0, y + 6, x1, y + 6 + h)) { spot = 2; y0 = y + 6; y1 = y + 6 + h; }
+    }
+    if (spot) { const i = placed * 4; placedBoxes[i] = x0; placedBoxes[i + 1] = y0; placedBoxes[i + 2] = x1; placedBoxes[i + 3] = y1; placed++; }
+    const el = b.label, c = el._c || (el._c = { spot: -1, x: NaN, y: NaN });
+    if (c.spot !== spot) { el.style.visibility = spot ? 'visible' : 'hidden'; el.hidden = !spot; }
+    // DOM writes only when the label moved by 0.1 px or more (or changed side).
+    if (spot && (c.spot !== spot || Math.abs(c.x - x) > 0.05 || Math.abs(c.y - y) > 0.05)) { el.style.transform = `translate(${x}px,${y}px) translate(-50%,${spot === 1 ? 'calc(-100% - 6px)' : '6px'})`; el.dataset.box = `${x0.toFixed(1)},${y0.toFixed(1)},${x1.toFixed(1)},${y1.toFixed(1)}`; c.x = x; c.y = y; }
+    c.spot = spot;
   }
   // "You are here" marker on Earth (kid overview only)
   const earth = bodies.find(b => b.data.name === 'Earth');
@@ -507,15 +523,35 @@ export function setRealScale(on) {
 }
 document.getElementById('realBtn').onclick = e => { const on = !realScale; e.currentTarget.classList.toggle('on', on); e.currentTarget.setAttribute('aria-pressed', on); document.getElementById('scaleNote').textContent = on ? 'true sizes & distances' : 'sizes to scale (Sun 1/5) · distances shrunk'; setRealScale(on); };
 window.__face = (name, lonDeg) => { const b = bodies.find(x => x.data.name === name); const d = camera.position.clone().sub(b.mesh.getWorldPosition(new THREE.Vector3())); const tilt = b.mesh.parent; const local = tilt.worldToLocal(camera.position.clone()).sub(tilt.worldToLocal(b.mesh.getWorldPosition(new THREE.Vector3()))); b.mesh.rotation.y = Math.atan2(-local.z, local.x) - lonDeg * Math.PI / 180; void d; };
-// Draw the Solar System once with the camera pulled back `recede` times along its current line of
-// sight (used while zooming out into the stars), without moving the simulation.
-export function drawSolar(recede = 1) {
+// Draw the Solar System once from where the camera is now, without moving the simulation (used inside a zoom
+// seam, while the zoom controller places the camera).
+export function drawSolar() {
   const bounds = canvas.getBoundingClientRect(); if (!bounds.width || !bounds.height) return;
-  renderer.setSize(bounds.width, bounds.height, false); applyVisibleRegion(camera, bounds.width, bounds.height, hooks.visible?.(bounds.width, bounds.height));
-  const saved = camera.position.clone(); camera.position.sub(controls.target).multiplyScalar(recede).add(controls.target);
+  renderer.setSize(bounds.width, bounds.height, false); lastSize = [bounds.width, bounds.height]; applyVisibleRegion(camera, bounds.width, bounds.height, hooks.visible?.(bounds.width, bounds.height));
   camera.far = Math.max(5e6, camera.position.distanceTo(controls.target) * 4); camera.updateProjectionMatrix(); camera.lookAt(controls.target);
-  renderer.render(scene, camera); camera.position.copy(saved); camera.lookAt(controls.target);
+  stars.position.copy(camera.position); renderer.render(scene, camera);
 }
-export { bodies, focus, unfocus, camera, controls, renderer, pickAt, applyVisibleRegion, HOME, handleTap, inSystem };
+// ---- Hooks for the zoom controller (lab.js) ----
+// Same direction and centre, new distance (scene units). Zooming out while a world is selected lets go of
+// it (the card closes) and the centre of view drifts back to the Sun, where the star map is centred.
+const zoomOff = new THREE.Vector3();
+export function setSolarDistance(d) { zoomOff.copy(camera.position).sub(controls.target); const l = zoomOff.length() || 1; camera.position.copy(controls.target).addScaledVector(zoomOff, d / l); }
+export const solarDistance = () => camera.position.distanceTo(controls.target);
+export const solarBusy = () => fly.t < 1;
+export const isRealScale = () => realScale;
+export const solarFocused = () => focused;
+export const solarEdge = () => edgeDistance;
+export const solarHome = () => HOME.pos.length(); // the whole-system (or inner-planets) home view's distance
+// How far the centre of view is from the Sun (scene units).
+export const solarOffCentre = () => controls.target.length();
+// Past the all-planets view the centre glides to the Sun (complete by DRIFT_TO), like the other scales.
+const DRIFT_FROM = 0.5, DRIFT_TO = 2.5; // × the all-planets framing distance
+function drift(dt) {
+  if (focused || fly.t < 1) return;
+  const d = camera.position.distanceTo(controls.target), f = Math.min(1, Math.max(0, (d / edgeDistance - DRIFT_FROM) / (DRIFT_TO - DRIFT_FROM)));
+  if (f <= 0 || controls.target.lengthSq() === 0) return;
+  const k = f >= 1 ? 1 : Math.min(1, f * dt * 3.5); zoomOff.copy(controls.target).multiplyScalar(-k); controls.target.add(zoomOff); camera.position.add(zoomOff);
+}
+export { bodies, focus, unfocus, camera, controls, renderer, pickAt, applyVisibleRegion, HOME, handleTap, inSystem, drift as solarDrift };
 window.__solar = { pickAt, screenOf: n => { const bounds=canvas.getBoundingClientRect(); const b = bodies.find(x => x.data.name === n); const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera); return [bounds.left + (p.x + 1) / 2 * bounds.width, bounds.top + (1 - p.y) / 2 * bounds.height]; }, focusByName: n => focus(bodies.find(b => b.data.name === n)), setKid };
 window.__cam = () => [camera.position.toArray().map(v => +v.toFixed(3)), controls.target.toArray().map(v => +v.toFixed(3))];

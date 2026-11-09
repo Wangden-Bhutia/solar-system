@@ -5,7 +5,8 @@ import * as THREE from './vendor/three.module.min.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { galaxyParticles, R0 } from './galaxy-data.js';
 import { GALAXIES, LOCAL_UNIT, discAxes, spiralParticles } from './local-data.js';
-import { LOCAL_NEAR, LOCAL_FAR } from './zoom-ladder.js';
+import { LOCAL_NEAR, LOCAL_FAR, SCENE_RANGE } from './zoom-ladder.js';
+import { createPlacer, placeAll, forgetLabel } from './labels.js';
 import { skyPoints } from './sky.js';
 
 const glow = (() => {
@@ -21,7 +22,7 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
   const scene = new THREE.Scene(), bg = new THREE.Color(0x000005); scene.background = bg;
   const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 1e5);
   const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enabled = false; controls.enablePan = false;
-  controls.zoomSpeed = 1.8; controls.minDistance = LOCAL_NEAR; controls.maxDistance = LOCAL_FAR;
+  controls.enableZoom = false; controls.minDistance = SCENE_RANGE.local[0]; controls.maxDistance = SCENE_RANGE.local[1]; // zoom: zoom.js via lab.js
   const points = (pos, col, size, opacity) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); if (col) g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     const p = new THREE.Points(g, new THREE.PointsMaterial({ size, sizeAttenuation: false, vertexColors: !!col, color: col ? 0xffffff : 0x8a93a8, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false })); p.frustumCulled = false; scene.add(p); return p; };
   // Far background galaxies' glow is left out: this level is the Local Group alone. A faint star field for depth.
@@ -43,7 +44,7 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
   const ringLabels = [1, 2, 3].map(m => {
     const r = m * 1000 / LOCAL_UNIT, pts = []; for (let i = 0; i <= 160; i++) { const a = i / 160 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r)); }
     scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x33415c, transparent: true, opacity: 0.45 })));
-    const el = document.createElement('span'); el.className = 'lbl space ring-lbl'; el.textContent = `${m} million ly`; el.hidden = true; labelsEl.appendChild(el); return { el, pos: new THREE.Vector3(r, 0, 0) };
+    const el = document.createElement('span'); el.className = 'lbl space ring-lbl'; el.textContent = `${m} million ly`; el.hidden = true; labelsEl.appendChild(el); return { el, pos: new THREE.Vector3(r, 0, 0), px: 0 };
   });
   // Every galaxy gets a marker (dwarfs are only a glow at this scale) and a name.
   const all = [MW, ...GALAXIES];
@@ -52,9 +53,9 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
     sprite.position.fromArray(g.pos); sprite.userData.px = g.rank === 1 ? 16 : big ? 10 : 5; scene.add(sprite);
     const el = document.createElement('button'); el.type = 'button'; el.className = 'lbl space galaxy' + (g.here ? ' here' : ''); el.textContent = g.here ? 'Milky Way · you are here' : g.short || g.name; el.tabIndex = -1; el.hidden = true;
     el.addEventListener('click', ev => { ev.stopPropagation(); onPick?.(g); }); labelsEl.appendChild(el);
-    return { g, sprite, el };
+    return { g, sprite, el, pos: sprite.position, px: sprite.userData.px };
   });
-  const ordered = [...marks].sort((a, b) => a.g.rank - b.g.rank);
+  const ordered = [...marks].sort((a, b) => a.g.rank - b.g.rank), labelItems = [...ordered, ...ringLabels], placer = createPlacer(labelItems.length + 8);
   const tmp = new THREE.Vector3(); let last = 0, selected = null, on = false, labelOpacity = 1;
   const mats = []; scene.traverse(o => { if (o.material) { o.material.userData.base = o.material.opacity; o.material.transparent = true; mats.push(o.material); } });
   const setFade = f => { for (const m of mats) m.opacity = m.userData.base * f; };
@@ -68,26 +69,24 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
       controls.target.lerpVectors(this.from.tgt, this.to.tgt, k); this.dir.lerpVectors(this.from.dir, this.to.dir, k).normalize(); camera.position.copy(controls.target).addScaledVector(this.dir, d);
       if (this.t >= 1) { const f = this.done; this.done = null; f?.(); } } };
   const viewDir = () => { const v = camera.position.clone().sub(controls.target); return v.lengthSq() ? v.normalize() : fly.dir.clone(); };
+  // The zoom controller's hook: same direction and centre, new distance (units of 10 kly). No allocation.
+  const off = new THREE.Vector3();
+  function setDistance(d) { fly.t = 1; fly.done = null; off.copy(camera.position).sub(controls.target); const l = off.length(); if (l) camera.position.copy(controls.target).addScaledVector(off, d / l); else camera.position.copy(controls.target).addScaledVector(fly.dir, d); }
+  const distance = () => camera.position.distanceTo(controls.target);
   // Zooming in re-centres gently on SUN as the camera nears this scale's inner edge, so the hand-over to the
   // scale inside needs no automatic flight: it is just the zoom you are already doing.
   const driftStep = new THREE.Vector3();
   function drift(dt) {
     if (fly.t < 1 || !controls.enabled) return;
-    const d = camera.position.distanceTo(controls.target), f = Math.min(1, Math.max(0, (LOCAL_NEAR * 5 - d) / (LOCAL_NEAR * 4)));
+    const d = camera.position.distanceTo(controls.target), f = Math.min(1, Math.max(0, (LOCAL_NEAR * 5 - d) / (LOCAL_NEAR * 4))); // complete at the seam
     if (f <= 0 || controls.target.distanceTo(SUN) < 1e-9) return;
     driftStep.copy(SUN).sub(controls.target).multiplyScalar(Math.min(1, f * dt * 3.5)); controls.target.add(driftStep); camera.position.add(driftStep);
   }
-  function placeLabels(bounds) {
-    const placed = [], list = [...ordered.map(x => ({ el: x.el, pos: x.sprite.position, px: x.sprite.userData.px })), ...ringLabels.map(r => ({ el: r.el, pos: r.pos, px: 0 }))];
-    for (const { el, pos, px } of list) {
-      tmp.copy(pos).project(camera);
-      const x = bounds.left + (tmp.x + 1) / 2 * bounds.width, y = bounds.top + (1 - tmp.y) / 2 * bounds.height, w = el.textContent.length * 4.9 + 10, h = 13, off = px / 2 + 4;
-      const box = [x - w / 2, y - off - h, x + w / 2, y - off];
-      const ok = on && tmp.z < 1 && Math.abs(tmp.x) < 1.02 && Math.abs(tmp.y) < 1.02 && !placed.some(o => box[0] < o[2] && box[2] > o[0] && box[1] < o[3] && box[3] > o[1]);
-      el.hidden = !ok; el.style.visibility = ok ? 'visible' : 'hidden'; el.style.opacity = labelOpacity;
-      if (ok) { placed.push(box); el.style.transform = `translate(${x}px,${y}px) translate(-50%,calc(-100% - ${off}px))`; }
-    }
-  }
+  // Allocation-free label placement (labels.js).
+  const project = (it, out) => { tmp.copy(it.pos).project(camera); out.x = tmp.x; out.y = tmp.y; out.z = tmp.z; return true; };
+  const labelOpts = { enabled: true, visible: null, opacity: () => labelOpacity };
+  let labelsLive = true;
+  function placeLabels(bounds) { labelOpts.enabled = on && labelsLive; placeAll(labelItems, labelItems.length, placer, bounds, project, labelOpts); }
   function render(width, height, visible, { overlay = false, opacity = 1 } = {}) {
     scene.background = overlay ? null : bg; setFade(opacity); labelOpacity = opacity;
     const now = performance.now(), dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
@@ -107,18 +106,20 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
     for (const x of marks) { tmp.copy(x.sprite.position).project(camera); if (tmp.z >= 1) continue; const px = b.left + (tmp.x + 1) / 2 * b.width, py = b.top + (1 - tmp.y) / 2 * b.height, d = Math.hypot(px - cx, py - cy) - (x.g.rank <= 2 ? 10 : 0); if (d < bestD) { bestD = d; best = x.g; } }
     return best;
   }
-  function setLabels(v) { on = v; for (const x of [...marks, ...ringLabels]) x.el.hidden = !v; }
+  function setLabels(v) { on = v; for (const x of labelItems) { forgetLabel(x); x.el.hidden = !v; } }
   // Look from direction dir at distance d (units) at target tgt (units): the bridge from the Galaxy hands over
   // exactly here, with the Galaxy's own target ÷ 10.
   function setView(dir, d, tgt = SUN) { fly.t = 1; fly.done = null; fly.dir.copy(dir).normalize(); controls.target.copy(tgt); camera.position.copy(controls.target).addScaledVector(fly.dir, d); controls.update(); }
   function enter(at) { setLabels(true); controls.enabled = true; if (at) setView(at.dir, at.d, at.tgt ? new THREE.Vector3(...at.tgt) : SUN); }
   function leave() { setLabels(false); controls.enabled = false; }
   // Pull back to frame the whole group, centred between the Milky Way and Andromeda.
-  function overview(done) { fly.start(portrait() ? 760 : 470, new THREE.Vector3().lerpVectors(new THREE.Vector3(), M31, 0.45), 2.2, done, new THREE.Vector3(0.25, 0.75, 0.6)); }
+  function towardSun(k) { driftStep.copy(SUN).sub(controls.target).multiplyScalar(k); controls.target.add(driftStep); camera.position.add(driftStep); }
+  const overviewDistance = () => portrait() ? 760 : 470;
+  function overview(done) { fly.start(overviewDistance(), new THREE.Vector3().lerpVectors(new THREE.Vector3(), M31, 0.45), 2.2, done, new THREE.Vector3(0.25, 0.75, 0.6)); }
   // Back towards the Milky Way, ending where the bridge to the Galaxy begins (Sun-centred, closest view).
   function zoomBackIn(done) { fly.start(LOCAL_NEAR, SUN, 1.4, done); }
   // Out to the edge of this scale, keeping the centre of view, where Laniakea takes over.
   function zoomOut(done) { fly.start(LOCAL_FAR, controls.target, 1.2, done); }
   const zoomState = () => ({ d: camera.position.distanceTo(controls.target), min: controls.minDistance, max: controls.maxDistance, busy: fly.t < 1, atSun: controls.target.distanceTo(SUN) < LOCAL_NEAR * 0.01 });
-  return { render, pick, enter, leave, setView, viewDir, overview, zoomBackIn, zoomOut, zoomState, showLabels: setLabels, select(g) { selected = g; }, galaxies: all, camera, controls, scene, fly };
+  return { render, pick, enter, leave, setView, viewDir, overview, overviewDistance, towardSun, zoomBackIn, zoomOut, zoomState, showLabels: setLabels, liveLabels(v) { labelsLive = v; }, setDistance, distance, select(g) { selected = g; }, galaxies: all, camera, controls, scene, fly };
 }
