@@ -105,3 +105,31 @@ dl{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px}dt{color:va
 #experiment #presets{margin:4px 0 6px}
 .tabs[hidden]{display:none}
 @media (orientation:landscape) and (max-height:520px){.experiment-mode #sheet[data-state=half]{max-height:calc(100dvh - var(--safe-t) - 8px)}}
+/* Top bar: Journeys chip sits beside the menu. */
+.top-right{display:flex;gap:8px;align-items:flex-start}
+#journeys{font-weight:600;color:var(--gold)}
+@media (max-width:359px){#journeys{padding:8px 10px}}
+/* Predict, then reveal. */
+.predict{margin:10px 0;padding:12px 14px;background:#122338;border:1px solid var(--line);border-radius:12px}
+.predict:empty{display:none}
+.predict-q{margin:0 0 8px!important;color:#e7eef8!important;font-size:15px}
+.predict .tag{display:inline-block;margin-right:6px;padding:1px 8px;border-radius:10px;background:var(--gold);color:#1b1407;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;vertical-align:1px}
+.choices{display:grid;gap:6px}
+.choices button{text-align:left;padding:10px 14px}
+.predict .skip{min-height:36px;margin-top:6px;padding:4px 0;border:0;font-size:13px;color:var(--muted);text-decoration:underline;text-underline-offset:3px}
+.verdict{border-left:3px solid var(--muted);padding:2px 0 2px 12px}
+.verdict.right{border-color:#7fd69a}.verdict.wrong{border-color:var(--gold)}
+.verdict p{margin:4px 0!important;font-size:14px}
+.verdict strong{color:#fff}
+/* Scale walk and light race. */
+.walk{list-style:none;padding:0;margin:8px 0;display:grid;gap:4px;font-size:13px}
+.walk li{display:grid;grid-template-columns:5.5em 1fr;column-gap:8px;padding:6px 0;border-bottom:1px solid #1d2c42}
+.walk li span{grid-column:2;color:var(--muted)}
+.sub{font-size:15px;margin:16px 0 4px}
+#light-race svg{display:block;width:100%;height:auto;max-height:90px}
+/* Journeys. */
+.journey-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px}
+.journey-nav button{flex:none}
+.journey-nav button:disabled{opacity:.45;cursor:not-allowed}
+#journey-dots{color:var(--muted);font-size:12px;letter-spacing:2px;text-align:center;flex:1;min-width:0}
+#journey-step .action{width:100%}

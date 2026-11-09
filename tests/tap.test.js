@@ -73,7 +73,10 @@ test('experiments: slider and month/phase buttons come first, right under the ti
   for(const experiment of ['seasons','phases']){
     const a=await ready();a.lab.go({view:'try',experiment});assert.equal(a.sheet,'half');
     const ids=[...a.$('experiment').children].map(e=>e.id||e.tagName.toLowerCase());
-    assert.deepEqual(ids.slice(0,4),['angle-label','experiment-angle','presets','experiment-result'],ids.join(','));
+    assert.deepEqual(ids.slice(0,3),['angle-label','experiment-angle','presets'],ids.join(','));
+    // Predict, then reveal: the guess sits between the controls and the result.
+    assert.ok(ids.indexOf('predict')<ids.indexOf('experiment-result'),'prediction comes before the result');
+    assert.equal(a.$('eclipse-controls').hidden,true,'eclipse controls only in the eclipse lab');
     assert.ok(ids.indexOf('experiment-summary')>ids.indexOf('presets'),'explanation below the controls');
     assert.ok(a.$('presets').querySelectorAll('button').length>=4);
     assert.equal(a.document.querySelector('#sheet .tabs').hidden,true,'tabs hidden in a lab');

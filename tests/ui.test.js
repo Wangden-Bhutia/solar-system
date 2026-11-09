@@ -1,6 +1,6 @@
 // DOM emulator only: NOT a browser, rendering test or actual mobile playback test.
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import {parseHTML} from 'linkedom';
-import {SUN,PLANETS,MOON} from '../data.js';import * as science from '../science.js';import * as state from '../lab-state.js';import * as sheetMod from '../sheet.js';import * as insights from '../insights.js';import * as lines from '../voice/lines.js';
+import {SUN,PLANETS,MOON} from '../data.js';import * as science from '../science.js';import * as state from '../lab-state.js';import * as sheetMod from '../sheet.js';import * as insights from '../insights.js';import * as learn from '../learn.js';import * as lines from '../voice/lines.js';
 async function setup(width=390,height=844,stored={}){
  const {window,document}=parseHTML(fs.readFileSync('index.html','utf8'));
  const selections=new WeakMap();Object.defineProperty(window.HTMLSelectElement.prototype,'value',{configurable:true,get(){return selections.get(this)??this.querySelector('option')?.textContent??'';},set(v){selections.set(this,v);}});
@@ -11,7 +11,7 @@ async function setup(width=390,height=844,stored={}){
  const bodies=[SUN,...PLANETS,MOON].map(data=>({data}));const controls={};
  const app={hooks,bodies,controls,renderer:{},focus(b,opts={}){focuses.push([b.data.name,opts]);if(!opts.silent)hooks.onFocus?.(b);},unfocus(){focuses.push(['overview']);},setHomeScope(scope){hooks.homeScope=scope;focuses.push(['overview:'+scope]);}};
  const audio={createVoicePlayer:({onState})=>({unlock(){unlocks++;},stop(){stops++;onState('idle');},say(id){assert.ok(lines.LINES[id],id);played.push(id);onState('speaking');return Promise.resolve();}})};
- const mods={'./app.js':app,'./science.js':science,'./lab-state.js':state,'./sheet.js':sheetMod,'./insights.js':insights,'./voice/lines.js':lines,'./voice-player.js':audio,'./experiments.js':{createExperiments:()=>({update(s){updates.push(s);},render(w,h,v){renders.push([w,h,v]);}})}};
+ const mods={'./app.js':app,'./science.js':science,'./lab-state.js':state,'./sheet.js':sheetMod,'./insights.js':insights,'./voice/lines.js':lines,'./voice-player.js':audio,'./learn.js':learn,'./experiments.js':{createExperiments:()=>({update(s){updates.push(s);},render(w,h,v){renders.push([w,h,v]);}})}};
  const context=vm.createContext({document,window:{},console,innerWidth:width,innerHeight:height,addEventListener(){},setTimeout,localStorage:{getItem:k=>storage[k]??null,setItem:(k,v)=>storage[k]=v}});
  const entry=new vm.SourceTextModule(fs.readFileSync('lab.js','utf8'),{context});await entry.link(s=>{const obj=mods[s];assert.ok(obj,s);return new vm.SyntheticModule(Object.keys(obj),function(){for(const[k,v]of Object.entries(obj))this.setExport(k,v);},{context});});await entry.evaluate();
  const tap=name=>app.focus(bodies.find(b=>b.data.name===name));
@@ -102,4 +102,72 @@ test('landscape: sheet docks right, scene keeps the left region',async()=>{
  const css=fs.readFileSync('style.css','utf8');assert.match(css,/@media \(orientation:landscape\) and \(max-height:520px\)/);assert.match(css,/translateX\(calc\(100% \+ 20px\)\)/);
  for(const v of ['--safe-t','--safe-r','--safe-b','--safe-l'])assert.ok(css.includes(`var(${v})`),v);
  assert.match(css,/min-height:44px/);
+});
+test('predict, then reveal: a lab hides its result until the learner guesses or skips; Back keeps the guess',async()=>{
+ const a=await setup();a.lab.go({view:'try',experiment:'seasons'});
+ assert.equal(a.$('predict').hidden,false);assert.match(a.$('predict').textContent,/Guess first/);
+ assert.equal(a.$('experiment-result').hidden,true,'result waits for a guess');
+ assert.ok(a.$('presets').querySelectorAll('button').length>=4,'controls still usable before guessing');
+ const wrong=[...a.$('predict').querySelectorAll('[data-choice]')].find(b=>b.dataset.choice==='0');wrong.onclick();
+ assert.equal(a.$('experiment-result').hidden,false);assert.match(a.$('predict').textContent,/Not quite/);assert.match(a.$('predict').textContent,/About 12 hours every day/);
+ a.$('back').onclick();a.lab.go({view:'try',experiment:'seasons'});
+ assert.equal(a.$('experiment-result').hidden,false,'the guess survives Back');
+ [...a.$('predict').querySelectorAll('[data-choice]')].find(b=>b.dataset.choice==='again').onclick();
+ assert.equal(a.$('experiment-result').hidden,true,'Ask me again hides the answer');
+ [...a.$('predict').querySelectorAll('[data-choice]')].find(b=>b.dataset.choice==='skip').onclick();
+ assert.match(a.$('predict').textContent,/Answer:/);assert.equal(a.$('experiment-result').hidden,false);
+});
+test('eclipse lab: default new Moon misses; lining up the crossing point gives an eclipse; full Moon turns coppery',async()=>{
+ const a=await setup();a.lab.go({view:'try',experiment:'eclipses',phase:0});
+ assert.equal(a.$('eclipse-controls').hidden,false);assert.equal(a.$('season-controls').hidden,true);assert.equal(a.$('listen').hidden,true,'no voice clip for this lab');
+ [...a.$('predict').querySelectorAll('[data-choice]')].find(b=>b.dataset.choice==='1').onclick();
+ assert.match(a.$('predict').textContent,/You got it/);
+ assert.match(a.$('experiment-result').textContent,/No eclipse: the Moon passes 2\.6° below the Sun/);
+ assert.match(a.$('orbit-map').innerHTML,/No eclipse here/);
+ a.$('node-line-up').onclick();assert.match(a.$('experiment-result').textContent,/Solar eclipse/);assert.equal(a.updates.at(-1).eclipse,'solar-central');
+ [...a.$('presets').querySelectorAll('button')].find(b=>b.textContent==='Full').onclick();a.$('node-line-up').onclick();
+ assert.match(a.$('experiment-result').textContent,/Total lunar eclipse/);assert.equal(a.updates.at(-1).eclipse,'lunar-total');
+ [...a.$('presets').querySelectorAll('button')].find(b=>b.textContent==='First quarter').onclick();
+ assert.match(a.$('experiment-result').textContent,/only happen at new Moon or full Moon/);
+});
+test('tide lab: spring tides at new Moon, neap at quarter; the 3D ocean gets the tidal range',async()=>{
+ const a=await setup();a.lab.go({view:'try',experiment:'tides',phase:0});
+ [...a.$('predict').querySelectorAll('[data-choice]')].find(b=>b.dataset.choice==='skip').onclick();
+ assert.equal(a.$('fact').textContent,'Spring tides · New Moon');assert.ok(a.updates.at(-1).tideRange>1.45);
+ [...a.$('presets').querySelectorAll('button')].find(b=>b.textContent==='First quarter').onclick();
+ assert.match(a.$('fact').textContent,/^Neap tides/);assert.ok(a.updates.at(-1).tideRange<.55);
+ assert.match(a.$('experiment-depth').innerHTML,/oceanservice\.noaa\.gov/);
+});
+test('scale lab: keeps the live Solar System, walks the planets out to scale and races light',async()=>{
+ const a=await setup();a.lab.go({view:'try',experiment:'scale'});
+ assert.equal(a.$('scale-lab').hidden,false);assert.equal(a.$('experiment').hidden,true);assert.equal(a.$('orbit-map').hidden,true);
+ assert.equal(a.lab.state.value.sheet,'half');assert.equal(a.$('scale-reveal').hidden,true,'walk waits for a guess');
+ [...a.$('scale-predict').querySelectorAll('[data-choice]')].find(b=>b.dataset.choice==='1').onclick();
+ assert.equal(a.$('scale-reveal').hidden,false);assert.match(a.$('scale-result').textContent,/peppercorn/);assert.match(a.$('scale-result').textContent,/24 m away/);
+ assert.equal(a.$('scale-list').querySelectorAll('li').length,8);
+ [...a.$('sun-presets').querySelectorAll('button')].find(b=>b.textContent==='Gym ball').onclick();assert.match(a.$('fact').textContent,/Sun 65 cm → Earth 70 m away/);
+ a.$('light-go').onclick();assert.match(a.$('light-clock').textContent,/4 h 11 min · just passed Neptune/);
+});
+test('journeys: list → steps that move the camera; a question gates Next; labs open from a step and Back returns',async()=>{
+ const a=await setup();a.$('journeys').onclick();
+ assert.equal(a.$('journey-panel').hidden,false);assert.equal(a.document.querySelector('#sheet .tabs').hidden,true);
+ assert.equal(a.$('journey-list').querySelectorAll('button').length,4);
+ a.$('journey-list').querySelector('[data-journey="scale"]').onclick();
+ assert.equal(a.$('title').textContent,'Our star');assert.equal(a.focuses.at(-1)[0],'Sun','glides to the Sun');assert.equal(a.$('journey-prev').disabled,true);
+ a.$('journey-next').onclick();assert.equal(a.$('title').textContent,'Sunlight’s trip to Earth');assert.equal(a.focuses.at(-1)[0],'Earth');
+ assert.equal(a.$('journey-next').disabled,true,'answer first');a.$('journey-next').onclick();assert.equal(a.lab.state.value.step,1);
+ [...a.$('journey-predict').querySelectorAll('[data-choice]')].find(b=>b.dataset.choice==='0').onclick();
+ assert.match(a.$('journey-predict').textContent,/8 min 19 s/);assert.equal(a.$('journey-next').disabled,false);
+ a.$('journey-next').onclick();assert.equal(a.focuses.at(-1)[0],'Neptune');
+ [...a.$('journey-predict').querySelectorAll('[data-choice]')].find(b=>b.dataset.choice==='1').onclick();a.$('journey-next').onclick();
+ assert.equal(a.$('journey-lab').parentElement.hidden,false);assert.match(a.$('journey-lab').textContent,/How big is space/);assert.equal(a.$('journey-next').textContent,'Finish ✓');
+ a.$('journey-lab').onclick();assert.equal(a.$('scale-lab').hidden,false);
+ a.$('back').onclick();assert.equal(a.lab.state.value.view,'journey');assert.equal(a.$('title').textContent,'Shrink it all down');
+ a.$('journey-next').onclick();assert.equal(a.$('title').textContent,'Choose a journey','Finish returns to the list');
+ a.$('journey-list').querySelector('[data-journey="mars"]').onclick();a.$('journey-next').onclick();a.$('journey-next').onclick();
+ assert.equal(a.$('title').textContent,'A Martian day','could not skip the unanswered question');
+});
+test('explore cards add sunlight travel time for planets',async()=>{
+ const a=await setup();a.tap('Mars');assert.match(a.$('world-size').textContent,/Sunlight takes 12 min 40 s to get here/);
+ a.tap('Moon');assert.doesNotMatch(a.$('world-size').textContent,/Sunlight/);
 });
