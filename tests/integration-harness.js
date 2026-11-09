@@ -5,7 +5,7 @@ import fs from 'node:fs';import vm from 'node:vm';import path from 'node:path';i
 import * as THREE from '../vendor/three.module.min.js';
 // fakeClock: performance.now() inside the app advances only with step() (50 ms a frame), so scene glides that
 // time themselves by the wall clock run at frame speed. Off by default.
-export async function bootApp({width=412,height=915,stored={},seed=1,fakeClock=false}={}){
+export async function bootApp({width=412,height=915,stored={},seed=1,fakeClock=false,reducedMotion=false}={}){
  let t=performance.now();const perf=fakeClock?{now:()=>t}:performance;
  const {window,document}=parseHTML(fs.readFileSync('index.html','utf8'));
  const selections=new WeakMap();Object.defineProperty(window.HTMLSelectElement.prototype,'value',{configurable:true,get(){return selections.get(this)??this.querySelector('option')?.textContent??'';},set(v){selections.set(this,v);}});
@@ -27,7 +27,7 @@ export async function bootApp({width=412,height=915,stored={},seed=1,fakeClock=f
  window.HTMLCanvasElement.prototype.getContext=()=>ctx2d;
  const g={document,window,navigator:{userAgent:'node'},innerWidth:width,innerHeight:height,devicePixelRatio:2.625,performance:perf,console,setTimeout,clearTimeout,
   localStorage:{getItem:k=>storage[k]??null,setItem:(k,v)=>{storage[k]=String(v);}},
-  requestAnimationFrame:fn=>{queue.push([++rafId,fn]);return rafId;},cancelAnimationFrame:id=>{queue=queue.filter(([i])=>i!==id);},addEventListener:()=>{},removeEventListener:()=>{},matchMedia:()=>({matches:false,addEventListener(){}}),
+  requestAnimationFrame:fn=>{queue.push([++rafId,fn]);return rafId;},cancelAnimationFrame:id=>{queue=queue.filter(([i])=>i!==id);},addEventListener:()=>{},removeEventListener:()=>{},matchMedia:q=>({matches:reducedMotion&&/reduced-motion/.test(q),addEventListener(){}}),
   Event:window.Event,HTMLElement:window.HTMLElement,PointerEvent};
  // Planets start at random orbital angles; seed them so a failure can be replayed.
  let r=seed>>>0;const random=()=>{r=(r+0x6D2B79F5)>>>0;let t=r;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};

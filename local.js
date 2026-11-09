@@ -152,5 +152,5 @@ export function createLocal({ renderer, canvas, labelsEl, onPick }) {
     tmp.copy(mwMark.sprite.position).project(camera); if (tmp.z >= 1) return false;
     out.x = bounds.left + (tmp.x + 1) / 2 * bounds.width; out.y = bounds.top + (1 - tmp.y) / 2 * bounds.height; out.off = mwMark.px / 2 + 4; out.text = mwMark.el.textContent; return true;
   }
-  return { render, anchor, hideHere(v) { hideHere = v; if (v) for (const it of labelItems) if (it.here) { it.el.hidden = true; forgetLabel(it); } }, pick, enter, leave, setView, viewDir, overview, overviewDistance, towardSun, zoomBackIn, zoomOut, zoomState, showLabels: setLabels, liveLabels(v) { labelsLive = v; }, setDistance, distance, select(g) { selected = g; }, galaxies: all, camera, controls, scene, fly };
+  return { camera, render, anchor, hideHere(v) { hideHere = v; if (v) for (const it of labelItems) if (it.here) { it.el.hidden = true; forgetLabel(it); } }, pick, enter, leave, setView, viewDir, overview, overviewDistance, towardSun, zoomBackIn, zoomOut, zoomState, showLabels: setLabels, liveLabels(v) { labelsLive = v; }, setDistance, distance, select(g) { selected = g; }, galaxies: all, camera, controls, scene, fly };
 }

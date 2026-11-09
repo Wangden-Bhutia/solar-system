@@ -22,7 +22,7 @@ jobs:
       - name: Build site folder
         run: |
           mkdir -p _site
-          cp -r index.html style.css app.js data.js kids.js lab.js lab-state.js sheet.js science.js insights.js learn.js stars.js stars-data.js galaxy.js galaxy-data.js zoom-ladder.js zoom.js zoomlog.js labels.js lod.js frames.js transition.js transition-data.js galaxy-motion.js star-motion.js star-pairs.js local.js local-data.js cosmos.js cosmos-data.js laniakea-data.js sky.js experiments.js voice-player.js textures.js land.js sw.js manifest.webmanifest icon-192.png icon-512.png voice vendor textures _site/
+          cp -r index.html style.css app.js data.js kids.js lab.js lab-state.js sheet.js science.js insights.js learn.js stars.js stars-data.js galaxy.js galaxy-data.js zoom-ladder.js zoom.js zoomlog.js labels.js lod.js frames.js transition.js transition-data.js hud.js galaxy-motion.js star-motion.js star-pairs.js local.js local-data.js cosmos.js cosmos-data.js laniakea-data.js sky.js experiments.js voice-player.js textures.js land.js sw.js manifest.webmanifest icon-192.png icon-512.png voice vendor textures _site/
           touch _site/.nojekyll
       - uses: actions/setup-node@v4
         with:

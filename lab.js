@@ -7,12 +7,13 @@ import { createLocal } from './local.js';
 import { createLaniakea, createUniverse } from './cosmos.js';
 import { COSMOS_FACTS, SHELLS, CMB_GLY } from './cosmos-data.js';
 import { LOCAL_FACTS, distanceBetween } from './local-data.js';
-import { GALAXY_FACTS } from './galaxy-data.js';
+import { GALAXY_FACTS, R0 } from './galaxy-data.js';
+import { viewWidth, hudText } from './hud.js';
 import { STAR_TIME, yearsLabel, approachLabel } from './star-motion.js';
 import { pairOf, periastron, apastron, nextPeriastron, keplerMass } from './star-pairs.js';
 import { TIME_RANGE, timeLabel, lapsLabel, milestone, VC_SUN, OMEGA_ARMS, OMEGA_BAR, SUN_PERIOD } from './galaxy-motion.js';
-import { LEVELS, levelIndex, PAIRS, pairFor, SEAMS, SEAM_Z, LEVEL_NAMES, layoutAt, zOf, dOf, solarZ, solarUnits, viewRate, smooth } from './zoom-ladder.js';
-import { camera, drawSolar, setSolarDistance, solarDistance, solarBusy, isRealScale, solarFocused, solarEdge,solarHome, solarOffCentre, solarDrift, solarAnchor } from './app.js';
+import { LEVELS, levelIndex, PAIRS, pairFor, SEAMS, SEAM_Z, LEVEL_NAMES, layoutAt, zOf, dOf, UNIT_LY, AU_LY, solarZ, solarUnits, viewRate, smooth } from './zoom-ladder.js';
+import { camera, drawSolar, setSolarDistance, solarDistance, solarBusy, isRealScale, solarFocused, solarEdge,solarHome, solarOffCentre, solarDrift, solarAnchor, solarCamera } from './app.js';
 import { createZoomController, wheelZ, pinchZ } from './zoom.js';
 import { createZoomLog } from './zoomlog.js';
 import { STAR_FACTS, habitableZone, sizeFromMass, lightLeftYear } from './stars-data.js';
@@ -117,6 +118,7 @@ function placeAnchor(i,o,t){
  if(anchorEl.textContent!==text)anchorEl.textContent=text;
  showLabel(anchorItem,true,x,y,Math.round(off*10)/10,1);anchorNow.x=x;anchorNow.y=y;anchorNow.text=text;
 }
+function placeAnchorFrom(l){const b=$('c').getBoundingClientRect();if(!anchorOf(l,aIn,b))return;if(anchorEl.textContent!==aIn.text)anchorEl.textContent=aIn.text;showLabel(anchorItem,true,aIn.x,aIn.y,Math.round(aIn.off*10)/10,1);anchorNow.x=aIn.x;anchorNow.y=aIn.y;anchorNow.text=aIn.text;}
 function hideAnchor(){showLabel(anchorItem,false);anchorNow.x=NaN;anchorNow.text='';}
 // Each scale's centre of view crosses the seam with it (the Galaxy may be centred on the Sun or on its own centre).
 // Stars ⇄ Galaxy always meets at the Sun, so it carries no centre.
@@ -131,6 +133,9 @@ function beginBridge(pair){
  // Only the dominant scale's names are placed while both are drawn; they swap at the middle of the seam.
  for(const l of PAIRS[pair]){showLabelsOf(l,true);setLive(l,l===cur);if(l!=='solar')sceneOf(l).hideHere?.(true);}
  document.body.classList.add('bridging');render();
+ // The anchor takes over from the scene's own label on this very frame (it is placed from the current scale's
+ // camera, which is up to date; the seam itself is first drawn on the next frame).
+ placeAnchorFrom(cur);
 }
 function settle(end){
  const b=bridge,[inner,outer]=PAIRS[b.pair],target=end==='outer'?outer:inner,cur=levelOf(state.value.view);bridge=null;document.body.classList.remove('bridging');
@@ -242,10 +247,27 @@ const bright={centre:null,anchor:null},px48=new Uint8Array(48*48*4),px16=new Uin
 const lum=(buf)=>{let s=0;for(let i=0;i<buf.length;i+=4)s+=0.2126*buf[i]+0.7152*buf[i+1]+0.0722*buf[i+2];return +(s/(buf.length/4)/255).toFixed(4);};
 const zlog=createZoomLog({input:dz=>zoomInput(dz,'pinch',globalThis.performance?.now?.()??Date.now()),z:()=>Zc,
  extra:()=>({anchorX:Number.isFinite(anchorNow.x)?+anchorNow.x.toFixed(1):'',anchorY:Number.isFinite(anchorNow.y)?+anchorNow.y.toFixed(1):'',anchorText:anchorNow.text,lumCentre:bright.centre,lumAnchor:bright.anchor})});
-if(zlog?.mode==='bright')hooks.afterFrame=()=>{const gl=renderer.getContext?.();if(!gl?.readPixels)return;const W=gl.drawingBufferWidth,H=gl.drawingBufferHeight,cb=$('c').getBoundingClientRect(),sx=W/(cb.width||W),sy=H/(cb.height||H);
+if(zlog?.mode==='bright')hooks.afterFrameLog=()=>{const gl=renderer.getContext?.();if(!gl?.readPixels)return;const W=gl.drawingBufferWidth,H=gl.drawingBufferHeight,cb=$('c').getBoundingClientRect(),sx=W/(cb.width||W),sy=H/(cb.height||H);
  gl.readPixels(Math.max(0,(W>>1)-24),Math.max(0,(H>>1)-24),48,48,gl.RGBA,gl.UNSIGNED_BYTE,px48);bright.centre=lum(px48);
  if(Number.isFinite(anchorNow.x)){const ax=Math.round((anchorNow.x-cb.left)*sx)-8,ay=Math.round(H-(anchorNow.y-cb.top)*sy)-8;if(ax>=0&&ay>=0&&ax+16<=W&&ay+16<=H){gl.readPixels(ax,ay,16,16,gl.RGBA,gl.UNSIGNED_BYTE,px16);bright.anchor=lum(px16);}else bright.anchor=null;}else bright.anchor=null;};
 const currentZ=()=>{if(bridge||zoom.moving)return Zc;const l=levelOf(state.value.view),z=zoomState();return z?zOfLevel(l,z.d):NaN;};
+// ---- The scale readout (hud.js): width of view, distance from the Sun, light-crossing time ----
+// Text is written only when it changes; computed from the dominant scale's own camera (no allocation per frame).
+const hudEl=document.createElement('div');hudEl.id='hud';hudEl.className='hud';hudEl.setAttribute('aria-hidden','true');
+const hudA=document.createElement('div'),hudB=document.createElement('div'),hudC=document.createElement('div'),hudN=document.createElement('div');hudN.className='hud-note';
+hudEl.append(hudA,hudB,hudC,hudN);document.body.appendChild(hudEl);
+const SUN_AT={stars:0,galaxy:-R0,local:-R0*1e3/UNIT_LY.local,super:-R0*1e3/UNIT_LY.super,universe:-R0*1e3/UNIT_LY.universe};
+const hudSet=(el,t)=>{if(el.textContent!==t)el.textContent=t;};
+function updateHud(){
+ const z=currentZ();if(!Number.isFinite(z)){if(!hudEl.hidden)hudEl.hidden=true;return;}if(hudEl.hidden)hudEl.hidden=false;
+ const l=bridge?bridge.dom:levelOf(state.value.view),b=$('c').getBoundingClientRect(),aspect=(b.width||1)/(b.height||1);
+ let cam,sunLy,model=false,offSun=false;
+ if(l==='solar'){cam=camera;const sc=solarCamera?.()||{au:0,metric:1};sunLy=sc.au*AU_LY;model=!isRealScale?.()&&sc.metric<1;offSun=controls.target.lengthSq()>1e-6;}
+ else{const sc=sceneOf(l);cam=sc.camera;const p=cam.position,sx=SUN_AT[l];sunLy=Math.hypot(p.x-sx,p.y,p.z)*UNIT_LY[l];const t=sc.controls?.target;offSun=!!t&&Math.hypot(t.x-sx,t.y,t.z)*UNIT_LY[l]>0.01*Math.exp(z);}
+ const h=hudText({widthLy:viewWidth(Math.exp(z),cam.fov,aspect),sunLy,model,offSun});
+ hudSet(hudA,h.lines[0]);hudSet(hudB,h.lines[1]);hudSet(hudC,h.lines[2]);hudSet(hudN,h.note);
+}
+hooks.afterFrame=()=>{updateHud();hooks.afterFrameLog?.();};
 hooks.beforeFrame=dt=>{zoomTick(dt);zlog?.frame(dt,currentZ(),bridge,levelOf(state.value.view));};
 // dz: a change of Z from a gesture (zoom.js gains). Zooming out of a selected world lets go of it.
 function zoomInput(dz,kind,now){

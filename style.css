@@ -254,3 +254,7 @@ body.bridging #gtime{visibility:hidden}
 .mbuttons{margin-top:10px}
 .mbtn{min-height:36px;height:36px;padding:0 16px;border-radius:18px;font-size:13.5px;font-weight:600}
 @media (min-width:640px){.menu{left:auto;width:380px}}
+/* Scale readout (hud.js): width of view, distance from the Sun, light-crossing time. Never takes taps. */
+.hud{position:fixed;left:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:5;pointer-events:none;font:11px/1.35 system-ui,sans-serif;color:#c9d4ea;background:rgba(0,0,8,.45);padding:4px 7px;border-radius:6px;max-width:62vw;font-variant-numeric:tabular-nums}
+.hud .hud-note{color:#8f9bb5;font-size:10px}
+.hud .hud-note:empty{display:none}

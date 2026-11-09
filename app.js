@@ -460,7 +460,7 @@ function frame(now) {
   { const r = focused ? focused.radius : 1; controls.minDistance = Math.min(0.6, r * 1.5); camera.near = Math.min(0.05, r * 0.2); }
   drift(dt);
   controls.update();
-  { const far = Math.max(5e6, camera.position.distanceTo(controls.target) * 4); if (far !== camera.far) { camera.far = far; camera.updateProjectionMatrix(); } }
+  setClip();
 
   applyLod(view.height, null);
   // Labels: small tappable names; overlapping ones are hidden so the view stays uncluttered.
@@ -529,7 +529,7 @@ window.__face = (name, lonDeg) => { const b = bodies.find(x => x.data.name === n
 export function drawSolar(seam = null) {
   const bounds = canvas.getBoundingClientRect(); if (!bounds.width || !bounds.height) return;
   renderer.setSize(bounds.width, bounds.height, false); lastSize = [bounds.width, bounds.height]; const view = applyVisibleRegion(camera, bounds.width, bounds.height, hooks.visible?.(bounds.width, bounds.height));
-  camera.far = Math.max(5e6, camera.position.distanceTo(controls.target) * 4); camera.updateProjectionMatrix(); camera.lookAt(controls.target);
+  setClip(); camera.lookAt(controls.target);
   applyLod(view.height, seam); renderer.render(scene, camera);
 }
 // Per-object level of detail (lod.js). Orbits, belts and trails fade as they shrink while the zoom leaves the
@@ -562,6 +562,11 @@ function solarPlace() {
   for (const w of helio) w.scale.setScalar(realScale ? w.userData.au * UNITS_PER_AU : auToUnits(w.userData.au, camMetric));
 }
 export const solarCamera = () => ({ au: camAU, metric: camMetric }); // for the HUD (lab.js)
+// Clip planes across the Solar System's huge range of camera distances (a few units to ~6e8 at the seam): far
+// covers 4 × the distance, near grows with it (never below 0.05, at most 1e-5 of the distance), so the depth
+// buffer's far/near ratio stays ≤ 5e5 (4e5 once d > 1.25e6) instead of reaching ~5e10. Close in (d < 5,000 units) nothing changes.
+export function clipFor(d) { return { near: Math.max(0.05, d * 1e-5), far: Math.max(5e6, d * 4) }; }
+function setClip() { const c = clipFor(camera.position.distanceTo(controls.target)); if (c.far !== camera.far || c.near !== camera.near) { camera.near = c.near; camera.far = c.far; camera.updateProjectionMatrix(); } }
 let sunGlow = 0;
 function applyLod(vh, seam) {
   solarPlace(); placeSky(stars, camera); placeSky(hygSky, camera); lod.update(camera.position, ORIGIN, vh, camera.fov, seam);

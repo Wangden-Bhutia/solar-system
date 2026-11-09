@@ -46,11 +46,10 @@ test('one anchor label across every seam: shown only inside seams, text swaps on
  for(let i=0;i<4000&&(a.lab.state.value.view!=='universe'||a.lab.bridge||a.lab.animating);i++){
   a.step(1);const b=a.lab.bridge,an=a.lab.anchor,e=el();
   if(!b){assert.ok(!e||e.hidden,'no lab anchor outside a seam');last=null;continue;}
-  // Never two “here” labels. A seam is first drawn on the frame after it opens: on that one frame the scene's own
-  // label (if it had one) is still up and the lab's anchor is not yet; from then on the anchor alone.
+  // Exactly one “here” label on every seam frame: the lab's anchor (the scene's own is hidden as the seam opens).
   const dups=[...a.document.querySelectorAll('#labels .lbl')].filter(l=>l!==e&&!l.hidden&&l.style.visibility!=='hidden'&&HERE.test(l.textContent.trim()));
   const shown=!!e&&!e.hidden;assert.ok(dups.length+(shown?1:0)<=1,`one “here” label in ${b.pair} at t=${b.t.toFixed(3)}: anchor ${shown}, others ${dups.map(l=>l.textContent).join(', ')}`);
-  if(!shown){const n=(gaps.get(b.pair)||0)+1;gaps.set(b.pair,n);assert.ok(n<=1,`${b.pair}: the anchor is missing only on the frame the seam opens`);last=null;continue;}
+  assert.ok(shown,`${b.pair} t=${b.t.toFixed(3)}: the anchor is shown on every seam frame, the opening frame included`);
   frames++;assert.equal(e.getAttribute('aria-hidden'),'true');
   assert.match(an.text,HERE);if(texts.at(-1)!==an.text)texts.push(an.text);
   const seen=perSeam.get(b.pair)||[];if(seen.at(-1)!==an.text)seen.push(an.text);perSeam.set(b.pair,seen);
