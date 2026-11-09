@@ -125,6 +125,9 @@ export const PREDICTIONS = {
   'voyage-orbit': { q: 'The Sun travels around the Galaxy at about 230 km/s. How long does one lap take?',
     options: ['About 230 years', 'About 230 thousand years', 'About 230 million years'], answer: 2,
     explain: 'About 230 million years. The last time the Sun was where it is now, the first dinosaurs were appearing. Since it formed, it has gone round about 20 times.' },
+  'voyage-edge': { q: 'The universe is 13.8 billion years old. How far away is the farthest place whose light we can see?',
+    options: ['13.8 billion light-years', 'About 46 billion light-years', 'There is no limit'], answer: 1,
+    explain: 'About 46 billion light-years. The light took 13.8 billion years to reach us, but space kept stretching while it travelled, so the place it left is now much farther away.' },
   'voyage-andromeda': { q: 'Andromeda is moving towards us at about 110 km/s. Will it crash into the Milky Way?',
     options: ['Yes, certainly', 'Maybe — scientists now give it about even odds within 10 billion years', 'No, it is moving away'], answer: 1,
     explain: 'For years the answer was “yes, in about 4.5 billion years”. In 2025, newer measurements gave only about a 50% chance of a merger within 10 billion years. Science changes its answer when the measurements improve.' },
@@ -166,7 +169,7 @@ export const JOURNEYS = [
 ];
 // The voyage outward: one journey across every scale, from home to Andromeda. Each stop names the
 // scale to travel to (level) and what to show there; lab.js does the travelling with the same zoom.
-export const VOYAGE = { id: 'voyage', title: 'Voyage outward', blurb: 'From home to Andromeda, one zoom at a time.', steps: [
+export const VOYAGE = { id: 'voyage', title: 'Voyage outward', blurb: 'From home to the edge of the observable universe, one zoom at a time.', steps: [
   { level: 'solar', title: 'Home', text: 'Our Solar System: the Sun, eight planets and their moons. Sunlight reaches Earth in about 8 minutes and Neptune in about 4 hours.', predict: 'voyage-star' },
   { level: 'stars', star: 'Alpha Centauri', title: 'The nearest stars', text: 'Zoomed out this far, the whole Solar System fits inside the Sun’s dot. The nearest stars are a few light-years away; the closest system, Alpha Centauri, has three stars.' },
   { level: 'stars', view: 'pair', star: 'Alpha Centauri', title: 'Two suns', text: 'Alpha Centauri A and B are two stars much like the Sun, orbiting each other. Watch them swing close and far apart.', predict: 'voyage-pair' },
@@ -174,6 +177,8 @@ export const VOYAGE = { id: 'voyage', title: 'Voyage outward', blurb: 'From home
   { level: 'galaxy', act: 'turn', title: 'Our Galaxy', text: 'Further out, the stars merge into the Milky Way: a spiral of 100–400 billion stars. The Sun is about 27,000 light-years from the centre, and the whole Galaxy is turning.', predict: 'voyage-orbit' },
   { level: 'local', act: 'overview', title: 'Our neighbourhood of galaxies', text: 'The Milky Way is one of more than 100 galaxies in the Local Group. Most are small dwarfs; the two giants are the Milky Way and Andromeda.' },
   { level: 'local', landmark: 'Andromeda Galaxy', title: 'Andromeda', text: 'Andromeda is 2.5 million light-years away. The light reaching you tonight left it when the first humans of our genus were appearing.', predict: 'voyage-andromeda' },
+  { level: 'super', act: 'overview', title: 'Laniakea', text: 'Our whole Local Group is now a single dot. Every other dot is a real galaxy, thousands of them, gathered in clusters like Virgo and Coma. Together they make our supercluster, Laniakea: “immeasurable heaven”.' },
+  { level: 'universe', act: 'overview', title: 'The edge of what we can see', text: 'All of Laniakea is the small knot at the centre. Around it, galaxies gather in strands around great empty voids, out to the oldest light there is.', predict: 'voyage-edge' },
 ] };
 export const journey = id => id === 'voyage' ? VOYAGE : JOURNEYS.find(j => j.id === id) || null;
 // A step with a question can only move on once it has been answered (or skipped).

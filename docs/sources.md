@@ -145,3 +145,27 @@ Nineteen moons besides Earth's: Phobos, Deimos; Io, Europa, Ganymede, Callisto; 
 - **Local Group size and mass.** About 2 × 10¹² solar masses and more than 100 members ([Local Group](https://en.wikipedia.org/wiki/Local_Group)). Its width depends on where the edge is drawn: the app says 10–17 million light-years.
 - **Andromeda's approach.** It is approaching at about 110 km/s. A merger was long predicted for about 4.5 billion years from now. Sawala et al. (2025, Nature Astronomy), using Gaia and Hubble data and including Triangulum and the LMC, found about a 50% chance of a merger within 10 billion years ([Andromeda–Milky Way collision](https://en.wikipedia.org/wiki/Andromeda%E2%80%93Milky_Way_collision); [UWA news release](https://www.uwa.edu.au/news/article/2025/june/astronomers-thought-the-milky-way-was-doomed-to-crash-into-andromeda)). The app presents both results.
 - **Seam with the Galaxy.** The Milky Way in this scene is the Galaxy scene's own particle model, shrunk 10×, and the camera distance here is exactly the Galaxy's ÷ 10, centred on the same point.
+
+## Laniakea (`laniakea-data.js`, `cosmos-data.js`, `cosmos.js`, November 2026)
+- **Galaxies.** 9,696 NGC and IC galaxies with measured redshifts from [OpenNGC](https://github.com/mattiaverga/OpenNGC) (CC BY-SA 4.0; `database_files/NGC.csv`), packed by `tools/build_laniakea.py`. That generated file is a derivative of OpenNGC and carries the same licence.
+- **Distances.** Each distance comes from the Hubble law, cz / H0 with H0 = 70 km/s/Mpc. Galaxies with cz < 1,000 km/s are left out, because the Hubble law fails there.
+- **Known limitations, stated in the card:**
+  - Motions inside clusters stretch each cluster along the line of sight ("fingers of God").
+  - The NGC/IC catalogues favour bright, nearby galaxies.
+  - Few galaxies appear behind the Milky Way's disc (the zone of avoidance).
+- **Check:** at least 25 catalogue galaxies cluster around each of the Virgo, Coma and Perseus positions (tests).
+- **Cluster centres and distances.** From each Wikipedia article, read 9 Nov 2026: Virgo 53.8 Mly, Fornax 62, Perseus 240, Coma 321 (infobox 336), Norma 221 (near the centre of the Great Attractor), Shapley 652.
+- **Nearby groups.** These use their brightest galaxy's measured distance: M81 11.8 Mly, NGC 253 11.4, Centaurus A about 12, Sombrero 31.1.
+- **Laniakea itself.** About 100,000 galaxies and about 10¹⁷ solar masses. It was defined in 2014 by Tully, Courtois, Hoffman and Pomarède ([Laniakea Supercluster](https://en.wikipedia.org/wiki/Laniakea_Supercluster)). Its quoted width varies (Wikipedia gives 400 million ly; other sources about 520), so the app says 400–500 million.
+
+## The observable universe (`cosmos-data.js`, `cosmos.js`, November 2026)
+- **Cosmology.** Flat ΛCDM with Planck 2018 values (H0 = 67.66 km/s/Mpc, Ωm = 0.3111, radiation 9 × 10⁻⁵), integrated numerically.
+- **Checks against [Observable universe](https://en.wikipedia.org/wiki/Observable_universe) and [MoM-z14](https://en.wikipedia.org/wiki/MoM-z14):**
+  - Age 13.786 Gyr (published 13.787 ± 0.020).
+  - Distance now to the CMB 45.3 Gly (published about 45.7; the small gap is the simplified radiation and neutrino terms).
+  - MoM-z14 (z = 14.44, announced 16 May 2025) at 33.9 Gly now, light 13.50 Gyr old (published 33.8 and 13.53).
+- **Shells of equal look-back time.** 4.6 Gyr (as the Sun formed) is at 5.5 Gly, 10 Gyr at 15.9 Gly and 13 Gyr at 28.5 Gly, all distances now.
+- **Illustrations, labelled as such in the app:**
+  - The cosmic web: knots joined to their nearest neighbours by strands. The real strands are far finer.
+  - The CMB's warm and cool speckle: the real map is shown in the Planck and WMAP all-sky images.
+- **Other figures.** "As many as 2 trillion galaxies" is the estimate quoted by Wikipedia. The CMB redshift is 1091.64 and it was discovered in 1965 (Penzias and Wilson).
