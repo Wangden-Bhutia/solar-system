@@ -112,6 +112,22 @@ export const PREDICTIONS = {
   'mars-weight': { q: 'A child weighs 30 kg on Earth’s scales. On Mars, the same child would…',
     options: ['weigh much less — about 38% as much', 'weigh the same', 'weigh more'], answer: 0,
     explain: 'Mars’s surface gravity is about 3.73 m/s², 38% of Earth’s. The child’s mass is still 30 kg; the pull on them is weaker. Try it in Compare.' },
+  // Voyage outward (one question per scale).
+  'voyage-star': { q: 'Sunlight takes about 4 hours to reach Neptune. How long does light take to reach the nearest star?',
+    options: ['About 4 days', 'About 4 years', 'About 4,000 years'], answer: 1,
+    explain: 'About 4.2 years. The nearest star, Proxima Centauri, is about 270,000 times farther from the Sun than Earth is.' },
+  'voyage-pair': { q: 'Alpha Centauri A and B circle each other. How long does one lap take?',
+    options: ['About 1 year', 'About 80 years', 'About 8,000 years'], answer: 1,
+    explain: 'About 80 years (79.8). They swing between about 11 and 35 times the Earth–Sun distance apart, and will next be closest in 2035.' },
+  'voyage-nearest': { q: 'Will Alpha Centauri always be our nearest star?',
+    options: ['Yes — stars don’t move', 'No — in about 33,000 years a small red dwarf, Ross 248, takes over', 'No — the Sun will leave all the stars behind'], answer: 1,
+    explain: 'Every star is moving. Alpha Centauri keeps getting closer for about 27,000 years, then drifts away. Ross 248 becomes the nearest star about 33,000 years from now, then Gliese 445. Watch the gold line.' },
+  'voyage-orbit': { q: 'The Sun travels around the Galaxy at about 230 km/s. How long does one lap take?',
+    options: ['About 230 years', 'About 230 thousand years', 'About 230 million years'], answer: 2,
+    explain: 'About 230 million years. The last time the Sun was where it is now, the first dinosaurs were appearing. Since it formed, it has gone round about 20 times.' },
+  'voyage-andromeda': { q: 'Andromeda is moving towards us at about 110 km/s. Will it crash into the Milky Way?',
+    options: ['Yes, certainly', 'Maybe — scientists now give it about even odds within 10 billion years', 'No, it is moving away'], answer: 1,
+    explain: 'For years the answer was “yes, in about 4.5 billion years”. In 2025, newer measurements gave only about a 50% chance of a merger within 10 billion years. Science changes its answer when the measurements improve.' },
 };
 export function judge(id, choice) {
   const p = PREDICTIONS[id];
@@ -148,6 +164,17 @@ export const JOURNEYS = [
     { world: 'Mars', title: 'Calling a rover', text: `Radio signals travel at the speed of light. Between Earth and Mars they take from about ${Math.round(lightSeconds(MARS_EARTH_KM[0]) / 60)} to ${Math.round(lightSeconds(MARS_EARTH_KM[1]) / 60)} minutes each way, depending on where the planets are. Rovers have to drive themselves between commands.` },
   ] },
 ];
-export const journey = id => JOURNEYS.find(j => j.id === id) || null;
+// The voyage outward: one journey across every scale, from home to Andromeda. Each stop names the
+// scale to travel to (level) and what to show there; lab.js does the travelling with the same zoom.
+export const VOYAGE = { id: 'voyage', title: 'Voyage outward', blurb: 'From home to Andromeda, one zoom at a time.', steps: [
+  { level: 'solar', title: 'Home', text: 'Our Solar System: the Sun, eight planets and their moons. Sunlight reaches Earth in about 8 minutes and Neptune in about 4 hours.', predict: 'voyage-star' },
+  { level: 'stars', star: 'Alpha Centauri', title: 'The nearest stars', text: 'Zoomed out this far, the whole Solar System fits inside the Sun’s dot. The nearest stars are a few light-years away; the closest system, Alpha Centauri, has three stars.' },
+  { level: 'stars', view: 'pair', star: 'Alpha Centauri', title: 'Two suns', text: 'Alpha Centauri A and B are two stars much like the Sun, orbiting each other. Watch them swing close and far apart.', predict: 'voyage-pair' },
+  { level: 'stars', act: 'drift', title: 'The neighbours are moving', text: 'Every star is on the move. The clock now runs at about 2,000 years a second, and the gold line always points to the nearest star.', predict: 'voyage-nearest' },
+  { level: 'galaxy', act: 'turn', title: 'Our Galaxy', text: 'Further out, the stars merge into the Milky Way: a spiral of 100–400 billion stars. The Sun is about 27,000 light-years from the centre, and the whole Galaxy is turning.', predict: 'voyage-orbit' },
+  { level: 'local', act: 'overview', title: 'Our neighbourhood of galaxies', text: 'The Milky Way is one of more than 100 galaxies in the Local Group. Most are small dwarfs; the two giants are the Milky Way and Andromeda.' },
+  { level: 'local', landmark: 'Andromeda Galaxy', title: 'Andromeda', text: 'Andromeda is 2.5 million light-years away. The light reaching you tonight left it when the first humans of our genus were appearing.', predict: 'voyage-andromeda' },
+] };
+export const journey = id => id === 'voyage' ? VOYAGE : JOURNEYS.find(j => j.id === id) || null;
 // A step with a question can only move on once it has been answered (or skipped).
 export const canAdvance = (step, answers) => !step?.predict || answers?.[step.predict] !== undefined;

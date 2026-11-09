@@ -17,7 +17,7 @@ import { seasonGeometry, daylightHours, noonAltitude, phaseGeometry, phaseName, 
 import { INSIGHTS, STRIKING, genericInsight, NASA, CHECKED, MOON_COUNT, SAT_SOURCES, JPL_RADII, DWARF_SOURCES, SBDB } from './insights.js';
 import { LINES, VOICE } from './voice/lines.js';
 import { createVoicePlayer } from './voice-player.js';
-import { PREDICTIONS, judge, JOURNEYS, journey, canAdvance, eclipseGeometry, tideLabel, tideRange, scaleWalk, sizeLike, formatMetres, formatDuration, lightSeconds, sunlightTo, AU_KM, FOOTBALL_CM, MOON_INCLINATION } from './learn.js';
+import { PREDICTIONS, judge, JOURNEYS, VOYAGE, journey, canAdvance, eclipseGeometry, tideLabel, tideRange, scaleWalk, sizeLike, formatMetres, formatDuration, lightSeconds, sunlightTo, AU_KM, FOOTBALL_CM, MOON_INCLINATION } from './learn.js';
 // Labs drawn in their own 3D scene; the scale lab keeps the live Solar System behind the sheet.
 const SCENE_LABS=new Set(['seasons','phases','eclipses','tides']);
 const LAB_TITLES={seasons:'Why do seasons happen?',phases:'Explore the phases',eclipses:'Why aren’t eclipses monthly?',tides:'What makes the tides?',scale:'How big is space?'};
@@ -91,11 +91,12 @@ function animateBridge(to,done){
   if(settled){animating=false;settle(settled);done?.();}else globalThis.requestAnimationFrame(tick);};
  globalThis.requestAnimationFrame(tick);
 }
-function goLevel(target){
- const cur=levelOf(state.value.view);if(target===cur||bridge||animating)return;stopAudio();$('settings').open=false;
- const out=levelIndex(target)>levelIndex(cur),pair=pairFor(cur,out?1:-1),then=()=>{if(levelOf(state.value.view)!==target)goLevel(target);else if(target==='local')localView.overview();};
+// after (optional): called once the target scale is reached (the voyage uses it to act on arrival).
+function goLevel(target,after){
+ const cur=levelOf(state.value.view);if(target===cur){after?.();return;}if(bridge||animating)return;stopAudio();$('settings').open=false;
+ const out=levelIndex(target)>levelIndex(cur),pair=pairFor(cur,out?1:-1),then=()=>{if(levelOf(state.value.view)!==target)goLevel(target,after);else if(after)after();else if(target==='local')localView.overview();};
  const play=()=>{beginBridge(pair,out?0:1);animateBridge(out?1:0,then);};
- const ck=clockOf(cur);if(ck&&ck.time()!==0){animating=true;ck.rewind(()=>{animating=false;goLevel(target);});return;} // back to today first: the star map is as the sky is now
+ const ck=clockOf(cur);if(ck&&ck.time()!==0){animating=true;ck.rewind(()=>{animating=false;goLevel(target,after);});return;} // back to today first: the star map is as the sky is now
  if(ORBITS.has(state.value.view)){starsView.closeSystem();state.update({view:'stars',sheet:'closed'});render();}
  if(out&&cur==='stars')starsView.zoomOut(play);
  else if(!out&&cur==='stars')starsView.zoomBackIn(play);
@@ -133,6 +134,7 @@ function pickGalaxy(g){dismissHint();go({view:'local',landmark:g.name,sheet:'pee
 function pickLandmark(m){dismissHint();galaxyView.pause();go({view:'galaxy',landmark:m.name,sheet:'peek'});}
 function pickStar(e){dismissHint();starsView.pause();go({view:'stars',star:e.name,sheet:'peek'});}
 hooks.overrideTap=(x,y)=>{const s=state.value;
+ if(s.voyage!=null)return;
  if(s.view==='local'){const g=localView.pick(x,y);if(g)pickGalaxy(g);else if(s.sheet!=='closed')setSheet({sheet:'closed',landmark:null});return;}
  if(s.view==='galaxy'){const m=galaxyView.pick(x,y);if(m)pickLandmark(m);else if(s.sheet!=='closed')setSheet({sheet:'closed',landmark:null});return;}
  if(s.view!=='stars')return;const e=starsView.pick(x,y);if(e)pickStar(e);else if(s.sheet!=='closed')setSheet({sheet:'closed',star:null});};
@@ -158,6 +160,7 @@ function dismissHint(){hintSeen=true;}
 // Back: previous card/lab; with no history it returns to the whole Solar System.
 // At the overview (sheet closed) the same chip switches between the inner planets and all planets.
 $('back').onclick=()=>{stopAudio();const s=state.value;
+ if(s.voyage!=null){if(!voyageBusy)endVoyage();return;}
  if(s.sheet!=='closed'&&state.canBack)state.back();
  else if(s.view==='local'&&s.sheet==='closed'){leaveLocal();return;}
  else if(s.view==='galaxy'&&s.sheet==='closed'){leaveGalaxy();return;}
@@ -338,14 +341,45 @@ $('light-go').onclick=()=>{
  race.id=requestAnimationFrame(tick);
 };
 // Guided journeys: a list, then ordered steps that move the camera and the sheet together.
+// ---- Voyage outward: one guided trip across every scale (learn.js VOYAGE). Each Next travels with the
+// same seamless zoom, then shows what that stop is about; questions are answered before moving on.
+let voyageBusy=false;
+function startVoyage(){stopAudio();dismissHint();state.navigate({view:'explore',journey:null,step:0,experiment:null,star:null,landmark:null,voyage:0,sheet:'closed'});travel(0);}
+function travel(i){
+ const st=VOYAGE.steps[i];voyageBusy=true;state.update({voyage:i,sheet:'closed',star:null,landmark:null});
+ if(levelOf(state.value.view)==='stars'&&st.level==='stars'&&state.value.view!=='stars')state.update({view:'stars'});
+ render();goLevel(st.level,()=>arrive(i));
+}
+function arrive(i){
+ const st=VOYAGE.steps[i];if(state.value.voyage!==i)return;
+ state.update({view:st.view||views[st.level].view,star:st.star||null,landmark:st.landmark||null,sheet:'half'});
+ if(st.level==='solar')unfocus(true,1.2);
+ if(st.level==='stars'&&!st.view&&!st.act)starsView.frame(11); // pull back from the Sun to see the neighbours
+ if(st.act==='drift'){starsView.setTime(0);starsView.play();}
+ if(st.act==='turn'){galaxyView.setTime(0);galaxyView.play();}
+ if(st.act==='overview')localView.overview();
+ voyageBusy=false;render();
+}
+function endVoyage(){state.update({voyage:null,sheet:'closed',star:null,landmark:null});render();}
+function paintVoyage(){
+ const s=state.value,i=s.voyage,st=VOYAGE.steps[i],last=i===VOYAGE.steps.length-1;narration=null;$('action').hidden=true;
+ $('journey-list').hidden=true;$('journey-step').hidden=false;
+ $('kicker').textContent=`${VOYAGE.title} · ${i+1} of ${VOYAGE.steps.length}`;$('title').textContent=st.title;$('fact').textContent=st.text;
+ $('view-caption').textContent=voyageBusy?'Travelling…':{solar:'The Solar System',stars:'The nearest stars',galaxy:'The Milky Way',local:'The Local Group'}[st.level]+' · models built from real measurements';
+ bindPredict($('journey-predict'),st.predict,paintVoyage);$('journey-lab').parentElement.hidden=true;
+ $('journey-prev').disabled=i===0||voyageBusy;
+ const ok=canAdvance(st,s.answers)&&!voyageBusy;$('journey-next').disabled=!ok;$('journey-next').textContent=last?'Finish ✓':'Next →';
+ $('journey-next').setAttribute('aria-label',voyageBusy?'Travelling':!canAdvance(st,s.answers)?'Answer the question to continue':last?'Finish the voyage':'Travel to the next stop');
+ $('journey-dots').textContent=VOYAGE.steps.map((_,k)=>k<i?'●':k===i?'◉':'○').join(' ');
+}
 function paintJourney(){
  const s=state.value,j=journey(s.journey);narration=null;$('action').hidden=true;
  $('journey-list').hidden=!!j;$('journey-step').hidden=!j;
  if(!j){
   $('kicker').textContent='Guided journeys';$('title').textContent='Choose a journey';$('fact').textContent='Short tours. Make a guess, then see what really happens.';
   $('view-caption').textContent='';
-  $('journey-list').innerHTML=JOURNEYS.map(x=>`<button class="experiment-card" data-journey="${x.id}"><strong>${x.title}</strong><span>${x.blurb} · ${x.steps.length} stops</span></button>`).join('');
-  for(const b of $('journey-list').querySelectorAll('button'))b.onclick=()=>go({view:'journey',journey:b.dataset.journey,step:0});
+  $('journey-list').innerHTML=[VOYAGE,...JOURNEYS].map(x=>`<button class="experiment-card${x===VOYAGE?' voyage-card':''}" data-journey="${x.id}"><strong>${x===VOYAGE?'✦ ':''}${x.title}</strong><span>${x.blurb} · ${x.steps.length} stops</span></button>`).join('');
+  for(const b of $('journey-list').querySelectorAll('button'))b.onclick=()=>b.dataset.journey==='voyage'?startVoyage():go({view:'journey',journey:b.dataset.journey,step:0});
   aimCamera({...s,feature:'orbit'});return;
  }
  const i=Math.max(0,Math.min(j.steps.length-1,s.step)),st=j.steps[i],last=i===j.steps.length-1;
@@ -362,8 +396,8 @@ function paintJourney(){
  const body=st.world?bodies.find(b=>b.data.name===st.world):null;
  if(body)aimCamera({...s,world:st.world,feature:'overview'},body);else aimCamera({...s,feature:'orbit'});
 }
-$('journey-prev').onclick=()=>{stopAudio();state.update({step:Math.max(0,state.value.step-1)});render();};
-$('journey-next').onclick=()=>{stopAudio();const s=state.value,j=journey(s.journey);if(!j||!canAdvance(j.steps[s.step],s.answers))return;
+$('journey-prev').onclick=()=>{stopAudio();if(state.value.voyage!=null){if(state.value.voyage>0&&!voyageBusy)travel(state.value.voyage-1);return;}state.update({step:Math.max(0,state.value.step-1)});render();};
+$('journey-next').onclick=()=>{stopAudio();if(state.value.voyage!=null){const s=state.value,st=VOYAGE.steps[s.voyage];if(voyageBusy||!canAdvance(st,s.answers))return;if(s.voyage>=VOYAGE.steps.length-1)endVoyage();else travel(s.voyage+1);return;}const s=state.value,j=journey(s.journey);if(!j||!canAdvance(j.steps[s.step],s.answers))return;
  if(s.step>=j.steps.length-1)state.update({journey:null,step:0});else state.update({step:s.step+1});render();};
 function seasonLabel(a){
  const angle=wrap(a);
@@ -598,22 +632,24 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system'||starsV
  if(!open&&sheet.contains(document.activeElement))$('back').focus();
  $('grip').setAttribute('aria-expanded',String(s.sheet==='half'||s.sheet==='full'));
  $('grip').setAttribute('aria-label',s.sheet==='full'?'Show less':'Show more');
- for(const v of ['explore','try','compare','journey'])$(v+'-panel').hidden=s.view!==v;
- $('star-panel').hidden=s.view!=='stars'&&s.view!=='galaxy'&&s.view!=='local';$('system-panel').hidden=!ORBITS.has(s.view);
+ const voyage=s.voyage!=null;for(const v of ['explore','try','compare','journey'])$(v+'-panel').hidden=voyage?v!=='journey':s.view!==v;
+ $('star-panel').hidden=voyage||s.view!=='stars'&&s.view!=='galaxy'&&s.view!=='local';$('system-panel').hidden=voyage||!ORBITS.has(s.view);
  for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-pressed',String(b.dataset.view===s.view));
  if(!open&&space){const g=level==='galaxy',lg=level==='local';$('back').textContent=lg?'← Milky Way':g?'← Nearby stars':'← Solar System';$('back').setAttribute('aria-label',lg?'Zoom back in to the Milky Way':g?'Zoom back in to the nearby stars':'Zoom back in to the Solar System');}
  else if(!open){const all=hooks.homeScope!=='inner';$('back').textContent=all?'Show inner planets':'Show all planets';$('back').setAttribute('aria-label',all?'Zoom in on the inner planets, Mercury to Mars':'Zoom out to show all eight planets');}
  else{const atOverview=!state.canBack;$('back').textContent=atOverview?'Overview':'← Back';$('back').setAttribute('aria-label',atOverview?'Close the card and show the Solar System':'Go back');}
- $('hint').hidden=(hintSeen&&!space)||open||!!clockLevel();gtime.hidden=!clockLevel()||open;if(!gtime.hidden)paintTime();$('hint').textContent=level==='local'?'Tap a galaxy':level==='galaxy'?'Tap a landmark':space?'Tap a star':'Tap a planet, the Sun or the Moon';
+ if(voyage){$('back').textContent='✕ End voyage';$('back').setAttribute('aria-label','End the voyage and explore from here');}
+ $('hint').hidden=(hintSeen&&!space)||open||!!clockLevel()||voyage;gtime.hidden=!clockLevel()||open||voyage;if(!gtime.hidden)paintTime();$('hint').textContent=level==='local'?'Tap a galaxy':level==='galaxy'?'Tap a landmark':space?'Tap a star':'Tap a planet, the Sun or the Moon';
  $('world-depth').open=false;
- sheet.querySelector('.tabs').hidden=experiment||s.view==='journey'||space; // labs: controls first, Back returns to the tabs
+ sheet.querySelector('.tabs').hidden=experiment||s.view==='journey'||space||voyage; // labs: controls first, Back returns to the tabs
  $('experiment-chooser').hidden=experiment;$('experiment').hidden=!scene;$('scale-lab').hidden=!(experiment&&s.experiment==='scale');$('experiment-reset').hidden=!experiment;
  $('orbit-map').hidden=!scene;
  document.body.classList.toggle('experiment-mode',scene);
  controls.enabled=!scene&&!space;hooks.hold=scene||space;
  hooks.renderOverride=level==='local'?()=>{const r=$('stage').getBoundingClientRect();localView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:level==='galaxy'?()=>{const r=$('stage').getBoundingClientRect();galaxyView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:space?()=>{const r=$('stage').getBoundingClientRect();starsView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:scene?()=>{const r=$('stage').getBoundingClientRect();experiments.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:null;
  $('action2').hidden=true;
- if(s.view==='local')paintLocal();
+ if(voyage)paintVoyage();
+ else if(s.view==='local')paintLocal();
  else if(s.view==='galaxy')paintGalaxy();
  else if(s.view==='stars')paintStar();
  else if(s.view==='system')paintSystem();

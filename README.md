@@ -51,6 +51,9 @@ Node 24 tests use linkedom (DOM emulation) and Node VM modules. They test scienc
 
 **Before merge:** actual phone visual screenshots and browser console/network inspection, plus actual Android Chrome Listen/mute/background/fallback QA are required. No browser was driven through Shell during implementation. The PR remains draft pending parent visual review. Pages deploys only from main, and no merge or deployment is authorized here.
 
+## Voyage outward
+The first entry under **Journeys** is a guided trip across every scale, from home to Andromeda, in seven stops: the Solar System, the nearest stars, Alpha Centauri A and B orbiting each other, the stars drifting (the nearest star changes), the turning Milky Way, the Local Group and Andromeda. Each **Next** travels with the same seamless zoom. Five stops ask a question first: how long light takes to reach the nearest star, how long Alpha Centauri A and B take to orbit, whether Alpha Centauri will always be nearest, how long the Sun takes to go round the Galaxy, and whether Andromeda will hit us. The answer shows once you guess. **✕ End voyage** leaves you free to explore wherever you are; finishing leaves you in the Local Group.
+
 ## Learn by guessing first
 - **✦ Journeys** (top bar): four short guided tours — *How big is space?*, *Why do we have seasons?*, *The Moon and us*, *Next door: Mars*. Each stop glides the camera to a world; questions must be answered (or skipped) before moving on, and labs open from the step with Back returning to it.
 - **Predict, then reveal**: every lab asks a question first and shows the result once you commit.
