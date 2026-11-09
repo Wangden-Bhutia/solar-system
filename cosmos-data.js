@@ -8,11 +8,18 @@ const hms = (h, m, s) => 15 * (h + m / 60 + s / 3600), dms = (sg, d, m, s) => sg
 // RA/Dec (degrees) and distance (million light-years) → scene position in units of `unitMly`.
 export function skyPosition(ra, dec, mly, unitMly) { const [l, b] = toGalactic(ra, dec); return galacticPosition(l, b, mly * 1000).map(v => v / (unitMly * 1000)); }
 
+// Base64 → bytes without depending on atob or Buffer (works in browsers, Node and the test sandboxes).
+function base64Bytes(b64) {
+  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/', map = new Uint8Array(128); for (let i = 0; i < 64; i++) map[A.charCodeAt(i)] = i;
+  const n = b64.replace(/=+$/, '').length, out = new Uint8Array(Math.floor(n * 3 / 4));
+  for (let i = 0, o = 0; i < n; i += 4) { const v = map[b64.charCodeAt(i)] << 18 | map[b64.charCodeAt(i + 1)] << 12 | map[b64.charCodeAt(i + 2)] << 6 | map[b64.charCodeAt(i + 3)];
+    out[o++] = v >> 16 & 255; if (o < out.length) out[o++] = v >> 8 & 255; if (o < out.length) out[o++] = v & 255; }
+  return out;
+}
 // 9,696 NGC/IC galaxies with measured redshifts (OpenNGC, CC BY-SA 4.0), distances from the Hubble law.
 // Returns positions in units of unitMly and a kind per galaxy (0 elliptical/S0, 1 spiral, 2 other).
 export function ngcGalaxies(unitMly = 1) {
-  const bin = typeof atob === 'function' ? atob(NGC_PACKED) : Buffer.from(NGC_PACKED, 'base64').toString('binary');
-  const bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const bytes = base64Bytes(NGC_PACKED);
   const dv = new DataView(bytes.buffer), pos = new Float32Array(NGC_COUNT * 3), kind = new Uint8Array(NGC_COUNT), dist = new Float32Array(NGC_COUNT);
   for (let i = 0; i < NGC_COUNT; i++) {
     const o = i * 7, ra = dv.getUint16(o, true) / 65535 * 360, dec = dv.getInt16(o + 2, true) / 32767 * 90, mly = dv.getUint16(o + 4, true) / 10;

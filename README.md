@@ -40,9 +40,21 @@ Regenerate from `voice/lines.json`: install `kokoro-onnx soundfile` plus ffmpeg,
 KOKORO_MODEL=/path/kokoro-v1.0.onnx KOKORO_VOICES=/path/voices-v1.0.bin python tools/build-voice.py
 ```
 
+## Controls
+- **Top:** ✦ Journeys (left) and the menu (right). Beneath them, the scale ladder (Solar · Stars · Galaxy · Group · Laniakea · Universe) is the one way to jump between scales; pinching or scrolling past an edge does the same continuously.
+- **Cards:** ‹ Back appears only when there is an earlier card at the same scale. ✕ closes the card and stays at that scale (in the voyage, ✕ ends it). Every action, including ♫ Listen, is an equal-height pill in one row: the main action filled, the others outlined.
+- **Menu:** Planets in view (Inner · All), Real scale, speed, names, voice, and **Use it offline** (Install app where the browser offers it; Save for offline everywhere).
+- There is no hint chip.
+
+## Smooth zooming
+- **Easing:** a pinch or scroll past a scale's edge sets where the blend between scales is heading, and each frame eases towards it, so gestures glide instead of stepping.
+- **A clean edge:** the Solar System's edge is the all-planets view, so zooming out never passes through a far view where the enlarged inner planets pile up, and coming back lands on that view. Using the scale ladder to go home glides back to the normal framing.
+- **No forced flights:** zooming back in re-centres gently on the Sun (or the home point of each scale) as you approach the inner edge, so the hand-over needs no automatic flight.
+- **Prepared in advance:** a few seconds after start, the far scales are built and every scene's shaders compiled in idle moments, so the first visit to a scale doesn't stall mid-zoom.
+
 ## Fast start and offline use
 - **Faster start.** The app no longer paints procedural planet maps that the photographs replace a moment later: planets start in a plain colour until their photo arrives (the procedural map is used only if a photo fails). The labs' 3D scene and the two largest scales are built only when first opened. On a phone-speed simulation (CPU slowed 4×), the time until the Solar System is tappable fell from about 4.9 s to about 1.4 s.
-- **Offline.** A service worker (`sw.js`) keeps everything the app has loaded, so after one visit with a connection it opens without one. The page itself is fetched fresh when online, so new versions show at once. Voice clips are kept as they are played.
+- **Offline.** A service worker (`sw.js`) keeps everything the app has loaded, so after one visit with a connection it opens without one. **Save for offline** (or installing the app) stores all ~4.5 MB at once, using `precache.json`, which `tools/stamp.mjs` writes at deploy. An installed app refreshes its saved copy on each launch, downloading only changed files. The page itself is fetched fresh when online, so new versions show at once.
 - **Install.** `manifest.webmanifest` and two icons let phones add the app to the home screen.
 
 ## Run and test

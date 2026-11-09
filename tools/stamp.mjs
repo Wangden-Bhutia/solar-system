@@ -43,9 +43,23 @@ export function stampSite(dir, v) {
   return changed;
 }
 
+// Every file the app can use, as the page will request it (scripts and styles carry the deploy stamp), so
+// "Install" / "Save for offline" can store the whole app in one go. sw.js itself is left out.
+export function precacheList(dir, v) {
+  return walk(dir).map(f => path.relative(dir, f).split(path.sep).join('/'))
+    .filter(f => f !== 'sw.js' && f !== 'precache.json' && !f.startsWith('.') && !f.endsWith('.md') && !f.endsWith('.txt'))
+    .map(f => f === 'index.html' ? './' : /\.(m?js|css)$/.test(f) ? `${f}?v=${v}` : f).sort();
+}
+export function writePrecache(dir, v) {
+  const files = precacheList(dir, v), bytes = walk(dir).reduce((s, f) => s + fs.statSync(f).size, 0);
+  fs.writeFileSync(path.join(dir, 'precache.json'), JSON.stringify({ version: v, bytes, files }));
+  return files.length;
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const [dir, v] = process.argv.slice(2);
   if (!dir || !v) { console.error('usage: node tools/stamp.mjs <site-dir> <version>'); process.exit(2); }
   const changed = stampSite(dir, v);
   console.log(`stamped ${changed.length} files with ?v=${v}: ${changed.join(', ')}`);
+  console.log(`precache list: ${writePrecache(dir, v)} files`);
 }

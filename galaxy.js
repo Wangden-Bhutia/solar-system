@@ -83,6 +83,15 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
   const reduce = () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const portrait = () => { const r = canvas.getBoundingClientRect(); return r.height > r.width; };
   const SUN = new THREE.Vector3(-R0, 0, 0), CENTRE = new THREE.Vector3();
+  // Zooming in re-centres gently on SUN as the camera nears this scale's inner edge, so the hand-over to the
+  // scale inside needs no automatic flight: it is just the zoom you are already doing.
+  const driftStep = new THREE.Vector3();
+  function drift(dt) {
+    if (fly.t < 1 || !controls.enabled) return;
+    const d = camera.position.distanceTo(controls.target), f = Math.min(1, Math.max(0, (GALAXY_NEAR * 5 - d) / (GALAXY_NEAR * 4)));
+    if (f <= 0 || controls.target.distanceTo(SUN) < 1e-9) return;
+    driftStep.copy(SUN).sub(controls.target).multiplyScalar(Math.min(1, f * dt * 3.5)); controls.target.add(driftStep); camera.position.add(driftStep);
+  }
   function placeLabels(bounds) {
     const placed = [];
     const list = [...marks.map(x => ({ el: x.el, pos: x.sprite.position, px: 10, mk: x })), ...armLabels.map(a => ({ el: a.el, pos: a.pos, px: 0 }))];
@@ -102,7 +111,7 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
     const vw = Math.min(width, visible?.width ?? width), vh = Math.min(height, visible?.height ?? height), fullW = 2 * width - vw, fullH = 2 * height - vh;
     camera.aspect = fullW / fullH; camera.zoom = vh / fullH;
     if (vw === width && vh === height) camera.clearViewOffset(); else camera.setViewOffset(fullW, fullH, width - vw, height - vh, width, height);
-    camera.updateProjectionMatrix(); fly.step(dt); tick(dt); controls.update();
+    camera.updateProjectionMatrix(); fly.step(dt); tick(dt); drift(dt); controls.update();
     const k = 2 * Math.tan(camera.fov * Math.PI / 360) * 2 / vh; // ~ pixels → non-attenuated sprite scale
     for (const x of marks) x.sprite.scale.setScalar((x.m.name === 'Sun' ? 14 : x.m.name === 'Sagittarius A*' ? 12 : 9) * k * (x.m === selected ? 1.7 : 1));
     // Sun-sized glow scales with distance from the camera so the bulge reads as a glow, not a disc.
@@ -128,7 +137,7 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
   // It centres on the galactic centre, seen from above at a slight tilt, so the whole disc turns in view.
   const TILT = new THREE.Vector3(0.12, 0.93, 0.35).normalize();
   function overview() { if (fly.t < 1 || controls.target.distanceTo(CENTRE) < 0.01) return; fly.dir.copy(viewDir()); fly.start(camera.position.distanceTo(controls.target), controls.target, portrait() ? 240 : 125, CENTRE, 1.6, null, TILT); }
-  const atSun = () => controls.target.distanceTo(SUN) < 0.01 && fly.t >= 1;
+  const atSun = () => controls.target.distanceTo(SUN) < GALAXY_NEAR * 0.01 && fly.t >= 1;
   function play() { overview(); clock.rewind = null; if (clock.t >= TIME_RANGE[1]) clock.t = 0; clock.playing = true; place(); onTime?.(); }
   function pause() { clock.playing = false; onTime?.(); }
   function rewind(done) { clock.playing = false; if (clock.t === 0 || reduce()) { setTime(0, false); done?.(); return; } clock.rewind = { from: clock.t, k: 0, dur: Math.min(1.4, 0.5 + Math.abs(clock.t) / 250), done }; onTime?.(); }

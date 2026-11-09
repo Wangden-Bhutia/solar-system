@@ -25,20 +25,20 @@ async function setup(width=390,height=844,stored={}){
 }
 test('starts on the whole-system overview: sheet closed and inert, first-time hint shown, nothing autoplays',async()=>{
  const a=await setup();assert.equal(a.sheet,'closed');assert.equal(a.$('sheet').getAttribute('aria-hidden'),'true');assert.equal(a.$('sheet').inert,true);
- assert.equal(a.$('hint').hidden,false);assert.deepEqual([...a.focuses.map(f=>f[0])],['overview'],'opens on the whole-system overview, not a close-up of Earth');assert.equal(a.played.length,0);
- assert.equal(a.$('back').textContent,'Show all planets');
+ assert.equal(a.document.getElementById('hint'),null,'no hint chip');assert.deepEqual([...a.focuses.map(f=>f[0])],['overview'],'opens on the whole-system overview, not a close-up of Earth');assert.equal(a.played.length,0);
+ assert.equal(a.$('back').hidden,true,'no Back without a card to go back to');assert.equal(a.$('scope-inner').getAttribute('aria-pressed'),'true','menu shows which planets are in view');
  assert.deepEqual({...a.hooks.visible(390,844)},{width:390,height:844});
 });
 test('tap-to-select glides to the world and slides up a peek card with name, striking fact and contextual action',async()=>{
  const a=await setup();a.tap('Moon');
  assert.equal(a.sheet,'peek');assert.equal(a.$('sheet').inert,false);assert.equal(a.$('title').textContent,'Moon');
  assert.equal(a.$('fact').textContent,insights.STRIKING.Moon);assert.equal(a.$('action').textContent,'Explore the phases');
- assert.equal(a.$('hint').hidden,true);
- assert.equal(a.focuses.at(-1)[0],'Moon');assert.equal(a.$('back').textContent,'← Back');
+ 
+ assert.equal(a.focuses.at(-1)[0],'Moon');assert.equal(a.$('back').hidden,true,'first card: nothing to go back to');
  assert.deepEqual(a.hooks.visible(390,844),{width:390,height:654});
  a.tap('Earth');assert.equal(a.$('action').textContent,'Why do seasons happen?');assert.match(a.$('fact').textContent,/23\.4°/);
- a.hooks.onEmpty();assert.equal(a.sheet,'closed');assert.equal(a.$('hint').hidden,true,'stays dismissed for this visit');
- const again=await setup(390,844,{'solar.hint.v1':'seen'});assert.equal(again.$('hint').hidden,false,'an old stored flag no longer hides it on a new visit');
+ a.hooks.onEmpty();assert.equal(a.sheet,'closed');
+ 
 });
 test('grip buttons, keyboard and swipes expand to full details and collapse; empty tap closes',async()=>{
  const a=await setup();a.tap('Mars');
@@ -61,7 +61,7 @@ test('closing the sheet or Overview flies the camera back to the whole system; r
  a.$('grip').onclick();a.$('grip').onclick();assert.equal(a.sheet,'full');assert.equal(a.focuses.length,n,'expanding keeps the glide');
  a.hooks.onEmpty();assert.equal(a.sheet,'closed');assert.equal(last(),'overview','empty tap returns to the overview camera');
  a.tap('Jupiter');a.$('close').onclick();assert.equal(last(),'overview','✕ returns to the overview camera');
- a.tap('Venus');a.$('back').onclick();assert.equal(a.sheet,'closed');assert.equal(last(),'overview','Back to the start state returns to the overview');
+ a.tap('Venus');a.$('close').onclick();assert.equal(a.sheet,'closed');assert.equal(last(),'overview','✕ returns to the overview');
  a.tap('Saturn');a.$('close').onclick();assert.equal(last(),'overview','closing the card returns to the overview');
  a.tap('Saturn');assert.equal(last(),'Saturn','re-selecting after the overview glides again');
 });
@@ -85,15 +85,15 @@ test('Explore / Try it / Compare live inside the sheet; experiments stay half-op
  // Swiping a lab down from half returns to its world card rather than hiding controls over the scene.
  a.lab.setSheet(sheetMod.swipe(a.lab.state.value,'down'));assert.equal(a.lab.state.value.view,'explore');assert.equal(a.sheet,'peek');
 });
-test('Back with the card closed switches inner planets ↔ all planets; menu overview returns to the Solar System',async()=>{
- const a=await setup();a.tap('Jupiter');assert.equal(a.$('back').textContent,'← Back');a.hooks.onEmpty();assert.equal(a.$('back').textContent,'Show all planets');
- a.$('back').onclick();assert.deepEqual(a.focuses.at(-1),['overview:all']);assert.equal(a.sheet,'closed');assert.equal(a.$('back').textContent,'Show inner planets');
- a.$('back').onclick();assert.deepEqual(a.focuses.at(-1),['overview:inner']);assert.equal(a.$('back').textContent,'Show all planets');
- a.tap('Venus');a.$('back').onclick();assert.equal(a.sheet,'closed');assert.deepEqual(a.focuses.at(-1),['overview']);
+test('Planets in view (menu) switches inner planets ↔ all planets; ✕ closes a card; menu overview returns to the Solar System',async()=>{
+ const a=await setup();a.tap('Jupiter');assert.equal(a.$('back').hidden,true,'first card: nothing to go back to');a.hooks.onEmpty();assert.equal(a.$('back').hidden,true);
+ a.$('scope-all').onclick();assert.deepEqual(a.focuses.at(-1),['overview:all']);assert.equal(a.sheet,'closed');assert.equal(a.$('scope-all').getAttribute('aria-pressed'),'true');
+ a.$('scope-inner').onclick();assert.deepEqual(a.focuses.at(-1),['overview:inner']);assert.equal(a.$('scope-inner').getAttribute('aria-pressed'),'true');
+ a.tap('Venus');a.$('close').onclick();assert.equal(a.sheet,'closed');assert.deepEqual(a.focuses.at(-1),['overview']);
  // The menu keeps only real options: no duplicate overview button, no trails switch, no world picker.
  const menu=a.document.querySelector('#settings .menu');for(const id of ['reset','trails','world'])assert.equal(menu.querySelector('#'+id),null,id);
  assert.ok(a.document.querySelector('#world-nav #world'),'world picker lives in the keyboard skip-nav');
- assert.equal(menu.querySelectorAll('.mrow').length,4);
+ assert.equal(menu.querySelectorAll('.mrow').length,6,'planets in view, real scale, speed, names, voice, offline');assert.ok(menu.querySelector('#save-offline'));
 });
 test('every world has a working card, contextual action, facts and external source',async()=>{
  const a=await setup(412,915);
@@ -220,7 +220,7 @@ test('zoom out to the nearby stars: star map, star cards, planets, habitable zon
  assert.equal(a.document.querySelector('#ladder [aria-pressed="true"]').dataset.level,'solar');
  a.document.querySelector('#ladder [data-level="'+({explore:'stars',stars:'galaxy',system:'galaxy'}[a.lab.state.value.view]||'stars')+'"]').onclick();assert.equal(a.lab.state.value.view,'stars');assert.ok(space.log.includes('enter'));
  assert.equal(a.document.body.classList.contains('space-mode'),true);assert.equal(a.document.querySelector('#ladder [aria-pressed="true"]').dataset.level,'stars');
- assert.equal(a.sheet,'closed');assert.equal(a.$('hint').hidden,true,'the time bar replaces the hint');assert.equal(a.$('gtime').hidden,false);assert.match(a.$('gnote').textContent,/Nearest star now: Alpha Centauri, 4\.2 light-years/);assert.equal(a.$('back').textContent,'← Solar System');
+ assert.equal(a.sheet,'closed');assert.equal(a.$('gtime').hidden,false);assert.match(a.$('gnote').textContent,/Nearest star now: Alpha Centauri, 4\.2 light-years/);assert.equal(a.$('back').hidden,true);
  assert.equal(typeof a.hooks.renderOverride,'function');assert.equal(a.app.controls.enabled,false,'Solar System controls off');
  // Tap a star on the map
  space.pickResult=starsData.NEIGHBOURS.find(e=>e.name==='Sirius');a.hooks.overrideTap(100,100);
@@ -237,7 +237,7 @@ test('zoom out to the nearby stars: star map, star cards, planets, habitable zon
  // Back returns to the star card, then to the map, then home
  a.$('back').onclick();assert.equal(a.lab.state.value.view,'stars');assert.equal(a.$('title').textContent,'Alpha Centauri');
  space.pickResult=null;a.hooks.overrideTap(5,5);assert.equal(a.sheet,'closed','empty tap closes the star card');
- a.$('back').onclick();assert.equal(a.lab.state.value.view,'explore');assert.ok(space.log.includes('zoomIn')&&space.log.includes('leave'));
+ a.document.querySelector('#ladder [data-level="solar"]').onclick();assert.equal(a.lab.state.value.view,'explore');assert.ok(space.log.includes('zoomIn')&&space.log.includes('leave'));
  assert.equal(a.document.body.classList.contains('space-mode'),false);assert.equal(a.hooks.renderOverride,null);assert.equal(a.app.controls.enabled,true);
  // TRAPPIST-1: measured sizes, three in the habitable zone
  a.document.querySelector('#ladder [data-level="'+({explore:'stars',stars:'galaxy',system:'galaxy'}[a.lab.state.value.view]||'stars')+'"]').onclick();space.pickResult=starsData.NEIGHBOURS.find(e=>e.name==='TRAPPIST-1');a.hooks.overrideTap(1,1);a.$('action').onclick();
@@ -249,7 +249,7 @@ test('the zoom ladder reaches the Milky Way: landmarks, Sun card with galaxy fac
  const a=await setup();a.document.querySelector('#ladder [data-level="'+({explore:'stars',stars:'galaxy',system:'galaxy'}[a.lab.state.value.view]||'stars')+'"]').onclick();assert.equal(a.lab.state.value.view,'stars');
  assert.equal(a.document.querySelector('#ladder [aria-pressed="true"]').dataset.level,'stars');
  a.document.querySelector('#ladder [data-level="'+({explore:'stars',stars:'galaxy',system:'galaxy'}[a.lab.state.value.view]||'stars')+'"]').onclick();assert.equal(a.lab.state.value.view,'galaxy');assert.ok(space.log.includes('starsOut')&&space.log.includes('galaxy:enter')&&space.log.includes('leave'));
- assert.equal(a.document.querySelector('#ladder [aria-pressed="true"]').dataset.level,'galaxy');assert.equal(a.$('back').textContent,'← Nearby stars');assert.equal(a.$('hint').textContent,'Tap a landmark');
+ assert.equal(a.document.querySelector('#ladder [aria-pressed="true"]').dataset.level,'galaxy');
  assert.equal(a.sheet,'closed');assert.equal(typeof a.hooks.renderOverride,'function');
  space.galaxyPick=galaxyData.LANDMARKS.find(m=>m.name==='Crab Nebula');a.hooks.overrideTap(5,5);
  assert.equal(a.sheet,'peek');assert.equal(a.$('kicker').textContent,'Supernova remnant');assert.match(a.$('fact').textContent,/1054/);
@@ -257,21 +257,21 @@ test('the zoom ladder reaches the Milky Way: landmarks, Sun card with galaxy fac
  space.galaxyPick=galaxyData.LANDMARKS.find(m=>m.name==='Sagittarius A*');a.hooks.overrideTap(5,5);assert.match(a.$('star-facts').textContent,/4\.3 million Suns/);assert.match(a.$('star-facts').textContent,/2022/);
  space.galaxyPick=galaxyData.LANDMARKS[0];a.hooks.overrideTap(5,5);assert.equal(a.$('title').textContent,'The Sun in the Milky Way');assert.match(a.$('star-facts').textContent,/100–400 billion/);assert.match(a.$('star-facts').textContent,/230 million/);
  space.galaxyPick=null;a.hooks.overrideTap(5,5);assert.equal(a.sheet,'closed');
- a.$('back').onclick();assert.equal(a.lab.state.value.view,'stars','Back steps in one level');assert.ok(space.log.includes('galaxy:zoomToSun')&&space.log.includes('galaxy:leave'));
- assert.equal(a.document.querySelector('#ladder [aria-pressed="true"]').dataset.level,'stars');a.$('back').onclick();assert.equal(a.lab.state.value.view,'explore');assert.equal(a.document.body.classList.contains('space-mode'),false);
+ a.document.querySelector('#ladder [data-level="stars"]').onclick();assert.equal(a.lab.state.value.view,'stars','the ladder steps in one level');assert.ok(space.log.includes('galaxy:zoomToSun')&&space.log.includes('galaxy:leave'));
+ assert.equal(a.document.querySelector('#ladder [aria-pressed="true"]').dataset.level,'stars');a.document.querySelector('#ladder [data-level="solar"]').onclick();assert.equal(a.lab.state.value.view,'explore');assert.equal(a.document.body.classList.contains('space-mode'),false);
 });
 test('Milky Way clock: shown only in the Galaxy, plays and scrubs, names the moment, and returns to today before zooming in',async()=>{
  const a=await setup(),c=a.$('c'),wheel=dy=>c.dispatchEvent(Object.assign(new a.document.defaultView.Event('wheel'),{deltaY:dy}));
  assert.equal(a.$('gtime').hidden,true,'no galaxy clock in the Solar System');
  const toGalaxy=()=>a.document.querySelector('#ladder [data-level="galaxy"]').onclick();toGalaxy();if(a.lab.state.value.view!=='galaxy')toGalaxy();
- assert.equal(a.lab.state.value.view,'galaxy');assert.equal(a.$('gtime').hidden,false);assert.equal(a.$('hint').hidden,true,'the clock replaces the hint');
+ assert.equal(a.lab.state.value.view,'galaxy');assert.equal(a.$('gtime').hidden,false);
  assert.equal(a.$('gclock').textContent,'Today');assert.match(a.$('gnote').textContent,/Press play/);
  a.$('gplay').onclick();assert.ok(space.log.includes('galaxy:play'));
  space.gt=-66;a.$('gplay').onclick();assert.equal(a.$('gclock').textContent,'66 million years ago');assert.equal(a.$('gnote').textContent,'The dinosaurs die out');assert.equal(a.$('gnow').hidden,false);
  a.$('gslider').value='120';a.$('gslider').oninput();assert.equal(space.gt,120);
  space.galaxyPick=galaxyData.LANDMARKS[0];a.hooks.overrideTap(5,5);assert.equal(a.$('gtime').hidden,true,'a card covers the clock');space.galaxyPick=null;a.hooks.overrideTap(5,5);assert.equal(a.$('gtime').hidden,false);
  space.galaxyZoom={d:12.1,min:12,max:260,busy:false};wheel(-120);assert.ok(space.log.includes('galaxy:rewind'),'zooming in from another time first returns to today');assert.equal(a.lab.state.value.view,'galaxy');
- space.gt=50;a.$('back').onclick();assert.equal(a.lab.state.value.view,'stars');assert.equal(space.gt,0);assert.equal(a.$('gtime').getAttribute('aria-label'),'Time among the nearby stars');
+ space.gt=50;a.document.querySelector('#ladder [data-level="stars"]').onclick();assert.equal(a.lab.state.value.view,'stars');assert.equal(space.gt,0);assert.equal(a.$('gtime').getAttribute('aria-label'),'Time among the nearby stars');
 });
 test('nearby stars in motion: the clock names the nearest star, cards give speed and closest approach, passing stars jump to their encounter, and zooming out returns to today',async()=>{
  const a=await setup(),c=a.$('c'),wheel=dy=>c.dispatchEvent(Object.assign(new a.document.defaultView.Event('wheel'),{deltaY:dy}));
@@ -313,14 +313,14 @@ test('the Local Group: a fourth scale past the Milky Way, metric seam, galaxy ca
  assert.ok(a.document.querySelector('#ladder [data-level="local"]'),'ladder has Local Group');
  for(let i=0;i<4&&a.lab.state.value.view!=='local';i++)a.document.querySelector('#ladder [data-level="local"]').onclick();
  assert.equal(a.lab.state.value.view,'local');assert.ok(space.log.includes('local:enter'));assert.equal(a.document.querySelector('#ladder [aria-pressed="true"]').dataset.level,'local');
- assert.equal(a.$('back').textContent,'← Milky Way');assert.equal(a.$('hint').textContent,'Tap a galaxy');assert.equal(a.$('gtime').hidden,true,'no clock at this scale');
+ assert.equal(a.$('gtime').hidden,true,'no clock at this scale');
  assert.ok(space.localAt&&Math.abs(space.localAt.d-60)<1e-9,'arrives at the Local Group’s closest view');
  space.localPick=localData.GALAXIES.find(g=>g.short==='Andromeda');a.hooks.overrideTap(3,3);
  assert.equal(a.$('title').textContent,'Andromeda Galaxy');assert.match(a.$('star-facts').textContent,/about 2\.54 million light-years/);assert.match(a.$('star-facts').textContent,/Homo/);
  assert.match(a.$('star-facts').textContent,/about 110 km\/s/);assert.match(a.$('star-facts').textContent,/Maybe\..*4\.5 billion.*even odds.*10 billion/);assert.match(a.$('star-depth').textContent,/Sawala et al\. \(2025\)/);
  space.localPick=localData.GALAXIES.find(g=>g.short==='Triangulum');a.hooks.overrideTap(3,3);assert.match(a.$('star-facts').textContent,/Distance from Andromedaabout 0\.7 million light-years/);
  space.localPick=null;a.hooks.overrideTap(3,3);assert.equal(a.sheet,'closed');
- a.$('back').onclick();assert.equal(a.lab.state.value.view,'galaxy','Back steps in to the Milky Way');assert.ok(space.log.includes('local:zoomBackIn')&&space.log.includes('local:leave'));
+ a.document.querySelector('#ladder [data-level="galaxy"]').onclick();assert.equal(a.lab.state.value.view,'galaxy','the ladder steps in to the Milky Way');assert.ok(space.log.includes('local:zoomBackIn')&&space.log.includes('local:leave'));
  // Gesture: zooming out past the Galaxy's edge bridges into the Local Group, and back.
  space.galaxyZoom={d:258,min:12,max:260,busy:false};wheel(120);assert.equal(a.document.body.classList.contains('bridging'),true);for(let i=0;i<5;i++)wheel(120);assert.equal(a.lab.state.value.view,'local');
  space.localZoom={d:60.5,min:60,max:1300,busy:false,atSun:false};wheel(-120);assert.ok(space.log.filter(x=>x==='local:zoomBackIn').length>=2,'first returns to the Sun');
@@ -331,7 +331,7 @@ test('voyage outward: one guided trip across every scale; questions gate each st
  a.$('journeys').onclick();const card=a.document.querySelector('#journey-list .voyage-card');assert.ok(card,'the voyage is first in the list');assert.match(card.textContent,/Voyage outward/);
  card.onclick();let v=a.lab.state.value;assert.equal(v.voyage,0);assert.equal(v.view,'explore');
  assert.equal(a.$('title').textContent,'Home');assert.match(a.$('kicker').textContent,/Voyage outward · 1 of 9/);assert.equal(a.$('journey-panel').hidden,false);assert.equal(a.$('explore-panel').hidden,true);
- assert.equal(a.$('journey-next').disabled,true,'answer first');assert.equal(a.$('back').textContent,'✕ End voyage');
+ assert.equal(a.$('journey-next').disabled,true,'answer first');assert.equal(a.$('back').hidden,true,'no Back in the voyage: Previous and ✕');
  const answer=k=>{const b=a.$('journey-predict').querySelectorAll('button')[k];assert.ok(b,'question buttons');b.onclick();};
  answer(1);assert.match(a.$('journey-predict').textContent,/4\.2 years/);assert.equal(a.$('journey-next').disabled,false);
  a.$('journey-next').onclick();v=a.lab.state.value;assert.equal(v.view,'stars');assert.equal(v.voyage,1);assert.equal(v.star,'Alpha Centauri');assert.equal(a.$('title').textContent,'The nearest stars');assert.equal(a.$('star-panel').hidden,true,'the voyage card, not the star card');assert.ok(space.log.includes('stars:frame:11'),'pulls back to see the neighbours');
@@ -344,26 +344,38 @@ test('voyage outward: one guided trip across every scale; questions gate each st
  space.localPick=localData.GALAXIES[1];a.hooks.overrideTap(3,3);assert.equal(a.lab.state.value.landmark,'Andromeda Galaxy','taps do not interrupt the voyage');
  a.$('journey-next').onclick();v=a.lab.state.value;assert.equal(v.view,'super');assert.ok(space.log.includes('super:overview'));assert.equal(a.$('title').textContent,'Laniakea');
  a.$('journey-next').onclick();v=a.lab.state.value;assert.equal(v.view,'universe');assert.ok(space.log.includes('universe:overview'));answer(1);assert.match(a.$('journey-predict').textContent,/46 billion/);assert.equal(a.$('journey-next').textContent,'Finish ✓');
- a.$('journey-next').onclick();v=a.lab.state.value;assert.equal(v.voyage,null);assert.equal(v.view,'universe');assert.equal(a.sheet,'closed');assert.equal(a.$('back').textContent,'← Laniakea','free to explore from here');
+ a.$('journey-next').onclick();v=a.lab.state.value;assert.equal(v.voyage,null);assert.equal(v.view,'universe');assert.equal(a.sheet,'closed');assert.equal(a.document.querySelector('#ladder [aria-pressed="true"]').dataset.level,'universe','free to explore from here');
 });
 test('Laniakea and the observable universe: two more scales, metric seams, honest cards, short ladder names, Back steps in',async()=>{
  const a=await setup(),c=a.$('c'),wheel=dy=>c.dispatchEvent(Object.assign(new a.document.defaultView.Event('wheel'),{deltaY:dy}));
  assert.equal(a.document.querySelectorAll('#ladder button').length,6);assert.equal(a.document.querySelector('#ladder [data-level="super"]').getAttribute('aria-label'),'Laniakea');assert.equal(a.document.querySelector('#ladder [data-level="galaxy"] .short').textContent,'Galaxy');
  for(let i=0;i<6&&a.lab.state.value.view!=='super';i++)a.document.querySelector('#ladder [data-level="super"]').onclick();
  assert.equal(a.lab.state.value.view,'super');assert.ok(space.log.includes('super:enter'));assert.ok(space.log.includes('local:zoomOut'),'glides to the Local Group’s edge first');assert.ok(space.superAt&&space.superAt.d===25,'arrives at Laniakea’s closest view');
- assert.equal(a.$('back').textContent,'← Local Group');assert.equal(a.$('hint').textContent,'Tap a cluster');
+ 
  space.superPick=null;a.hooks.overrideTap(3,3);
  a.lab.go({view:'super',landmark:null,sheet:'peek'});assert.equal(a.$('title').textContent,'Laniakea');assert.match(a.$('star-facts').textContent,/9,696 galaxies/);assert.match(a.$('star-depth').textContent,/Hubble law/);assert.match(a.$('star-depth').textContent,/zone of avoidance/);
  space.superPick=cosmosData.CLUSTERS.find(x=>x.name==='Virgo Cluster');a.hooks.overrideTap(3,3);assert.equal(a.$('title').textContent,'Virgo Cluster');assert.match(a.$('star-facts').textContent,/about 54 million light-years/);
  space.superPick=null;a.hooks.overrideTap(3,3);
  // Out to the universe by gesture.
  space.superZoom={d:1390,min:25,max:1400,busy:false};wheel(120);assert.equal(a.document.body.classList.contains('bridging'),true);for(let i=0;i<5;i++)wheel(120);assert.equal(a.lab.state.value.view,'universe');assert.ok(space.universeAt&&space.universeAt.d===30);
- assert.equal(a.$('back').textContent,'← Laniakea');
+ 
  a.lab.go({view:'universe',landmark:null,sheet:'peek'});assert.equal(a.$('title').textContent,'The observable universe');assert.match(a.$('star-facts').textContent,/93 billion light-years/);assert.match(a.$('star-facts').textContent,/left 4\.6 billion years ago/);assert.match(a.$('view-caption').textContent,/illustration, not a map/);
  space.universePick={...cosmosData.FAR_GALAXY};a.hooks.overrideTap(3,3);assert.equal(a.$('title').textContent,'MoM-z14');assert.match(a.$('star-facts').textContent,/13\.5 billion years ago/);assert.match(a.$('star-facts').textContent,/33\.8 billion/);
  space.universePick={name:'Cosmic microwave background',cmb:true};a.hooks.overrideTap(3,3);assert.match(a.$('star-facts').textContent,/Penzias and Wilson/);
- space.universePick=null;a.hooks.overrideTap(3,3);a.$('back').onclick();assert.equal(a.lab.state.value.view,'super','Back steps in');assert.ok(space.log.includes('universe:zoomBackIn'));
- a.$('back').onclick();assert.equal(a.lab.state.value.view,'local');
+ space.universePick=null;a.hooks.overrideTap(3,3);a.document.querySelector('#ladder [data-level="super"]').onclick();assert.equal(a.lab.state.value.view,'super','the ladder steps in');assert.ok(space.log.includes('universe:zoomBackIn'));
+ a.document.querySelector('#ladder [data-level="local"]').onclick();assert.equal(a.lab.state.value.view,'local');
+});
+test('redesigned controls: ✕ keeps you at the same scale, ‹ Back only to an earlier card at the same scale, no hint chip, offline controls in the menu',async()=>{
+ const a=await setup();
+ assert.equal(a.document.getElementById('hint'),null);assert.equal(a.$('topbar').querySelector('#back'),null,'no changing chip in the top bar');assert.ok(a.$('sheet').querySelector('.head-tools #back'));
+ assert.ok(a.$('sheet').querySelector('.head-actions #listen'),'Listen sits with the actions');
+ for(let i=0;i<3&&a.lab.state.value.view!=='galaxy';i++)a.document.querySelector('#ladder [data-level="galaxy"]').onclick();
+ space.galaxyPick=galaxyData.LANDMARKS.find(m=>m.name==='Crab Nebula');a.hooks.overrideTap(5,5);assert.equal(a.sheet,'peek');assert.equal(a.$('back').hidden,true,'the previous screen was a different scale');
+ space.galaxyPick=galaxyData.LANDMARKS.find(m=>m.name==='Orion Nebula');a.hooks.overrideTap(5,5);assert.equal(a.$('back').hidden,false,'an earlier card at this scale');
+ a.$('back').onclick();assert.equal(a.lab.state.value.landmark,'Crab Nebula');
+ a.$('close').onclick();assert.equal(a.lab.state.value.view,'galaxy','✕ stays in the Milky Way');assert.equal(a.sheet,'closed');
+ // Offline controls (no service worker in this sandbox: the note says what it needs).
+ assert.equal(a.$('save-offline').hidden,true);assert.equal(a.$('install').hidden,true);assert.match(a.$('offline-note').textContent,/secure \(https\)/);
 });
 test('seamless zoom: past a scene’s edge the gesture blends into the next scale; reversing slides back; settling arrives exactly',async()=>{
  const a=await setup(),c=a.$('c'),wheel=dy=>c.dispatchEvent(Object.assign(new a.document.defaultView.Event('wheel'),{deltaY:dy}));
