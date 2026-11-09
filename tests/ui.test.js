@@ -20,7 +20,7 @@ async function setup(width=390,height=844,stored={}){
 test('starts on the whole-system overview: sheet closed and inert, first-time hint shown, nothing autoplays',async()=>{
  const a=await setup();assert.equal(a.sheet,'closed');assert.equal(a.$('sheet').getAttribute('aria-hidden'),'true');assert.equal(a.$('sheet').inert,true);
  assert.equal(a.$('hint').hidden,false);assert.deepEqual([...a.focuses.map(f=>f[0])],['overview'],'opens on the whole-system overview, not a close-up of Earth');assert.equal(a.played.length,0);
- assert.equal(a.$('back').textContent,'All planets');
+ assert.equal(a.$('back').textContent,'Show all planets');
  assert.deepEqual({...a.hooks.visible(390,844)},{width:390,height:844});
 });
 test('tap-to-select glides to the world and slides up a peek card with name, striking fact and contextual action',async()=>{
@@ -80,9 +80,9 @@ test('Explore / Try it / Compare live inside the sheet; experiments stay half-op
  a.lab.setSheet(sheetMod.swipe(a.lab.state.value,'down'));assert.equal(a.lab.state.value.view,'explore');assert.equal(a.sheet,'peek');
 });
 test('Back with the card closed switches inner planets ↔ all planets; menu overview returns to the Solar System',async()=>{
- const a=await setup();a.tap('Jupiter');assert.equal(a.$('back').textContent,'← Back');a.hooks.onEmpty();assert.equal(a.$('back').textContent,'All planets');
- a.$('back').onclick();assert.deepEqual(a.focuses.at(-1),['overview:all']);assert.equal(a.sheet,'closed');assert.equal(a.$('back').textContent,'Inner planets');
- a.$('back').onclick();assert.deepEqual(a.focuses.at(-1),['overview:inner']);assert.equal(a.$('back').textContent,'All planets');
+ const a=await setup();a.tap('Jupiter');assert.equal(a.$('back').textContent,'← Back');a.hooks.onEmpty();assert.equal(a.$('back').textContent,'Show all planets');
+ a.$('back').onclick();assert.deepEqual(a.focuses.at(-1),['overview:all']);assert.equal(a.sheet,'closed');assert.equal(a.$('back').textContent,'Show inner planets');
+ a.$('back').onclick();assert.deepEqual(a.focuses.at(-1),['overview:inner']);assert.equal(a.$('back').textContent,'Show all planets');
  a.tap('Venus');a.$('reset').dispatchEvent(new a.document.defaultView.Event('click'));assert.equal(a.sheet,'closed');assert.deepEqual(a.focuses.at(-1),['overview']);
 });
 test('every world has a working card, contextual action, facts and external source',async()=>{

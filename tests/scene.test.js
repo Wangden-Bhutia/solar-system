@@ -3,7 +3,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import fs from 'node:fs';
 import * as THREE from '../vendor/three.module.min.js';import * as data from '../data.js';
 test('Moon is independently focusable; kid/default/real scale keep radius ratios and correct parent distances',async()=>{
-  function element(){return {style:{},getBoundingClientRect(){return {width:320,height:311,left:12,top:120};},value:'0',classList:{add(){},toggle(){}},addEventListener(){},appendChild(){},setAttribute(){},getContext(){return {createRadialGradient(){return {addColorStop(){}};},fillRect(){}};}};}
+  function element(){return {style:{},dataset:{},getBoundingClientRect(){return {width:320,height:311,left:12,top:120};},value:'0',classList:{add(){},toggle(){}},addEventListener(){},appendChild(){},setAttribute(){},getContext(){return {createRadialGradient(){return {addColorStop(){}};},fillRect(){}};}};}
   const els={};let frame;
   const context=vm.createContext({document:{getElementById:id=>els[id]||=element(),createElement:element,body:element(),addEventListener(){}},window:{},innerWidth:320,innerHeight:740,devicePixelRatio:2,performance,addEventListener(){},requestAnimationFrame:fn=>{frame=fn;},console});
   class Renderer{setPixelRatio(){}setSize(){}render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}}
@@ -26,9 +26,10 @@ test('Moon is independently focusable; kid/default/real scale keep radius ratios
   setRealScale(false);assert.equal(moon.mesh.position.x,1.5);
 });
 async function loadScene(width=390,height=844){
-  function element(){return {style:{},getBoundingClientRect(){return {width,height,left:0,top:0};},value:'0',classList:{add(){},toggle(){}},addEventListener(){},appendChild(){},setAttribute(){},getContext(){return {createRadialGradient(){return {addColorStop(){}};},fillRect(){}};}};}
+  const size={width,height},listeners={};
+  function element(){return {style:{},dataset:{},getBoundingClientRect(){return {width:size.width,height:size.height,left:0,top:0};},value:'0',classList:{add(){},toggle(){}},addEventListener(){},appendChild(){},setAttribute(){},getContext(){return {createRadialGradient(){return {addColorStop(){}};},fillRect(){}};}};}
   const els={};let frame;
-  const context=vm.createContext({document:{getElementById:id=>els[id]||=element(),createElement:element,body:element(),addEventListener(){}},window:{},innerWidth:width,innerHeight:height,devicePixelRatio:2,performance,addEventListener(){},requestAnimationFrame:fn=>{frame=fn;},console});
+  const context=vm.createContext({document:{getElementById:id=>els[id]||=element(),createElement:element,body:element(),addEventListener(){}},window:{},innerWidth:width,innerHeight:height,devicePixelRatio:2,performance,addEventListener(type,fn){(listeners[type]||=[]).push(fn);},requestAnimationFrame:fn=>{frame=fn;},console});
   class Renderer{setPixelRatio(){}setSize(){}render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);}}
   class Controls{constructor(camera){this.camera=camera;this.target=new THREE.Vector3();}update(){this.camera.lookAt(this.target);}}
   const textures={tex:name=>['Moon','Earth','Mars','Mercury'].includes(name)?{map:new THREE.Texture(),bump:new THREE.Texture()}:new THREE.Texture(),rimShell:()=>new THREE.Object3D(),ringGeometry:()=>new THREE.RingGeometry(1,2),saturnRingTex:()=>new THREE.Texture(),uranusRingTex:()=>new THREE.Texture(),SATURN_RING:{inner:1.2,outer:2.3},URANUS_RING:{inner:1.5,outer:2}};
@@ -36,22 +37,23 @@ async function loadScene(width=390,height=844){
   const entry=new vm.SourceTextModule(fs.readFileSync('app.js','utf8'),{context});
   await entry.link(spec=>fake(spec.includes('three.module')?{...THREE,WebGLRenderer:Renderer}:spec.includes('OrbitControls')?{OrbitControls:Controls}:spec.includes('data.js')?data:textures));await entry.evaluate();
   let t=performance.now();const step=(n=1)=>{for(let i=0;i<n;i++)frame(t+=50);};
-  return {...entry.namespace,step,context};
+  const resizeTo=(w,h)=>{size.width=w;size.height=h;for(const fn of listeners.resize||[])fn();};
+  return {...entry.namespace,step,context,resizeTo};
 }
 const screen=(camera,obj,w,h)=>{const p=obj.getWorldPosition(new THREE.Vector3()).project(camera);return [(p.x+1)/2*w,(1-p.y)/2*h];};
 test('tiny planets are tappable with an enlarged touch radius; empty space picks nothing',async()=>{
   const s=await loadScene();s.hooks.hold=true;s.setHomeScope('all');s.step(40);
-  // In the all-planets overview, every planet is a few pixels wide. Tap 30 px outward from the outermost one.
+  // In the all-planets overview, every planet is a few pixels wide. Tap 50 px outward from the outermost one.
   const world=s.bodies.filter(b=>b.pivot).map(b=>({b,p:screen(s.camera,b.mesh,390,844)})).sort((a,c)=>Math.hypot(c.p[0]-195,c.p[1]-422)-Math.hypot(a.p[0]-195,a.p[1]-422))[0];
   const [x,y]=world.p;assert.ok(x>0&&x<390&&y>0&&y<844,`${world.b.data.name} on screen in overview`);
   const dist=s.camera.position.distanceTo(world.b.mesh.getWorldPosition(new THREE.Vector3()));
   const projectedRadius=world.b.radius/dist*844/2/Math.tan(s.camera.fov*Math.PI/360);
   assert.ok(projectedRadius<10,`${world.b.data.name} is only ${projectedRadius.toFixed(1)} px`);
   const len=Math.hypot(x-195,y-422),ux=(x-195)/len,uy=(y-422)/len;
-  assert.equal(s.pickAt(x+ux*30,y+uy*30,'touch')?.data.name,world.b.data.name,'30 px away still selects on touch');
+  assert.equal(s.pickAt(x+ux*50,y+uy*50,'touch')?.data.name,world.b.data.name,'50 px away still selects on touch');
   assert.notEqual(s.pickAt(x+ux*40,y+uy*40,'mouse')?.data.name,world.b.data.name,'mouse keeps a tighter radius');
-  assert.equal(s.PICK_RADIUS.touch,48);
-  assert.equal(s.pickAt(x+ux*60,y+uy*60,'touch'),null,'empty space beyond the radius returns null');
+  assert.equal(s.PICK_RADIUS.touch,60);
+  assert.equal(s.pickAt(x+ux*80,y+uy*80,'touch')?.data.name??null,null,'empty space beyond the radius returns null');
 });
 test('visible-region projection keeps the focused world centred above the sheet and picking aligned',async()=>{
   const s=await loadScene();s.hooks.hold=true;
@@ -115,4 +117,34 @@ test('fitHomeDistance: closer for landscape than portrait, and every ring point 
   assert.ok(landscape<portrait);
   const cam=new THREE.PerspectiveCamera(50,412/915,.05,1e6);cam.position.copy(s.homeDirection(412/915)).multiplyScalar(portrait);cam.lookAt(0,0,0);cam.updateMatrixWorld();
   for(let i=0;i<360;i+=5){const p=new THREE.Vector3(Math.cos(i*Math.PI/180)*100,0,Math.sin(i*Math.PI/180)*100).project(cam);assert.ok(Math.abs(p.x)<=.91&&Math.abs(p.y)<=.91,`${i}°`);}
+});
+test('overview Sun is drawn smaller (apparent radius capped) and returns to normal size for close-ups and Real scale',async()=>{
+  const s=await loadScene(412,915);s.hooks.hold=true;s.step(40);
+  const sun=s.bodies[0],pxPerUnit=915/2/Math.tan(s.camera.fov*Math.PI/360);
+  const sunPx=sun.radius/s.camera.position.length()*pxPerUnit;
+  const mercuryPx=ringPx(s.camera,data.PLANETS[0].dist,412);
+  assert.equal(s.OVERVIEW_SUN,.5);assert.ok(Math.abs(sun.radius-data.SUN.size*.5)<1e-6,'overview Sun at half its default size');
+  assert.ok(sunPx<=32,`Sun apparent radius ${sunPx.toFixed(1)} px ≤ 32 px`);assert.ok(sunPx<=.45*mercuryPx,`Sun ${sunPx.toFixed(0)} px vs Mercury orbit ${mercuryPx.toFixed(0)} px`);
+  s.focus(sun,{silent:true,dur:.3});s.step(40);assert.ok(Math.abs(sun.radius-data.SUN.size)<1e-6,'Sun card / close-up: default 1/5 size');
+  s.unfocus(true,.3);s.step(40);assert.ok(Math.abs(sun.radius-data.SUN.size*.5)<1e-6);
+  s.setRealScale(true);s.step(40);assert.ok(Math.abs(sun.radius-data.SUN.size*data.SUN_SHRINK)<1e-6,'Real scale keeps the true Sun size');
+});
+test('orbits run at 1/5 speed in the overview and full speed in a close-up',async()=>{
+  const s=await loadScene(412,915);s.step(40);
+  const earth=s.bodies.find(b=>b.data.name==='Earth');const ang=()=>Math.atan2(-earth.pivot.position.z,earth.pivot.position.x);
+  const sweep=()=>{const a0=ang();s.step(20);let d=ang()-a0;if(d<0)d+=Math.PI*2;return d*180/Math.PI;};
+  const overview=sweep();
+  s.focus(s.bodies.find(b=>b.data.name==='Mars'),{silent:true,dur:.05});s.step(40);const close=sweep();
+  assert.ok(Math.abs(close-18)<.5,`close-up: ${close.toFixed(2)}° per second (1 year / 20 s)`);
+  assert.ok(Math.abs(overview-3.6)<.3,`overview: ${overview.toFixed(2)}° per second`);
+});
+test('a page first laid out at another size re-frames the overview when it becomes 412x915 (stale framing bug)',async()=>{
+  const s=await loadScene(800,800);s.hooks.hold=true;s.step(40);
+  const before=s.camera.position.length();
+  s.resizeTo(412,915);s.step(40);
+  assert.ok(s.camera.position.distanceTo(s.HOME.pos)<1e-6,'camera flew to the new overview');assert.ok(Math.abs(s.camera.position.length()-before)>1);
+  for(const n of ['Sun',...INNER])assert.ok(inFrustum(s.camera,s.bodies.find(b=>b.data.name===n).mesh),`${n} on screen`);
+  const home=s.HOME.pos.clone();s.resizeTo(412,860);s.step(40);// URL bar: small change, camera keeps framing within the fitted margin
+  for(const n of ['Sun',...INNER])assert.ok(inFrustum(s.camera,s.bodies.find(b=>b.data.name===n).mesh),`${n} still on screen after a URL-bar resize`);
+  void home;
 });

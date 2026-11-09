@@ -50,7 +50,8 @@ const bodies = [];
 function addLabel(body) {
   const el = document.createElement('button'); el.type = 'button'; el.className = 'lbl'; el.textContent = body.data.name;
   el.tabIndex = -1; // keyboard users have "Go to a world" in the menu; moving labels would scramble tab order
-  el.addEventListener('click', e => { e.stopPropagation(); lastTapAt = performance.now(); focus(body); }); labelsEl.appendChild(el); body.label = el;
+  el.bodyRef = body; // a touch on the label selects its world at touch-down (see the tap recogniser)
+  el.addEventListener('click', e => { e.stopPropagation(); if (performance.now() - lastTapAt < 700) return; lastTapAt = performance.now(); focus(body); }); labelsEl.appendChild(el); body.label = el;
 }
 
 // Sun
@@ -121,6 +122,11 @@ let playing = true, speedExp = 0, trailsOn = true, focused = null;
 let lastSize = [0, 0];
 export const hooks = { kid: false, onFocus: null, intercept: null, focusMul: 0, here: false, renderOverride: null, hold: false, homeScope: 'all' };
 const BASE_DAYS_PER_SEC = 365.26 / 20; // 1 Earth year per 20 s at 1x
+// Overview only: the Sun is drawn at half its default size (1/10 of true size instead of 1/5) so
+// the inner planets are not hidden behind it, and orbits run at 1/5 speed so they are easy to tap.
+// Close-ups, the Sun's own card and Real scale use the normal sizes and speed.
+export const OVERVIEW_SUN = 0.5, OVERVIEW_MOTION = 0.2;
+let sunView = OVERVIEW_SUN, motionView = OVERVIEW_MOTION;
 let simDays = 0;
 const fly = { t: 1, fromPos: new THREE.Vector3(), fromTgt: new THREE.Vector3(), dur: 1.2 };
 
@@ -168,7 +174,7 @@ document.getElementById('info-close').onclick = () => unfocus(false);
 
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 // Touch needs a generous pick radius: tiny planets are a few pixels wide.
-export const PICK_RADIUS = { touch: 48, mouse: 28 };
+export const PICK_RADIUS = { touch: 60, mouse: 32 };
 function pickAt(clientX, clientY, pointerType = 'touch') {
   const bounds = canvas.getBoundingClientRect();
   ndc.set((clientX - bounds.left) / bounds.width * 2 - 1, -(clientY - bounds.top) / bounds.height * 2 + 1);
@@ -190,7 +196,7 @@ function pickAt(clientX, clientY, pointerType = 'touch') {
 // Touch gets a larger movement allowance than a mouse; two-finger gestures never count as taps.
 // A click with no preceding pointer sequence (some automation, older browsers) is the fallback.
 export const TAP_SLOP = { touch: 14, pen: 10, mouse: 6 };
-const TAP_MAX_MS = 900, UI = 'button,a,input,select,textarea,summary,label,details,#sheet,#topbar,.lbl';
+const TAP_MAX_MS = 900, UI = 'button:not(.lbl),a,input,select,textarea,summary,label,details,#sheet,#topbar';
 const pointers = new Map(); let multiTouch = false, lastTapAt = -1e9, lastPointerUpAt = -1e9;
 const onScene = t => t === canvas || (t?.closest ? !t.closest(UI) : true);
 function handleTap(x, y, type, picked) {
@@ -204,8 +210,9 @@ document.addEventListener('pointerdown', e => {
   if (!onScene(e.target)) return;
   // Pick now: a little finger jitter rotates the camera (OrbitControls) before the finger lifts,
   // so what was under the finger at touch-down is what the child aimed at.
-  const type = e.pointerType || 'mouse';
-  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), type, picked: hooks.renderOverride ? null : pickAt(e.clientX, e.clientY, type) });
+  const type = e.pointerType || 'mouse', label = e.target?.closest?.('.lbl');
+  // A name label selects its own world even if it drifts a little before the finger lifts.
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), type, picked: hooks.renderOverride ? null : label?.bodyRef || pickAt(e.clientX, e.clientY, type) });
   if (pointers.size > 1) multiTouch = true;
 }, true);
 document.addEventListener('pointerup', e => {
@@ -259,7 +266,7 @@ export function fitHomeDistance(radius, fovDeg, aspect, direction = HOME_DIRECTI
   for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
   return hi;
 }
-let lastPortrait = null, chosenScope = null;
+let lastPortrait = null, chosenScope = null, lastHome = null;
 export function homeRadius(scope) {
   // 'inner': the rocky planets, Mercury to Mars (all within 2 AU).
   const list = scope === 'inner' ? PLANETS.filter(p => p.au < 2) : PLANETS;
@@ -275,9 +282,12 @@ function resize() {
   else { const dir = homeDirection(w / h); HOME.pos.copy(dir).multiplyScalar(fitHomeDistance(homeRadius(hooks.homeScope), camera.fov, w / h, dir)); }
   controls.maxDistance = realScale ? Math.max(1.5e6,HOME.pos.length()*1.5) : Math.max(900, fitHomeDistance(homeRadius('all'), camera.fov, w / h, homeDirection(w / h)) * 1.5);
   camera.updateProjectionMatrix();
-  // Rotating the phone while in the overview re-frames it.
-  if (lastPortrait !== null && portrait !== lastPortrait && !focused) unfocus(true, .6);
-  lastPortrait = portrait;
+  // In the overview, re-frame when the framing changes noticeably: rotation, or a page first laid
+  // out at another size (DevTools device emulation, split screen). Small changes such as the
+  // mobile URL bar showing or hiding do not move the camera.
+  const moved = lastHome && (lastHome.angleTo(HOME.pos) > .05 || Math.abs(HOME.pos.length() / lastHome.length() - 1) > .12);
+  if (moved && !focused && controls.target.length() < 1e-6) unfocus(true, .6);
+  lastHome = HOME.pos.clone(); lastPortrait = portrait;
 }
 export function setHomeScope(scope) { chosenScope = scope; resize(); unfocus(true, 1.2); }
 addEventListener('resize', resize); resize(); camera.position.copy(HOME.pos);
@@ -297,7 +307,7 @@ function applyVisibleRegion(cam, width, height, visible) {
   return { width: vw, height: vh, aspect: vw / vh };
 }
 // Label priority when names would overlap: the focused world, then Earth and the most visible worlds.
-const LABEL_ORDER = ['Earth', 'Sun', 'Jupiter', 'Saturn', 'Mars', 'Venus', 'Mercury', 'Uranus', 'Neptune', 'Moon'];
+const LABEL_ORDER = ['Earth', 'Mars', 'Venus', 'Mercury', 'Jupiter', 'Saturn', 'Sun', 'Uranus', 'Neptune', 'Moon']; // the Sun is easy to tap without one
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
   if (hooks.renderOverride) { hooks.renderOverride(); requestAnimationFrame(frame); return; }
@@ -305,11 +315,16 @@ function frame(now) {
   if (bounds.width !== lastSize[0] || bounds.height !== lastSize[1]) { renderer.setSize(bounds.width, bounds.height, false); lastSize = [bounds.width, bounds.height]; } // resizing every frame reallocates the drawing buffer
   const view = applyVisibleRegion(camera, bounds.width, bounds.height, hooks.visible?.(bounds.width, bounds.height));
   const kidSlow = hooks.kid ? 0.25 : 1;
-  if (playing && !hooks.hold) simDays += dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidSlow;
+  const overview = !focused && !hooks.kid && !realScale, blend = Math.min(1, dt * 4);
+  const approach = (v, target) => Math.abs(target - v) < 1e-3 ? target : v + (target - v) * blend;
+  sunView = approach(sunView, overview ? OVERVIEW_SUN : 1); motionView = approach(motionView, overview ? OVERVIEW_MOTION : 1);
+  { const sun = bodies[0], base = realScale ? SUN_SHRINK : 1; sun.mesh.scale.setScalar(base * sunView); sun.radius = SUN.size * base * sunView; }
+  const kidMotion = kidSlow * (hooks.kid || realScale ? 1 : motionView);
+  if (playing && !hooks.hold) simDays += dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidMotion;
   placeBodies();
   for (const b of bodies) {
     const hours = Math.abs(b.data.rot); // direction comes from the tilt (Venus 177°, Uranus 98°)
-    const spin = playing && !hooks.hold ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidSlow * 24 / hours * 0.02 * Math.PI * 2 : 0;
+    const spin = playing && !hooks.hold ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidMotion * 24 / hours * 0.02 * Math.PI * 2 : 0;
     if (!b.satellite) b.mesh.rotation.y += spin;
     if (b.mesh.userData.axis) b.mesh.userData.axis.visible = focused === b;
     if (b.mesh.userData.clouds) b.mesh.userData.clouds.rotation.y += spin * 0.15 + dt * 0.01;
@@ -342,13 +357,16 @@ function frame(now) {
   for (const b of ordered) {
     const p = b.mesh.getWorldPosition(tmp).project(camera);
     const x = bounds.left + (p.x + 1) / 2 * bounds.width, y = bounds.top + (1 - p.y) / 2 * bounds.height;
-    const w = b.data.name.length * 7 + 18, h = 26, box = [x - w / 2, y - 14 - h, x + w / 2, y - 14];
-    let vis = p.z < 1 && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05 && !(b.satellite && !focused);
-    if (vis) vis = !placed.some(o => box[0] < o[2] && box[2] > o[0] && box[1] < o[3] && box[3] > o[1]);
-    if (vis) placed.push(box);
-    b.label.style.visibility = vis ? 'visible' : 'hidden';
-    b.label.hidden = !vis;
-    if (vis) b.label.style.transform = `translate(${x}px,${y}px) translate(-50%,calc(-100% - 10px))`;
+    const w = b.data.name.length * 8.4 + 28, h = 36;
+    // Above the world if there is room, otherwise below it.
+    const spots = [[x - w / 2, y - 12 - h, x + w / 2, y - 12, 'calc(-100% - 12px)'], [x - w / 2, y + 12, x + w / 2, y + 12 + h, '12px']];
+    let spot = null;
+    if (p.z < 1 && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05 && !(b.satellite && !focused))
+      spot = spots.find(o2 => !placed.some(o => o2[0] < o[2] && o2[2] > o[0] && o2[1] < o[3] && o2[3] > o[1])) || null;
+    if (spot) placed.push(spot);
+    b.label.style.visibility = spot ? 'visible' : 'hidden';
+    b.label.hidden = !spot;
+    if (spot) { b.label.style.transform = `translate(${x}px,${y}px) translate(-50%,${spot[4]})`; b.label.dataset.box = spot.slice(0, 4).map(v => v.toFixed(1)).join(','); }
   }
   // "You are here" marker on Earth (kid overview only)
   const earth = bodies.find(b => b.data.name === 'Earth');

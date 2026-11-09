@@ -47,9 +47,9 @@ test('taps on the open sheet or the top bar never count as empty-space taps',asy
 test('labels: names shown in the overview without overlapping, for many planet arrangements',async()=>{
   for(const seed of SEEDS){
     const a=await ready({seed});const boxes=[];
-    for(const l of a.document.querySelectorAll('#labels .lbl')){if(l.hidden)continue;const m=/translate\(([-\d.]+)px,([-\d.]+)px\)/.exec(l.style.transform);const w=l.textContent.length*7+18;boxes.push([+m[1]-w/2,+m[2]-40,+m[1]+w/2,+m[2]-14,l.textContent]);}
+    for(const l of a.document.querySelectorAll('#labels .lbl')){if(l.hidden)continue;boxes.push([...l.dataset.box.split(',').map(Number),l.textContent]);}
     const inner=boxes.filter(b=>['Mercury','Venus','Earth','Mars'].includes(b[4])).length;
-    assert.ok(boxes.some(b=>b[4]==='Earth'),`seed ${seed}: Earth labelled`);assert.ok(inner>=3,`seed ${seed}: ${inner} of 4 inner planets labelled (${boxes.map(b=>b[4]).join(', ')})`);
+    assert.ok(boxes.some(b=>b[4]==='Earth'),`seed ${seed}: Earth labelled`);assert.ok(inner===4,`seed ${seed}: ${inner} of 4 inner planets labelled (${boxes.map(b=>b[4]).join(', ')})`);
     for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++){const p=boxes[i],q=boxes[j];assert.ok(!(p[0]<q[2]&&p[2]>q[0]&&p[1]<q[3]&&p[3]>q[1]),`seed ${seed}: ${p[4]} overlaps ${q[4]}`);}
   }
 });
@@ -62,4 +62,27 @@ test('every inner planet is tappable at its projected position, for many planet 
       a.tapAt(5,890);a.step(40);
     }
   }
+});
+test('a label selects its world even if the world moves between touch-down and lift-off',async()=>{
+  const a=await ready({seed:3});
+  const label=[...a.document.querySelectorAll('#labels .lbl')].find(l=>!l.hidden&&l.textContent==='Earth');
+  a.canvas.ownerDocument;label.dispatchEvent(a.pe('pointerdown',1,1));a.step(6);label.dispatchEvent(a.pe('pointerup',1,1));a.click(label,1,1);
+  assert.equal(a.$('title').textContent,'Earth');assert.equal(a.sheet,'peek');
+});
+test('experiments: slider and month/phase buttons come first, right under the title; tabs hidden; Reset is a header icon',async()=>{
+  for(const experiment of ['seasons','phases']){
+    const a=await ready();a.lab.go({view:'try',experiment});assert.equal(a.sheet,'half');
+    const ids=[...a.$('experiment').children].map(e=>e.id||e.tagName.toLowerCase());
+    assert.deepEqual(ids.slice(0,4),['angle-label','experiment-angle','presets','experiment-result'],ids.join(','));
+    assert.ok(ids.indexOf('experiment-summary')>ids.indexOf('presets'),'explanation below the controls');
+    assert.ok(a.$('presets').querySelectorAll('button').length>=4);
+    assert.equal(a.document.querySelector('#sheet .tabs').hidden,true,'tabs hidden in a lab');
+    assert.equal(a.$('experiment-reset').closest('.head-tools')!==null,true);assert.equal(a.$('experiment-reset').hidden,false);
+    assert.equal(a.$('try-panel').hidden,false);
+    // Only the header sits above the controls inside the sheet: nothing visible precedes #experiment in the body.
+    const body=a.$('sheet-body');const before=[...body.children].slice(0,[...body.children].indexOf(a.$('try-panel'))).filter(e=>!e.hidden&&e.id!=='view-caption');
+    assert.deepEqual(before.map(e=>e.className||e.id),[],'nothing above the lab in the sheet body');
+  }
+  const css=(await import('node:fs')).readFileSync('style.css','utf8');
+  assert.match(css,/\.experiment-mode #view-caption\{order:2\}/);assert.match(css,/\.experiment-mode #sheet\[data-state=half\]\{max-height:60dvh\}/);
 });

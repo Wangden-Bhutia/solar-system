@@ -157,7 +157,7 @@ function paintExplore(){
  $('world-facts').innerHTML=body.data.facts.filter(([k])=>k!=='Moons').map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
  const url=info.source?NASA[info.source]:`https://science.nasa.gov/${s.world==='Sun'?'sun':s.world.toLowerCase()}/facts/`;
  $('world-sources').innerHTML=`<a href="${url}" target="_blank" rel="noopener">NASA · ${s.world}</a>${info.source?sourceNote:'<p class="fine">Baseline facts checked 8 November 2026 against NASA sources; see docs/sources.md. Changing moon counts are omitted.</p>'}`;
- $('world-scale').textContent='Model caveats: spherical worlds, circular mostly coplanar orbits, accelerated time, procedural surfaces. Earth coastlines use Natural Earth data. Moon craters and weather are not live or mapped observations. Sun size is 1/5 in the default view; orbit gaps and Moon gap are compressed. Real scale restores size/distance ratios, not an actual-date sky. Faint fill light reveals the night-side shape.';
+ $('world-scale').textContent='Model caveats: spherical worlds, circular mostly coplanar orbits, accelerated time, procedural surfaces. Earth coastlines use Natural Earth data. Moon craters and weather are not live or mapped observations. Sun size is 1/5 in the default view and 1/10 in the overview (so the inner planets stay visible), where orbits also run at 1/5 speed; orbit gaps and Moon gap are compressed. Real scale restores size/distance ratios, not an actual-date sky. Faint fill light reveals the night-side shape.';
  aimCamera(s,body);
  $('view-caption').textContent=s.feature==='orbit'?(s.world==='Sun'?'The Sun and eight planets · schematic view, not current positions':`${s.world} orbits the Sun · schematic Solar System view; not current positions`):s.world==='Earth'?'Drag to look around · gold line: Earth’s tilted spin axis · day/night comes from sunlight':s.world==='Moon'?'Earth’s Moon · Explore the phases shows the view from Earth':`${s.world} · drag to look around · illustrative surface and lighting`;
  if(s.feature==='day'){narration='lab_day';$('world-insight').textContent=LINES[narration];}
@@ -171,10 +171,11 @@ function render(){
  $('grip').setAttribute('aria-label',s.sheet==='full'?'Show less':'Show more');
  for(const v of ['explore','try','compare'])$(v+'-panel').hidden=s.view!==v;
  for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-pressed',String(b.dataset.view===s.view));
- if(!open){const all=hooks.homeScope!=='inner';$('back').textContent=all?'Inner planets':'All planets';$('back').setAttribute('aria-label',all?'Zoom in on the inner planets, Mercury to Mars':'Zoom out to show all eight planets');}
+ if(!open){const all=hooks.homeScope!=='inner';$('back').textContent=all?'Show inner planets':'Show all planets';$('back').setAttribute('aria-label',all?'Zoom in on the inner planets, Mercury to Mars':'Zoom out to show all eight planets');}
  else{const atOverview=!state.canBack;$('back').textContent=atOverview?'Overview':'← Back';$('back').setAttribute('aria-label',atOverview?'Close the card and show the Solar System':'Go back');}
  $('hint').hidden=hintSeen||open;
  $('world-depth').open=false;
+ sheet.querySelector('.tabs').hidden=experiment; // labs: controls first, Back returns to the tabs
  $('experiment-chooser').hidden=experiment;$('experiment').hidden=!experiment;$('experiment-reset').hidden=!experiment;
  $('orbit-map').hidden=!experiment;
  document.body.classList.toggle('experiment-mode',experiment);

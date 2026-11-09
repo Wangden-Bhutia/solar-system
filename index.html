@@ -14,7 +14,7 @@
   <div class="row"><button id="lbls" class="on" aria-pressed="true">Labels</button><button id="trails" class="on" aria-pressed="true">Trails</button><button id="realBtn" aria-pressed="false">Real scale</button></div>
   <label><input id="sound" type="checkbox"> Optional voice (plays only when you tap ♫)</label>
   <button id="reset">Solar System overview</button>
-  <p class="fine" id="scale-note">Sizes to scale (Sun shown at 1/5); orbit and Moon gaps shortened. Real scale restores size and distance ratios, not today’s positions.</p>
+  <p class="fine" id="scale-note">Sizes to scale (Sun shown at 1/5, and 1/10 in the overview so the planets stay visible); orbit and Moon gaps shortened. Orbits run at 1/5 speed in the overview. Real scale restores size and distance ratios, not today’s positions.</p>
  </div></details>
 </nav>
 <p id="hint" role="status">Tap a planet, the Sun or the Moon</p>
@@ -23,9 +23,9 @@
   <button id="grip" aria-controls="sheet-body" aria-expanded="false" aria-label="Show more"><span></span></button>
   <header class="sheet-head">
    <div class="head-text"><p class="eyebrow" id="kicker"></p><h1 id="title"></h1><p id="fact"></p></div>
-   <div class="head-tools"><button id="listen" class="icon" aria-label="Listen">♫</button><button id="close" class="icon" aria-label="Close card">✕</button></div>
+   <div class="head-tools"><button id="experiment-reset" class="icon" aria-label="Reset experiment" hidden>↺</button><button id="listen" class="icon" aria-label="Listen">♫</button><button id="close" class="icon" aria-label="Close card">✕</button></div>
   </header>
-  <div class="head-actions"><button id="action" class="action"></button><button id="experiment-reset" class="quiet" hidden>↺ Reset experiment</button></div>
+  <div class="head-actions"><button id="action" class="action"></button></div>
   <p id="audio-status" class="fine" role="status"></p>
  </div>
  <div id="sheet-body">
@@ -41,10 +41,10 @@
   <div id="try-panel" hidden>
    <div id="experiment-chooser"><button class="experiment-card" data-experiment="seasons"><strong>Why do seasons happen?</strong><span>Move Earth. Try removing its tilt.</span></button><button class="experiment-card" data-experiment="phases"><strong>Explore the Moon’s phases</strong><span>Move the Moon. See it from Earth.</span></button></div>
    <div id="experiment" hidden>
-    <p id="experiment-summary"></p>
     <label class="slider-label" for="experiment-angle" id="angle-label"></label><input id="experiment-angle" type="range" min="0" max="360" step="1"><div id="presets" class="chips"></div>
-    <div id="season-controls"><label><input id="no-tilt" type="checkbox"> What if Earth had no tilt?</label><label class="slider-label" for="latitude">Your place: <output id="latitude-value"></output></label><input id="latitude" type="range" min="-60" max="60" step="5" value="40"></div>
     <div id="experiment-result" class="result" aria-live="polite"></div>
+    <div id="season-controls"><label><input id="no-tilt" type="checkbox"> What if Earth had no tilt?</label><label class="slider-label" for="latitude">Your place: <output id="latitude-value"></output></label><input id="latitude" type="range" min="-60" max="60" step="5" value="40"></div>
+    <p id="experiment-summary"></p>
     <details><summary>Why this happens · model & sources</summary><div id="experiment-depth"></div></details>
    </div>
   </div>
