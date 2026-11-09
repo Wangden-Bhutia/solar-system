@@ -71,3 +71,29 @@ body.intro #kbar,body.intro #nextGame{display:none}
 .slot{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.35);color:rgba(255,255,255,.55)}
 .slot.got{background:rgba(255,240,200,.85)}
 @media (max-height:500px){#intro{left:auto;right:30px;transform:none;bottom:24px}}
+/* Guided journey: one contextual action, no extra toolbar. */
+.kbtn small{font:600 11px/1.1 system-ui,sans-serif;display:block;align-self:start}
+#kbar .kbtn{height:74px;grid-template-rows:1fr 18px}
+#kbar{gap:clamp(6px,2.5vw,14px);width:max-content;max-width:calc(100vw - 16px)}
+#introStart{grid-template-rows:1fr 24px}#introStart small{font-size:14px}
+#mission{position:fixed;left:72px;right:80px;top:calc(env(safe-area-inset-top) + 12px);display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+#mission-title{font-size:13px;font-weight:600;color:#e3e9ff}
+#mission-exit{border:0;background:transparent;color:#b8c7e8;font:12px system-ui;min-height:32px;text-decoration:underline}
+#bubble-content{min-width:0;flex:1}
+#mission-action{display:block;margin-top:10px;border:0;border-radius:16px;background:#355ca5;color:white;font:600 16px system-ui;padding:10px 16px;min-height:48px;width:100%}
+#mission-action:disabled{opacity:.6}
+#audio-status{position:fixed;right:12px;top:calc(env(safe-area-inset-top) + 68px);font-size:12px;max-width:140px;text-align:right;pointer-events:none}
+#b-pic:empty{display:none}
+#bubble{max-height:45dvh;overflow:auto;touch-action:pan-y}
+#book{overflow:auto;touch-action:pan-y}
+button{cursor:pointer}button:focus-visible{outline:3px solid #ffd577;outline-offset:3px}
+@media(max-width:359px){#kbar .kbtn{width:64px;height:68px;font-size:28px}#bubble{font-size:17px;padding:12px;gap:8px}#b-pic{flex-basis:36px;height:36px;font-size:26px}}
+@media(max-height:500px){
+  #kbar{width:auto;max-width:none;gap:5px;right:8px}#kbar .kbtn{height:62px;width:62px;font-size:25px;grid-template-rows:1fr 16px}
+  #bubble{left:12px;transform:none;width:calc(100vw - 104px);bottom:12px;max-height:50dvh;font-size:16px}
+  #mission{left:72px;right:86px;top:8px;flex-direction:row;justify-content:center;gap:12px}
+  #mission-action{font-size:14px;margin-top:6px;padding:8px;min-height:44px}
+  #audio-status{left:74px;right:auto;top:auto;bottom:2px;margin:0}
+}
+#mission-scale{font-size:10px;color:#a4aec8}
+@media(max-height:500px){#mission-scale{max-width:150px;font-size:10px}}

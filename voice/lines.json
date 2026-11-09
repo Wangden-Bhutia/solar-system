@@ -63,5 +63,20 @@
  "stickers_6": "You have 6 stickers!",
  "stickers_7": "You have 7 stickers!",
  "stickers_8": "You have 8 stickers!",
- "stickers_0": "Play Find it to get stickers!"
+ "stickers_0": "Play Find it to get stickers!",
+ "trip_earth": "Our adventure starts at home. Tap Earth, the blue world!",
+ "trip_earth_found": "You found our home! Earth has one Moon. Let’s visit it.",
+ "trip_moon": "The Moon goes around Earth. Can you tap the Moon? You can use the Visit Moon button too.",
+ "trip_moon_found": "Hello, Moon! Look at those craters. Rocks from space made these dents. The Moon is much farther from Earth than we show here.",
+ "trip_mars": "Let’s zoom out to meet our neighbours. Find Mars, the red planet. Use Show me if you need a hand.",
+ "trip_mars_found": "There is Mars! Rust in its rocks and dust makes it look red. You found another world!",
+ "trip_saturn": "Now look for Saturn, the world with big, bright rings. Use Show me if you need a hand.",
+ "trip_saturn_found": "You found Saturn! Its rings are made of many pieces of ice and rock.",
+ "trip_retry": "A different world! Let’s look together.",
+ "trip_done": "What an adventure! Earth, the Moon, Mars, and Saturn. You can explore, play Find it, or tap Replay to travel again.",
+ "trip_explore": "Tap a world to discover a fact. Tap Replay whenever you want our adventure again.",
+ "f_Moon_0": "Moon. The Moon goes around Earth.",
+ "f_Moon_1": "Moon. The Moon has a rocky surface with many craters.",
+ "that_Moon": "That is the Moon.",
+ "yes_Moon": "Yes! That is the Moon!"
 }

@@ -102,16 +102,19 @@ for (const d of PLANETS) {
   }
   bodies.push(body); addLabel(body);
 }
+const earthBody = bodies.find(b => b.data.name === 'Earth');
+const moonBody = { data: MOON, mesh: earthBody.moonMesh, radius: MOON.size, satellite: true };
+bodies.push(moonBody); addLabel(moonBody);
 // Markers: small glowing dots so tiny planets can be found (shown when the planet is under ~5 px on screen)
 const dotTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,255,255,.8)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
 for (const b of bodies) {
   const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: dotTex, color: b.data.color, sizeAttenuation: false, depthWrite: false, transparent: true }));
-  m.scale.setScalar(0.022); m.renderOrder = 5; (b.pivot || scene).add(m); b.marker = m;
+  m.scale.setScalar(0.022); m.renderOrder = 5; (b.satellite ? b.mesh : b.pivot || scene).add(m); b.marker = m;
 }
 
 // Simulation state
 let playing = true, speedExp = 0, trailsOn = true, focused = null;
-export const hooks = { kid: false, onFocus: null, intercept: null, focusMul: 0, here: false };
+export const hooks = { kid: false, onFocus: null, intercept: null, focusMul: 0, here: false, guided: false };
 const BASE_DAYS_PER_SEC = 365.26 / 20; // 1 Earth year per 20 s at 1x
 let simDays = 0;
 const fly = { t: 1, fromPos: new THREE.Vector3(), fromTgt: new THREE.Vector3(), dur: 1.2 };
@@ -167,14 +170,14 @@ canvas.addEventListener('pointerup', e => {
   // Generous hit test: nearest body whose screen-space distance is small
   let best = null, bestD = hooks.kid ? 60 : 28;
   for (const b of bodies) {
-    if (!b.pivot) continue; // the Sun is big: only a direct hit (raycast) selects it
+    if (!b.pivot && !b.satellite) continue; // the Sun is big: only a direct hit (raycast) selects it
     const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera);
     const d = Math.hypot((p.x - ndc.x) * innerWidth / 2, (p.y - ndc.y) * innerHeight / 2);
     if (p.z < 1 && d < bestD) { bestD = d; best = b; }
   }
   const hit = ray.intersectObjects(bodies.map(b => b.mesh), false)[0];
   const hb = hit && bodies.find(b => b.mesh === hit.object);
-  if (hb && (hb.pivot || !best)) best = hb; // planets near the Sun win over the Sun disc
+  if (hb && (hb.pivot || hb.satellite || !best)) best = hb; // planets near the Sun win over the Sun disc
   if (best) focus(best);
 });
 
@@ -209,12 +212,12 @@ let last = performance.now();
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
   const kidSlow = hooks.kid ? 0.25 : 1;
-  if (playing) simDays += dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidSlow;
+  if (playing && !hooks.guided) simDays += dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidSlow;
   placeBodies();
   for (const b of bodies) {
     const hours = Math.abs(b.data.rot); // direction comes from the tilt (Venus 177°, Uranus 98°)
-    const spin = playing ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidSlow * 24 / hours * 0.02 * Math.PI * 2 : 0;
-    b.mesh.rotation.y += spin;
+    const spin = playing && !hooks.guided ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidSlow * 24 / hours * 0.02 * Math.PI * 2 : 0;
+    if (!b.satellite) b.mesh.rotation.y += spin;
     if (b.mesh.userData.clouds) b.mesh.userData.clouds.rotation.y += spin * 0.15 + dt * 0.01;
   }
   updateTrails();
@@ -226,7 +229,9 @@ function frame(now) {
       tgt = focused.mesh.getWorldPosition(tmp).clone();
       const dir = hooks.outside ? (() => { const sw = tgt.clone().setY(0).normalize().negate(); return sw.multiplyScalar(0.8).add(new THREE.Vector3(-sw.z / 0.8, 0, sw.x / 0.8).multiplyScalar(0.6)).normalize(); })() : fly.fromPos.clone().sub(tgt).normalize();
       dir.y = Math.max(dir.y, 0.35); dir.normalize();
-      pos = tgt.clone().add(dir.multiplyScalar(focused.radius * (hooks.focusMul || (innerWidth < innerHeight ? 9 : 6))));
+      // Keep the full ring system inside narrow phone views, not just the globe.
+      const framing = innerWidth < innerHeight ? (focused.data.rings ? Math.max(9, 6 / camera.aspect) : 9) : 6;
+      pos = tgt.clone().add(dir.multiplyScalar(focused.radius * (hooks.focusMul || framing)));
     } else { tgt = HOME.target; pos = HOME.pos; }
     controls.target.lerpVectors(fly.fromTgt, tgt, k);
     camera.position.lerpVectors(fly.fromPos, pos, k);
@@ -267,7 +272,7 @@ export function setKid(on, opts = {}) {
   document.body.classList.toggle('kid', on);
   ambient.intensity = on ? 1.6 : 0.6;
   for (const b of bodies) {
-    const k = on && b.pivot ? 2 : 1; // kid: planets x2 (same for all, ratios kept)
+    const k = on && (b.pivot || b.satellite) ? 2 : 1; // kid: planets x2 (same for all, ratios kept)
     b.mesh.scale.setScalar(k); b.radius = b.data.size * k;
     if (b.mesh.userData.ring) b.mesh.userData.ring.scale.setScalar(k);
     if (b.trail) b.trail.visible = !on && trailsOn;

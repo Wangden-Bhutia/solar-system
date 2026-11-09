@@ -21,7 +21,9 @@ export const PLANETS = [
  {name:'Neptune',color:0x4166d8,km:49528,au:30.178,period:60189.0,rot:16.1,tilt:28.3,
   blurb:'Windiest planet; the farthest from the Sun.',facts:[['Diameter','49,528 km'],['Distance from Sun','30.18 AU'],['Orbital period','164.8 years'],['Day length','16.1 hours'],['Moons','16']]},
 ];
-export const MOON = {name:'Moon',km:3474.8,distKm:384400,period:27.32};
+export const MOON = {name:'Moon',color:0xbcb9b2,km:3474.8,distKm:384400,period:27.32,rot:655.68,
+  blurb:'Earth’s rocky natural satellite. Its craters record ancient impacts.',
+  facts:[['Diameter','3,475 km'],['Mean distance from Earth','384,400 km'],['Orbit around Earth','27.3 days'],['Scale note','Moon gap compressed except in Real scale']]};
 
 // ---- Scale (documented in docs/sources.md) ----
 // Sizes: radius = 0.5 * diameter_km / 12,756 (Earth radius = 0.5 units) -> true ratios between all planets.

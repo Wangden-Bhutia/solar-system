@@ -64,6 +64,21 @@ export const LINES = {
  "stickers_6": "You have 6 stickers!",
  "stickers_7": "You have 7 stickers!",
  "stickers_8": "You have 8 stickers!",
- "stickers_0": "Play Find it to get stickers!"
+ "stickers_0": "Play Find it to get stickers!",
+ "trip_earth": "Our adventure starts at home. Tap Earth, the blue world!",
+ "trip_earth_found": "You found our home! Earth has one Moon. Let’s visit it.",
+ "trip_moon": "The Moon goes around Earth. Can you tap the Moon? You can use the Visit Moon button too.",
+ "trip_moon_found": "Hello, Moon! Look at those craters. Rocks from space made these dents. The Moon is much farther from Earth than we show here.",
+ "trip_mars": "Let’s zoom out to meet our neighbours. Find Mars, the red planet. Use Show me if you need a hand.",
+ "trip_mars_found": "There is Mars! Rust in its rocks and dust makes it look red. You found another world!",
+ "trip_saturn": "Now look for Saturn, the world with big, bright rings. Use Show me if you need a hand.",
+ "trip_saturn_found": "You found Saturn! Its rings are made of many pieces of ice and rock.",
+ "trip_retry": "A different world! Let’s look together.",
+ "trip_done": "What an adventure! Earth, the Moon, Mars, and Saturn. You can explore, play Find it, or tap Replay to travel again.",
+ "trip_explore": "Tap a world to discover a fact. Tap Replay whenever you want our adventure again.",
+ "f_Moon_0": "Moon. The Moon goes around Earth.",
+ "f_Moon_1": "Moon. The Moon has a rocky surface with many craters.",
+ "that_Moon": "That is the Moon.",
+ "yes_Moon": "Yes! That is the Moon!"
 };
-export const VOICE = {"name": "bm_george", "speed": 0.85, "dur": {"intro_1": 2.28, "intro_2": 2.03, "intro_3": 2.09, "tap_planet": 1.43, "f_Sun_0": 5.8, "f_Sun_1": 4.67, "f_Mercury_0": 4.29, "f_Mercury_1": 5.46, "f_Mercury_2": 3.2, "f_Venus_0": 4.27, "f_Venus_1": 2.82, "f_Venus_2": 3.01, "f_Earth_0": 2.13, "f_Earth_1": 6.55, "f_Earth_2": 2.28, "f_Mars_0": 3.69, "f_Mars_1": 2.82, "f_Mars_2": 4.59, "f_Jupiter_0": 7.32, "f_Jupiter_1": 4.46, "f_Saturn_0": 3.2, "f_Saturn_1": 3.88, "f_Uranus_0": 3.8, "f_Uranus_1": 4.8, "f_Neptune_0": 4.25, "f_Neptune_1": 6.49, "f_Neptune_2": 3.14, "ask_red": 2.26, "ask_rings": 3.35, "ask_big": 2.33, "ask_home": 2.47, "ask_sun": 1.83, "ask_close": 2.88, "ask_side": 3.56, "ask_far": 2.97, "that_Sun": 1.39, "yes_Sun": 1.75, "that_Mercury": 1.71, "yes_Mercury": 2.09, "that_Venus": 1.56, "yes_Venus": 1.88, "that_Earth": 1.49, "yes_Earth": 1.83, "that_Mars": 1.56, "yes_Mars": 1.92, "that_Jupiter": 1.77, "yes_Jupiter": 2.18, "that_Saturn": 1.69, "yes_Saturn": 1.96, "that_Uranus": 1.71, "yes_Uranus": 2.09, "that_Neptune": 1.75, "yes_Neptune": 2.05, "try_again": 1.28, "got_sticker": 1.56, "well_done": 1.15, "stickers_1": 1.86, "stickers_2": 1.77, "stickers_3": 1.83, "stickers_4": 1.81, "stickers_5": 1.77, "stickers_6": 1.69, "stickers_7": 1.9, "stickers_8": 1.81, "stickers_0": 2.2}};
+export const VOICE = {"name": "bm_george", "speed": 0.85, "dur": {"intro_1": 2.28, "intro_2": 2.03, "intro_3": 2.09, "tap_planet": 1.43, "f_Sun_0": 5.8, "f_Sun_1": 4.67, "f_Mercury_0": 4.29, "f_Mercury_1": 5.46, "f_Mercury_2": 3.2, "f_Venus_0": 4.27, "f_Venus_1": 2.82, "f_Venus_2": 3.01, "f_Earth_0": 2.13, "f_Earth_1": 6.55, "f_Earth_2": 2.28, "f_Mars_0": 3.69, "f_Mars_1": 2.82, "f_Mars_2": 4.59, "f_Jupiter_0": 7.32, "f_Jupiter_1": 4.46, "f_Saturn_0": 3.2, "f_Saturn_1": 3.88, "f_Uranus_0": 3.8, "f_Uranus_1": 4.8, "f_Neptune_0": 4.25, "f_Neptune_1": 6.49, "f_Neptune_2": 3.14, "ask_red": 2.26, "ask_rings": 3.35, "ask_big": 2.33, "ask_home": 2.47, "ask_sun": 1.83, "ask_close": 2.88, "ask_side": 3.56, "ask_far": 2.97, "that_Sun": 1.39, "yes_Sun": 1.75, "that_Mercury": 1.71, "yes_Mercury": 2.09, "that_Venus": 1.56, "yes_Venus": 1.88, "that_Earth": 1.49, "yes_Earth": 1.83, "that_Mars": 1.56, "yes_Mars": 1.92, "that_Jupiter": 1.77, "yes_Jupiter": 2.18, "that_Saturn": 1.69, "yes_Saturn": 1.96, "that_Uranus": 1.71, "yes_Uranus": 2.09, "that_Neptune": 1.75, "yes_Neptune": 2.05, "try_again": 1.28, "got_sticker": 1.56, "well_done": 1.15, "stickers_1": 1.86, "stickers_2": 1.77, "stickers_3": 1.83, "stickers_4": 1.81, "stickers_5": 1.77, "stickers_6": 1.69, "stickers_7": 1.9, "stickers_8": 1.81, "stickers_0": 2.2, "trip_earth": 4.31, "trip_earth_found": 4.1, "trip_moon": 6.46, "trip_moon_found": 8.85, "trip_mars": 6.95, "trip_mars_found": 6.17, "trip_saturn": 6.42, "trip_saturn_found": 5.48, "trip_retry": 2.82, "trip_done": 8.6, "trip_explore": 6.14, "f_Moon_0": 2.69, "f_Moon_1": 4.35, "that_Moon": 1.64, "yes_Moon": 2.01}};

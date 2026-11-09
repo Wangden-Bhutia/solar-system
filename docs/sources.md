@@ -50,3 +50,14 @@ Definitions used:
 ## Voice
 - Kokoro-82M v1.0 TTS model, voice `bm_george` — Apache-2.0 — https://huggingface.co/hexgrad/Kokoro-82M
 - kokoro-onnx runtime — MIT — https://github.com/thewh1teagle/kokoro-onnx
+
+
+## Guided adventure and selectable Moon (checked 9 November 2026)
+New spoken wording is original, simplified for ages 5–7, checked against these NASA public pages:
+- [Moon facts](https://science.nasa.gov/moon/facts/): Earth's only natural satellite; orbits Earth; solid rocky surface with impact craters from space rocks; mean distance 384,400 km, about 30 Earth diameters. Supports the Earth/Moon lines, lunar free-explore facts, and the warning that the pictured Moon gap is shortened.
+- [Mars facts](https://science.nasa.gov/mars/facts/): oxidized iron (rust) in rocks and dust produces the reddish appearance. Supports the Mars discovery line.
+- [Saturn facts](https://science.nasa.gov/saturn/facts/): rings consist of many chunks of ice and rock. Supports the Saturn discovery line. No new moon-count claim is introduced by this adventure.
+
+Moon scale/model caveat: the Moon already existed in the scene; it is now selectable rather than newly invented. Kid mode scales both Earth and Moon by two, preserving their radius ratio, but uses a 2.4 scene-unit centre-to-centre Moon separation; default grown-up separation is 1.5. Real scale uses 384,400 / 12,756 scene units, as before. Circular, coplanar orbits and faster time are teaching simplifications, not an ephemeris; orbital motion is held still during guided missions. Procedural craters are illustrative rather than geographically mapped. Natural Earth continent data is unchanged.
+
+The 15 added clips use the same Kokoro bm_george voice, speed 0.85, Apache-2.0 model weights and MIT kokoro-onnx runtime credited above. 80 MP3s total: 1,063,168 bytes, mono 24 kHz / 32 kbps. `tools/check-voice.py` lists encoded durations (including MP3 padding); `voice/manifest.json` records generated waveform durations.

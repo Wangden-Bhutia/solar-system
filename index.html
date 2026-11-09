@@ -29,18 +29,22 @@
 </nav>
 <div id="kid-ui">
   <div id="here" hidden><span>You are here</span></div>
-  <div id="intro"><button id="introStart" class="kbtn big" aria-label="Start">▶️</button></div>
+  <div id="intro"><button id="introStart" class="kbtn big" aria-label="Start adventure">▶️<small>Let’s go!</small></button></div>
   <div id="grownup" aria-label="Grown-ups: press and hold"><span>⚙︎</span></div>
   <button id="k-mute" class="kbtn small"></button>
-  <div id="bubble" hidden><div id="b-pic"></div><p id="b-text"></p></div>
+  <section id="mission" hidden aria-label="Guided adventure">
+    <span id="mission-title"></span><small id="mission-scale"></small><button id="mission-exit">Explore freely</button>
+  </section>
+  <p id="audio-status" role="status"></p>
+  <div id="bubble" role="status" hidden><div id="b-pic"></div><div id="bubble-content"><p id="b-text"></p><button id="mission-action" hidden></button></div></div>
   <button id="nextGame" class="kbtn" hidden aria-label="Next">▶️</button>
   <div id="sparkle"></div>
   <div id="book" hidden><button id="book-close" class="kbtn small" aria-label="Close">✖️</button><div id="book-grid"></div></div>
   <nav id="kbar">
-    <button id="k-listen" class="kbtn" aria-label="Listen">👂</button>
-    <button id="k-games" class="kbtn" aria-label="Games">🎮</button>
-    <button id="k-stickers" class="kbtn" aria-label="Stickers">⭐</button>
-    <button id="k-home" class="kbtn" aria-label="Home">🏠</button>
+    <button id="k-listen" class="kbtn" aria-label="Listen">👂<small>Listen</small></button>
+    <button id="k-games" class="kbtn" aria-label="Games">🎮<small>Find it</small></button>
+    <button id="k-stickers" class="kbtn" aria-label="Stickers">⭐<small>Stickers</small></button>
+    <button id="k-home" class="kbtn" aria-label="Replay adventure">🏠<small>Replay</small></button>
   </nav>
 </div>
 <script type="module" src="kids.js"></script>
