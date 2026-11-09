@@ -354,9 +354,9 @@ function frame(now) {
   for (const b of ordered) {
     const p = b.mesh.getWorldPosition(tmp).project(camera);
     const x = bounds.left + (p.x + 1) / 2 * bounds.width, y = bounds.top + (1 - p.y) / 2 * bounds.height;
-    const w = b.data.name.length * 6.6 + 16, h = 20; // matches the .lbl tag: 11.5px text, 7px side padding
+    const w = b.data.name.length * 5.8 + 12, h = 16; // matches the .lbl tag: 10px text, 6px side padding
     // Above the world if there is room, otherwise below it.
-    const spots = [[x - w / 2, y - 8 - h, x + w / 2, y - 8, 'calc(-100% - 8px)'], [x - w / 2, y + 8, x + w / 2, y + 8 + h, '8px']];
+    const spots = [[x - w / 2, y - 7 - h, x + w / 2, y - 7, 'calc(-100% - 7px)'], [x - w / 2, y + 7, x + w / 2, y + 7 + h, '7px']];
     let spot = null;
     if (p.z < 1 && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05 && !(b.satellite && !focused))
       spot = spots.find(o2 => !placed.some(o => o2[0] < o[2] && o2[2] > o[0] && o2[1] < o[3] && o2[3] > o[1])) || null;
