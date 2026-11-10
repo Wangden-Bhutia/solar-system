@@ -33,7 +33,7 @@ Earth's Natural Earth coastlines and procedural planet details are preserved. No
 ## Optional voice
 Listen reads the visible introduction using tap-initiated Web Audio. No autoplay on entry, world changes or slider movement. Existing saved mute preference is preserved. Missing clips/unsupported Web Audio fall back to Web Speech (male voice if the device provides one; pitch 0.9, rate 0.85). Returning from another app requires another Listen tap. These compatibility mechanisms are tested with mocks, not a claim of actual Android playback.
 
-72 MP3s, mono 24 kHz / 32 kbps, 957,120 bytes total. Seven new lab clips; the 65 prior kid clips remain available. Clips load on demand. Runtime Three.js and audio are local assets; there are no CDN imports. There is no service worker, so an uncached remote visit does not work without a network; serving the folder locally needs no external assets.
+87 MP3s, mono 24 kHz / 32 kbps, 1,271,028 bytes total: the 65 kid clips, seven lab clips and 15 Earth–Moon adventure clips. Clips load on demand; Pages copies `voice/` and the deploy's `precache.json` lists every clip, so **Save for offline** stores them with the app. Runtime Three.js and audio are local assets; there are no CDN imports.
 
 Regenerate from `voice/lines.json`: install `kokoro-onnx soundfile` plus ffmpeg, download the model and voice weights separately, then:
 ```
@@ -72,6 +72,15 @@ Node 24 tests use linkedom (DOM emulation) and Node VM modules. They test scienc
 
 ## Voyage outward
 The first entry under **Journeys** is a guided trip across every scale, from home to Andromeda, in seven stops: the Solar System, the nearest stars, Alpha Centauri A and B orbiting each other, the stars drifting (the nearest star changes), the turning Milky Way, the Local Group and Andromeda. Each **Next** travels with the same seamless zoom. Five stops ask a question first: how long light takes to reach the nearest star, how long Alpha Centauri A and B take to orbit, whether Alpha Centauri will always be nearest, how long the Sun takes to go round the Galaxy, and whether Andromeda will hit us. The answer shows once you guess. **✕ End voyage** leaves you free to explore wherever you are; finishing leaves you in the Local Group.
+
+## Earth–Moon adventure
+A guided story on top of free exploring: tap **🚀 Adventure** (top bar, next to Journeys). Four stops in the Solar System: **Earth → the Moon → Mars → Saturn**. At each stop a short narration asks the child to find a world; tapping it (or **Show me …** / **Visit Moon**) glides there and plays one fact. A wrong world gets “A different world! Let’s look together.” and the camera stays put. **Next** goes on, **Skip ›** moves on without finding, **▶ / ❚❚** plays or stops the narration (Pause restarts the clip from its start), **✕** ends the story at any time. At the end: **Replay** or **Explore freely**.
+
+- Every narration is shown word for word as a caption (the clip text, `voice/lines.json`), so it works with Voice off and for anyone who can't hear it. Nothing plays on load; audio starts from the Adventure tap (iOS needs that tap).
+- While it runs: world cards stay closed, orbits are held still (restored after), Real scale is switched off (the narration describes the shortened default view), the scale readout moves above the panel, and world names keep clear of the panel. Going to another scale, opening Journeys or a card ends it quietly.
+- Reduced motion: the glides become jumps; nothing in the panel animates.
+- Each stop says what the picture changes (“Illustration · Moon distance shortened …”). Sources: `docs/sources.md` (Earth–Moon adventure).
+- Code: `adventure.js` (story state, panel, own voice player); `lab.js` only creates it and tells it when the view changes.
 
 ## Learn by guessing first
 - **✦ Journeys** (top bar): four short guided tours — *How big is space?*, *Why do we have seasons?*, *The Moon and us*, *Next door: Mars*. Each stop glides the camera to a world; questions must be answered (or skipped) before moving on, and labs open from the step with Back returning to it.
