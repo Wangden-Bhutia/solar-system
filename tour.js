@@ -32,56 +32,70 @@ const lookbackGly = (Math.round(SHELLS[0].gly * 10) / 10).toFixed(1); // 5.5: co
 // at: where the stop is. {focus} a world in the Solar System; {fit} the app's own Solar System framing of the inner
 // planets or of all of them; {fitAU} a circle that many au across fits the screen; {ly} a camera distance from the
 // Sun (light-years); {overview} the observable universe's own framing. Every {ly} lies outside the seams.
-// facts: each `says` appears in the text verbatim and every digit in the text belongs to one; `computed` shows the sum.
+// short: the one line shown in the collapsed bar (its key fact). facts: each `says` appears in the text verbatim and
+// every digit in the text and in `short` belongs to one; `computed` shows the sum. names: proper names with digits.
 export const TOUR_STOPS = [
   { id: 'earth', level: 'solar', at: { focus: 'Earth' }, title: 'Earth, our home',
+    short: 'Earth is 12,756 km wide at the equator.',
     text: 'Earth is 12,756 km wide at the equator. Hold on: each stop from here takes you much farther out.',
     facts: [{ says: '12,756 km', src: ['nssdcEarth'] }] },
   { id: 'inner', level: 'solar', at: { fit: 'inner' }, title: 'The inner planets',
+    short: 'Sunlight takes about 8 minutes 19 seconds to reach us.',
     text: 'Earth circles the Sun 1 au away: 149,597,870,700 metres. Sunlight takes about 8 minutes 19 seconds to reach us.',
     facts: [{ says: '1 au', src: ['iauAu'] }, { says: '149,597,870,700 metres', src: ['iauAu'] },
       { says: '8 minutes 19 seconds', src: ['iauAu', 'siC'], computed: '149,597,870,700 m ÷ 299,792,458 m/s = 499.0 s' }],
     model: 'Planet distances in this view are compressed so they fit on a screen (the readout marks them ≈).' },
   { id: 'planets', level: 'solar', at: { fit: 'all' }, title: 'All eight planets',
+    short: 'Neptune orbits 30.07 au from the Sun on average.',
     text: 'Neptune, the farthest planet, orbits 30.07 au from the Sun on average. Sunlight takes about 4 hours 10 minutes to get there.',
     facts: [{ says: '30.07 au', src: ['nssdcNeptune'] },
       { says: '4 hours 10 minutes', src: ['nssdcNeptune', 'iauAu', 'siC'], computed: '30.07 × 499.0 s = 15,005 s' }],
     model: 'Planet distances in this view are compressed so they fit on a screen (the readout marks them ≈).' },
   { id: 'heliosphere', level: 'solar', at: { fitAU: 121.6 }, title: 'The edge of the solar wind',
+    short: 'Voyager 1 left the Sun’s bubble in 2012 at 121.6 au.',
     text: 'The Sun’s wind blows a bubble, the heliosphere. Voyager 1 crossed its edge in 2012 at 121.6 au, Voyager 2 in 2018 at about 119 au.',
     facts: [{ says: '2012', src: ['burlaga2019', 'jplVoyager'] }, { says: '121.6 au', src: ['burlaga2019'] },
       { says: '2018', src: ['burlaga2019', 'jplVoyager'] }, { says: '119 au', src: ['burlaga2019'] }], names: ['Voyager 1', 'Voyager 2'],
     illustration: 'The bubble is drawn as simple spheres at those distances: an illustration, not its measured shape.' },
   { id: 'oort', level: 'solar', at: { ly: 0.07 }, title: 'The Oort cloud',
+    short: 'An icy shell thought to reach 10,000 to 100,000 au.',
     text: 'A vast shell of icy bodies is thought to start 2,000 to 5,000 au from the Sun and end 10,000 to 100,000 au out. It has never been seen directly; long-period comets are thought to come from it.',
     facts: [{ says: '2,000 to 5,000 au', src: ['nasaOort'] }, { says: '10,000 to 100,000 au', src: ['nasaOort'] }], refs: ['nasaOort'],
     illustration: 'The cloud is an illustration of a theorised region: no Oort cloud object has been observed out there.' },
   { id: 'proxima', level: 'stars', at: { ly: 20 }, title: 'The nearest stars',
+    short: 'Proxima Centauri, the nearest star: 4.25 light-years.',
     text: 'The nearest star to our Solar System is Proxima Centauri, about 4.25 light-years away: its light takes more than four years to reach us.',
     facts: [{ says: '4.25 light-years', src: ['svsLightYear'], computed: '4.2465 ly, rounded' }] },
   { id: 'bubble', level: 'stars', at: { ly: 150 }, title: 'The Local Bubble',
+    short: 'We sit in a hollow about 1,000 light-years wide.',
     text: 'The Sun sits inside a hollow about 1,000 light-years wide, blown by supernovae that began exploding about 14 million years ago.',
     facts: [{ says: '1,000 light-years', src: ['zucker2022', 'cfaBubble'] }, { says: '14 million years', src: ['zucker2022', 'cfaBubble'] }],
     illustration: 'The globe drawn for the bubble is an illustration: its real edge is irregular.' },
   { id: 'arm', level: 'galaxy', at: { ly: 12000 }, title: 'Our spiral arm',
+    short: 'The Sun lies in the Local Arm of the Milky Way.',
     text: 'The Sun lies in the Local Arm, a short arm of the Milky Way mapped by radio telescopes measuring the distances of young, star-forming regions.',
     facts: [], refs: ['reid2019'], illustration: 'The arms are drawn from a model fitted to those measurements; far from the Sun they are extrapolated.' },
   { id: 'milkyway', level: 'galaxy', at: { ly: 240000 }, title: 'The Milky Way',
+    short: 'Our galaxy is about 100,000 light-years across.',
     text: 'Our galaxy is about 100,000 light-years across. The Sun is about 27,000 light-years from Sagittarius A*, the black hole at its centre.',
     facts: [{ says: '100,000 light-years', src: ['nasaMilkyWay'] }, { says: '27,000 light-years', src: ['gravity2022'], computed: '8,277 pc × 3.2616 ly/pc = 26,996 ly' }],
     illustration: 'No one has photographed the Milky Way from outside: this is a model built from measurements.' },
   { id: 'localgroup', level: 'local', at: { ly: 9.5e6 }, title: 'The Local Group',
+    short: 'Andromeda is about 2.5 million light-years away.',
     text: 'The Andromeda Galaxy, the nearest major galaxy to ours, is about 2.5 million light-years away.',
     facts: [{ says: '2.5 million light-years', src: ['nasaM31'] }] },
   { id: 'laniakea', level: 'super', at: { ly: 7.5e8 }, title: 'Laniakea',
+    short: 'Our supercluster: about 500 million light-years across.',
     text: 'The Milky Way is on the outskirts of Laniakea, a supercluster about 500 million light-years across with some 100,000 galaxies.',
     facts: [{ says: '500 million light-years', src: ['uhLaniakea', 'tully2014'] }, { says: '100,000 galaxies', src: ['tully2014', 'uhLaniakea'] }] },
   { id: 'lookback', level: 'universe', at: { ly: 2e10 }, title: 'Looking back in time',
+    short: 'Far away is long ago: we see far galaxies as they were.',
     text: `Light takes time to reach us, so far away is long ago. Light from galaxies now about ${lookbackGly} billion light-years away set out 4.6 billion years ago, as the Sun was forming.`,
     facts: [{ says: `${lookbackGly} billion light-years`, src: ['planck2018'], computed: 'distance now for a 4.6-billion-year light travel time, flat ΛCDM with Planck 2018 parameters (cosmos-data.js)' },
       { says: '4.6 billion years', src: ['nasaOort'] }],
     illustration: 'The web of galaxies is an illustration of its large-scale pattern, not a map of real galaxies.' },
   { id: 'edge', level: 'universe', at: { overview: true }, title: 'The observable universe',
+    short: 'The edge is about 46 billion light-years away.',
     text: 'Everything we could ever have seen: light has had 13.787 billion years to travel, and the space it crossed has grown, so the edge is now about 46 billion light-years away in every direction.',
     facts: [{ says: '13.787 billion years', src: ['planck2018'] }, { says: '46 billion light-years', src: ['davis2004'] }],
     illustration: 'This viewpoint is outside the observable universe so you can see all of it at once: no one could stand here.' },
@@ -95,7 +109,7 @@ export const DWELL_S = 8; // seconds on a stop before the tour moves on (while p
 
 // deps: travel(stop, done) moves the view to a stop (glide, or a cut with reduced motion), halt() stops a move in
 // progress where it is, readout() → [line, line] the scale readout's distance and width lines right now,
-// onExit() (optional) once the tour has ended.
+// onStart() (optional) before it begins (another guided story ends), onExit() (optional) once the tour has ended.
 export function createTour(deps, stops = TOUR_STOPS) {
   const t = { active: false, index: -1, paused: false, moving: false, arrived: false, dwell: 0, dwellS: DWELL_S, finished: false, visits: [] };
   let gen = 0;
@@ -108,7 +122,7 @@ export function createTour(deps, stops = TOUR_STOPS) {
   }
   Object.assign(t, {
     stops,
-    start(i = 0) { t.active = true; t.paused = false; t.visits = []; goTo(i); },
+    start(i = 0) { deps.onStart?.(); t.active = true; t.paused = false; t.visits = []; goTo(i); },
     next() { if (!t.active) return; t.paused = false; if (t.index < stops.length - 1) goTo(t.index + 1); },
     prev() { if (!t.active) return; t.paused = false; if (t.index > 0) goTo(t.index - 1); else goTo(0); },
     pause() { if (!t.active || t.paused) return; t.paused = true; if (t.moving) { gen++; deps.halt?.(); t.moving = false; } changed(); },
@@ -129,22 +143,38 @@ export function createTour(deps, stops = TOUR_STOPS) {
   return t;
 }
 
-// The tour's own controls: a top-bar chip to start it, a caption card with Back / Pause / Next / ✕, and a
-// one-time hint for first visits (remembered under TOUR_KEY). Built here so index.html stays as it is.
+// The tour's own controls: a top-bar chip to start it, a slim caption bar at the bottom and a one-time hint for
+// first visits (remembered under TOUR_KEY). Built here so index.html stays as it is.
+// The bar is compact so the scene stays in view: stop number, title and one short line (the stop's key fact), with
+// icon buttons ‹ ❚❚/▶ › i ✕. Tapping the text or "i" opens the rest (the full caption, the illustration or model
+// note, the sources) and the next stop closes it again. The scale readout (hud.js) stays visible just above the bar
+// (lab.js sets --tour-h): it is the one distance readout, so the caption does not repeat it.
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const ICON = {
+  prev: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  next: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  pause: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9M11 3.5v9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  play: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.8 8z" fill="currentColor"/></svg>',
+  again: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8a4.5 4.5 0 1 0 1.4-3.3M4.5 2v3h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  info: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 7.2v4M8 4.6v.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+  exit: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+};
 export function mountTour(doc, tour, { storage, afterNode } = {}) {
   const el = (tag, props = {}, html = '') => { const e = doc.createElement(tag); for (const [k, v] of Object.entries(props)) e.setAttribute(k, v); if (html) e.innerHTML = html; return e; };
   const chip = el('button', { id: 'tour-start', class: 'chip', type: 'button', 'aria-label': 'Powers of Ten tour: glide from Earth to the edge of the observable universe' },
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M3 11.5 6.5 8 3 4.5l1-1L8.5 8 4 12.5zm5 0L11.5 8 8 4.5l1-1L13.5 8 9 12.5z"/></svg>Tour');
   if (afterNode?.parentNode) afterNode.parentNode.insertBefore(chip, afterNode.nextSibling);
-  const card = el('section', { id: 'tour', class: 'tour', 'aria-label': 'Powers of Ten tour', 'aria-live': 'polite' });
+  const card = el('section', { id: 'tour', class: 'tour', 'aria-label': 'Powers of Ten tour', 'data-open': 'false' });
   card.hidden = true;
-  card.innerHTML = '<p id="tour-kicker" class="tour-kicker"></p><h2 id="tour-title"></h2><p id="tour-text"></p>'
-    + '<p id="tour-here" class="tour-here"></p><p id="tour-note" class="tour-note" hidden></p><p id="tour-sources" class="tour-sources"></p>'
-    + '<div class="tour-nav"><button id="tour-prev" type="button" aria-label="Previous stop">‹ Back</button>'
-    + '<button id="tour-play" type="button" aria-label="Pause the tour">Pause</button>'
-    + '<button id="tour-next" type="button" aria-label="Next stop">Next ›</button>'
-    + '<button id="tour-exit" type="button" aria-label="End the tour and explore from here">✕</button></div>';
+  card.innerHTML = '<button id="tour-sum" class="tour-sum" type="button" aria-expanded="false" aria-controls="tour-more">'
+    + '<span class="tour-head"><span id="tour-kicker" class="tour-kicker"></span> <span id="tour-title" class="tour-title"></span></span>'
+    + '<span id="tour-short" class="tour-short" aria-live="polite"></span></button>'
+    + '<div id="tour-more" class="tour-more" hidden><p id="tour-text"></p><p id="tour-note" class="tour-note" hidden></p><p id="tour-sources" class="tour-sources"></p></div>'
+    + `<div class="tour-nav"><button id="tour-prev" type="button" aria-label="Previous stop">${ICON.prev}</button>`
+    + `<button id="tour-play" type="button" aria-label="Pause the tour">${ICON.pause}</button>`
+    + `<button id="tour-next" type="button" aria-label="Next stop">${ICON.next}</button>`
+    + `<button id="tour-info" type="button" aria-expanded="false" aria-controls="tour-more" aria-label="More about this stop, with sources">${ICON.info}</button>`
+    + `<button id="tour-exit" type="button" aria-label="End the tour and explore from here">${ICON.exit}</button></div>`;
   const hint = el('div', { id: 'tour-hint', class: 'tour-hint', role: 'note' },
     '<button id="tour-hint-go" type="button">New here? Take the one-tap tour from Earth to the edge of the universe ›</button><button id="tour-hint-x" type="button" aria-label="Dismiss">✕</button>');
   let seen = false; try { seen = !!JSON.parse(storage?.getItem(TOUR_KEY) || 'null')?.seen; } catch { seen = false; }
@@ -155,36 +185,45 @@ export function mountTour(doc, tour, { storage, afterNode } = {}) {
   if (!seen) store();
   const q = id => card.querySelector('#' + id);
   const remember = () => { seen = true; hint.hidden = true; store(); };
-  let shownStop = -1, hereText = null;
+  let shownStop = -1, open = false, playIcon = '';
+  // The bar's height, for the scale readout to sit just above it (style.css: body.touring .hud).
+  const measure = () => { const h = card.hidden ? 0 : Math.round(card.getBoundingClientRect?.().height || card.offsetHeight || 0); const v = `${h}px`; if (doc.body.style.getPropertyValue('--tour-h') !== v) doc.body.style.setProperty('--tour-h', v); };
+  function setOpen(v) {
+    open = !!v; card.dataset.open = String(open); q('tour-more').hidden = !open;
+    for (const id of ['tour-sum', 'tour-info']) q(id).setAttribute('aria-expanded', String(open));
+    q('tour-info').setAttribute('aria-label', open ? 'Show less' : 'More about this stop, with sources'); measure();
+  }
   function paint() {
     const on = tour.active; card.hidden = !on; doc.body.classList.toggle('touring', on); chip.setAttribute('aria-pressed', String(on));
     if (on) hint.hidden = true;
-    if (!on) { shownStop = -1; hereText = null; return; }
+    if (!on) { shownStop = -1; setOpen(false); return; }
     const s = tour.stops[tour.index], n = tour.stops.length;
     if (shownStop !== tour.index) {
-      shownStop = tour.index; hereText = null;
-      q('tour-kicker').textContent = `Powers of Ten · ${tour.index + 1} of ${n}`;
-      q('tour-title').textContent = s.title; q('tour-text').textContent = s.text;
+      shownStop = tour.index;
+      q('tour-kicker').textContent = `${tour.index + 1}/${n}`; q('tour-kicker').setAttribute('aria-label', `Powers of Ten, stop ${tour.index + 1} of ${n}:`);
+      q('tour-title').textContent = s.title; q('tour-short').textContent = s.short; q('tour-text').textContent = s.text;
       const note = s.illustration || s.model || ''; q('tour-note').hidden = !note; q('tour-note').textContent = note;
       const keys = sourcesOf(s);
       q('tour-sources').innerHTML = (keys.length > 1 ? 'Sources: ' : 'Source: ') + keys.map(k => `<a href="${esc(SOURCES[k].url)}" target="_blank" rel="noopener">${esc(SOURCES[k].label)}</a>`).join(' · ');
+      setOpen(false); // each stop starts collapsed
     }
     q('tour-prev').disabled = tour.index === 0;
     q('tour-next').disabled = tour.index === n - 1;
-    const label = tour.finished ? 'Again' : tour.paused ? 'Resume' : 'Pause';
-    if (q('tour-play').textContent !== label) { q('tour-play').textContent = label; q('tour-play').setAttribute('aria-label', tour.finished ? 'Start the tour again' : tour.paused ? 'Resume the tour' : 'Pause the tour'); }
+    const mode = tour.finished ? 'again' : tour.paused ? 'play' : 'pause';
+    if (playIcon !== mode) { playIcon = mode; q('tour-play').innerHTML = ICON[mode]; q('tour-play').setAttribute('aria-label', mode === 'again' ? 'Start the tour again' : mode === 'play' ? 'Resume the tour' : 'Pause the tour'); }
     card.dataset.state = tour.moving ? 'moving' : tour.paused ? 'paused' : tour.finished ? 'finished' : 'here';
-    frame();
+    measure();
   }
-  // Each frame (while touring): the "you are here" line follows the readout, during a glide too.
-  function frame() { if (!tour.active) return; const h = tour.moving ? 'Travelling…' : tour.here(); if (h !== hereText) { hereText = h; q('tour-here').textContent = h; } }
+  function frame() { if (tour.active) measure(); }
   chip.onclick = () => { remember(); if (tour.active) tour.exit(); else tour.start(0); };
   hint.querySelector('#tour-hint-go').onclick = () => { remember(); tour.start(0); };
   hint.querySelector('#tour-hint-x').onclick = remember;
+  q('tour-sum').onclick = () => setOpen(!open);
+  q('tour-info').onclick = () => setOpen(!open);
   q('tour-prev').onclick = () => tour.prev();
   q('tour-next').onclick = () => tour.next();
   q('tour-play').onclick = () => tour.toggle();
   q('tour-exit').onclick = () => tour.exit();
-  doc.addEventListener('keydown', e => { if (e.key === 'Escape' && tour.active && !card.hidden) tour.exit(); });
-  return { card, chip, hint, paint, frame, remember, get seen() { return seen; } };
+  doc.addEventListener('keydown', e => { if (e.key === 'Escape' && tour.active && !card.hidden) { if (open) setOpen(false); else tour.exit(); } });
+  return { card, chip, hint, paint, frame, remember, setOpen, get open() { return open; }, get seen() { return seen; } };
 }

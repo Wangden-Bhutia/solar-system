@@ -26,7 +26,10 @@ import { seasonGeometry, daylightHours, noonAltitude, phaseGeometry, phaseName, 
 import { INSIGHTS, STRIKING, genericInsight, NASA, CHECKED, MOON_COUNT, SAT_SOURCES, JPL_RADII, DWARF_SOURCES, SBDB } from './insights.js';
 import { LINES, VOICE } from './voice/lines.js';
 import { createVoicePlayer } from './voice-player.js';
+import { initAdventure } from './adventure.js';
+import * as solarApp from './app.js';
 import { PREDICTIONS, judge, JOURNEYS, VOYAGE, journey, canAdvance, eclipseGeometry, tideLabel, tideRange, scaleWalk, sizeLike, formatMetres, formatDuration, lightSeconds, sunlightTo, AU_KM, FOOTBALL_CM, MOON_INCLINATION } from './learn.js';
+let adventure=null; // the Earth–Moon guided story (adventure.js), set up below
 // Labs drawn in their own 3D scene; the scale lab keeps the live Solar System behind the sheet.
 const SCENE_LABS=new Set(['seasons','phases','eclipses','tides']);
 const LAB_TITLES={seasons:'Why do seasons happen?',phases:'Explore the phases',eclipses:'Why aren’t eclipses monthly?',tides:'What makes the tides?',scale:'How big is space?'};
@@ -301,8 +304,8 @@ const safeTop=()=>{const r=$('ladder')?.getBoundingClientRect?.();LABEL_SAFE.top
 // Rects no label may cover, read each frame from the real elements (before this frame writes any label): the open
 // sheet, the time bar and the scale readout. The top controls are SAFE.top (above).
 const exRect=el=>{const r=el?.getBoundingClientRect?.();return r&&r.width>0&&r.height>0?[r.left,r.top,r.right,r.bottom]:null;};
-const exList=[null,null,null,null,null];
-function readExclusions(){const sh=$('sheet');exList[0]=sh&&sh.dataset.state!=='closed'?exRect(sh):null;exList[1]=!gtime.hidden&&!document.body.classList.contains('bridging')?exRect(gtime):null;exList[2]=!hudEl.hidden&&!document.body.classList.contains('time-resting')?exRect(hudEl):null;exList[3]=tourUi&&!tourUi.card.hidden?exRect(tourUi.card):null;exList[4]=tourUi&&!tourUi.hint.hidden?exRect(tourUi.hint):null;setExclusions(exList,globalThis.innerWidth||Infinity,globalThis.innerHeight||Infinity);}
+const exList=[null,null,null,null,null,null]; // [3]: the adventure's story panel (adventure.js); [4], [5]: the tour's card and hint (tour.js)
+function readExclusions(){const sh=$('sheet');exList[0]=sh&&sh.dataset.state!=='closed'?exRect(sh):null;exList[1]=!gtime.hidden&&!document.body.classList.contains('bridging')?exRect(gtime):null;exList[2]=!hudEl.hidden&&!document.body.classList.contains('time-resting')?exRect(hudEl):null;const st=document.getElementById('story');exList[3]=st&&!st.hidden?exRect(st):null;exList[4]=tourUi&&!tourUi.card.hidden?exRect(tourUi.card):null;exList[5]=tourUi&&!tourUi.hint.hidden?exRect(tourUi.hint):null;setExclusions(exList,globalThis.innerWidth||Infinity,globalThis.innerHeight||Infinity);}
 hooks.beforeFrame=dt=>{readExclusions();tourFrame(dt);zoomTick(dt);zlog?.frame(dt,currentZ(),bridge,levelOf(state.value.view));};
 // dz: a change of Z from a gesture (zoom.js gains). Zooming out of a selected world lets go of it.
 function zoomInput(dz,kind,now){
@@ -854,6 +857,7 @@ function paintSystem(){
 function render(){
  const s=state.value,space=SPACE.has(s.view),experiment=s.view==='try'&&!!s.experiment,scene=experiment&&SCENE_LABS.has(s.experiment);
  const level=levelOf(s.view);
+ adventure?.sync(level,s);
  if(level!==shownLevel){const from=shownLevel;shownLevel=level;
   if(from!=='solar')sceneOf(from).leave();
   const at=arrival;arrival=null;
@@ -899,6 +903,9 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system'||starsV
  else{starsView.controls.enabled=level==='stars'&&starsView.mode==='stars';galaxyView.controls.enabled=level==='galaxy';localView.controls.enabled=level==='local';for(const l of ['super','universe'])if(built(l))sceneOf(l).controls.enabled=level===l;}
 }
 addEventListener('resize',()=>{if(state.value.view==='compare')paintCompare();});
+// Earth–Moon adventure: its own chip, panel and narration; here only the way into the Solar System scale.
+adventure=initAdventure({app:solarApp,stopAudio,voiceOn:()=>$('sound').checked,
+ enter:after=>{tourRef?.exit();const close=()=>{go({view:'explore',journey:null,voyage:null,experiment:null,star:null,landmark:null,sheet:'closed'});after();};if(levelOf(state.value.view)!=='solar')goLevel('solar',close);else close();}});
 render();
 
 // ---- Powers of Ten (tour.js): one tap glides from Earth to the edge of the observable universe, stopping about
@@ -936,7 +943,8 @@ function tourTravel(stop,done){
 // Stop a move where it is: the glide (its frames are dropped), a wait for the Solar System's camera flight, and
 // the zoom controller takes over at the current Z (so a gesture right after carries on from here).
 function tourHalt(){tourGen++;tourWait=null;if(animating){animGen++;animating=false;}zoom.set(Zc);}
-tourRef=createTour({travel:tourTravel,halt:tourHalt,readout:()=>hudEl.hidden?null:[hudB.textContent,hudA.textContent],onChange:()=>tourUi?.paint()});
+tourRef=createTour({travel:tourTravel,halt:tourHalt,onStart:()=>{if(adventure&&adventure.phase!=='off')adventure.end(true);}, // one guided story at a time
+ readout:()=>hudEl.hidden?null:[hudB.textContent,hudA.textContent],onChange:()=>tourUi?.paint()});
 tourUi=mountTour(document,tourRef,{storage:globalThis.localStorage,afterNode:$('journeys')});
 // ---- Install and offline ----
 // "Install app" uses the browser's own install prompt where it offers one (Android, desktop Chrome/Edge); on
