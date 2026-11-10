@@ -9,7 +9,7 @@ import { LINES, VOICE } from './voice/lines.js';
 import { createVoicePlayer } from './voice-player.js';
 
 export const STOPS = [
-  { target: 'Earth', title: 'Our home', pic: '🌍', prompt: 'trip_earth', fact: 'trip_earth_found', hint: 'Show me Earth', next: 'Visit the Moon →' },
+  { target: 'Earth', title: 'Our home', pic: '🌍', prompt: 'trip_earth', fact: 'trip_earth_found', hint: 'Show me Earth', next: 'On to the Moon →' },
   { target: 'Moon', title: 'Our Moon', pic: '🌙', prompt: 'trip_moon', fact: 'trip_moon_found', hint: 'Visit Moon', next: 'Meet our neighbours →' },
   { target: 'Mars', title: 'A red neighbour', pic: '🔴', prompt: 'trip_mars', fact: 'trip_mars_found', hint: 'Show me Mars', next: 'One more discovery →' },
   { target: 'Saturn', title: 'A ringed world', pic: '🪐', prompt: 'trip_saturn', fact: 'trip_saturn_found', hint: 'Show me Saturn', next: 'Finish adventure ⭐' },
@@ -74,15 +74,15 @@ export function initAdventure(api, doc = document) {
 
   function say(ids) {
     lastIds = ids; el('story-caption').textContent = captionOf(ids);
-    if (!api.voiceOn()) { player.stop(); el('story-status').textContent = 'Voice is off (menu). Read along here.'; return Promise.resolve(); }
-    el('story-status').textContent = '';
+    if (!api.voiceOn()) { player.stop(); el('story-status').textContent = 'Voice is off (menu). Read along here.'; setPanelHeight(); return Promise.resolve(); }
+    el('story-status').textContent = ''; setPanelHeight(); // the caption changed the panel's height: lift the scale readout again
     return player.say(ids);
   }
   function paintVoice(s) {
     const b = el('story-voice'); if (!b) return;
     b.textContent = speaking ? '❚❚' : '▶';
     b.setAttribute('aria-label', speaking ? 'Pause narration' : 'Play narration');
-    if (s === 'retry') el('story-status').textContent = 'Tap ▶ to hear it again.';
+    if (s === 'retry') { el('story-status').textContent = 'Tap ▶ to hear it again.'; setPanelHeight(); }
   }
   function setPanelHeight() { doc.body.style.setProperty('--story-h', panel.hidden ? '0px' : `${panel.offsetHeight || 0}px`); }
   function paint() {
@@ -178,6 +178,8 @@ export function initAdventure(api, doc = document) {
   function finish() { phase = 'done'; run++; releaseOrbits(); restoreScope(); unfocus(true, reduced() ? .01 : 2.5); paint(); say('trip_done'); }
   doc.addEventListener?.('visibilitychange', () => { if (doc.hidden && speaking) player.stop(); });
   globalThis.addEventListener?.('resize', setPanelHeight);
+  // Any other change of the panel's size (fonts loading, text wrapping) also moves the readout clear of it.
+  if (typeof globalThis.ResizeObserver === 'function') new globalThis.ResizeObserver(() => setPanelHeight()).observe(panel);
 
   const api2 = {
     get phase() { return phase; }, trip, start, end, panel, chip, player,

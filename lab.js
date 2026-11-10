@@ -957,9 +957,11 @@ const standalone=()=>!!globalThis.matchMedia?.('(display-mode: standalone)').mat
 const appleTouch=/iphone|ipad|ipod/i.test(nav.userAgent||'')||(/macintosh/i.test(nav.userAgent||'')&&(nav.maxTouchPoints||0)>1);
 const savedBefore=()=>{try{return localStorage.getItem('offline-saved');}catch{return null;}};
 function saveOffline(){if(!sw)return;offline={done:0,total:0};paintOffline();sw.ready.then(reg=>reg.active?.postMessage({saveAll:true}));}
+// What Save for offline downloads: precache.json's total, written in here (and in index.html) by tools/stamp.mjs at deploy.
+const OFFLINE_SIZE='about 4.0 MB';
 function paintOffline(){
  $('install').hidden=!installEvent;$('save-offline').hidden=!sw;$('save-offline').disabled=!!offline&&!offline.finished&&!offline.error;
- const note=offline?.error?'Couldn’t save just now. Check the connection and try again.':offline&&!offline.finished?`Saving… ${offline.done} of ${offline.total||'…'} files`:offline?.finished?(offline.failed?`Saved, except ${offline.failed} files. Try again with a better connection.`:'Saved ✓ The whole app is on this device and opens even with no signal.'):savedBefore()?'Saved for offline ✓ New versions are saved as you use them.':!sw?'Offline use needs the secure (https) version of the site.':appleTouch&&!standalone()?'To install on iPhone or iPad: tap Share, then “Add to Home Screen”. Or save for offline here.':'Keeps the whole app (about 4.5 MB) on this device so it opens fast, even with no signal.';
+ const note=offline?.error?'Couldn’t save just now. Check the connection and try again.':offline&&!offline.finished?`Saving… ${offline.done} of ${offline.total||'…'} files`:offline?.finished?(offline.failed?`Saved, except ${offline.failed} files. Try again with a better connection.`:'Saved ✓ The whole app is on this device and opens even with no signal.'):savedBefore()?'Saved for offline ✓ New versions are saved as you use them.':!sw?'Offline use needs the secure (https) version of the site.':appleTouch&&!standalone()?'To install on iPhone or iPad: tap Share, then “Add to Home Screen”. Or save for offline here.':`Keeps the whole app (${OFFLINE_SIZE}) on this device so it opens fast, even with no signal.`;
  $('offline-note').textContent=note;$('save-offline').textContent=offline?.finished&&!offline.failed||savedBefore()?'Save again':'Save for offline';
 }
 globalThis.addEventListener?.('beforeinstallprompt',e=>{e.preventDefault();installEvent=e;paintOffline();});

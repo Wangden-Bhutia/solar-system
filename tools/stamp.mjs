@@ -52,8 +52,21 @@ export function precacheList(dir, v) {
     .filter(f => f !== 'sw.js' && f !== 'precache.json' && !f.startsWith('.') && !f.endsWith('.md') && !f.endsWith('.txt') && !isClip(f))
     .map(f => f === 'index.html' ? './' : /\.(m?js|css)$/.test(f) ? `${f}?v=${v}` : f).sort();
 }
-export function writePrecache(dir, v) {
-  const files = precacheList(dir, v), bytes = files.reduce((s, f) => s + fs.statSync(path.join(dir, f === './' ? 'index.html' : f.split('?')[0])).size, 0);
+// "about 4.0 MB": decimal megabytes, one decimal (what phones' storage settings show).
+export const sizeLabel = bytes => `about ${(bytes / 1e6).toFixed(1)} MB`;
+export const precacheBytes = (dir, files) => files.reduce((s, f) => s + fs.statSync(path.join(dir, f === './' ? 'index.html' : f.split('?')[0])).size, 0);
+// Write the offline download's size where the menu shows it (lab.js OFFLINE_SIZE and index.html's first paint).
+// strict (the deploy): a missing marker is an error, so the menu can never keep a stale figure.
+export function writeOfflineSize(dir, bytes, { strict = false } = {}) {
+  const label = sizeLabel(bytes), edits = [
+    ['lab.js', /(const OFFLINE_SIZE=')[^']*(')/],
+    ['index.html', /(id="offline-note"[^>]*>Keeps the whole app \()[^)]*(\))/],
+  ];
+  for (const [f, re] of edits) { const p = path.join(dir, f); if (!fs.existsSync(p)) continue; const src = fs.readFileSync(p, 'utf8'); if (!re.test(src)) { if (strict) throw Error(`offline size marker missing in ${f}`); continue; } fs.writeFileSync(p, src.replace(re, `$1${label}$2`)); }
+  return label;
+}
+export function writePrecache(dir, v, { strict = false } = {}) {
+  const files = precacheList(dir, v); writeOfflineSize(dir, precacheBytes(dir, files), { strict }); const bytes = precacheBytes(dir, files);
   fs.writeFileSync(path.join(dir, 'precache.json'), JSON.stringify({ version: v, bytes, files }));
   return files.length;
 }
@@ -63,5 +76,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!dir || !v) { console.error('usage: node tools/stamp.mjs <site-dir> <version>'); process.exit(2); }
   const changed = stampSite(dir, v);
   console.log(`stamped ${changed.length} files with ?v=${v}: ${changed.join(', ')}`);
-  console.log(`precache list: ${writePrecache(dir, v)} files`);
+  console.log(`precache list: ${writePrecache(dir, v, { strict: true })} files`);
 }

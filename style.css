@@ -255,7 +255,7 @@ body.bridging #gtime{visibility:hidden}
 .mbtn{min-height:36px;height:36px;padding:0 16px;border-radius:18px;font-size:13.5px;font-weight:600}
 @media (min-width:640px){.menu{left:auto;width:380px}}
 /* Scale readout (hud.js): width of view, distance from the Sun, light-crossing time. Never takes taps. */
-.hud{position:fixed;left:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:5;pointer-events:none;font:11px/1.35 system-ui,sans-serif;color:#c9d4ea;background:rgba(0,0,8,.45);padding:4px 7px;border-radius:6px;max-width:62vw;font-variant-numeric:tabular-nums}
+.hud{position:fixed;left:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:5;pointer-events:none;font:11px/1.35 system-ui,sans-serif;color:#c9d4ea;text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;padding:4px 7px;max-width:62vw;font-variant-numeric:tabular-nums}
 .hud .hud-note{color:#8f9bb5;font-size:10px}
 .hud .hud-note:empty{display:none}
 
@@ -281,6 +281,9 @@ body.time-resting .hud{opacity:0}
 .story-status{margin:4px 0 0;font-size:12px;color:var(--gold)}
 .story-actions{display:flex;gap:8px;margin-top:10px}
 .story-main{flex:1;min-height:48px;border-radius:24px;border:0;background:var(--accent);color:#061220;font:700 16px system-ui,sans-serif}
+/* The generic button:hover (dark) must not win: on phones :hover sticks after a tap, which left dark text on dark blue. */
+.story-main:hover,.story-main:active{background:#ddf0ff;color:#061220}
+.story-main:disabled{background:#8fb3cc;color:#061220;cursor:default}
 .story-skip{min-height:48px;padding:0 16px;border-radius:24px;border:1px solid var(--line);background:transparent;color:var(--text);font:600 15px system-ui,sans-serif}
 #story[data-phase="outro"] .story-actions{display:none}
 body.story .hud{bottom:calc(var(--story-h,0px) + 20px + env(safe-area-inset-bottom))}
