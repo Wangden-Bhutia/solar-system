@@ -197,3 +197,23 @@ Built by `tools/build_transition.py` into `transition-data.js` (84.8 KB); drawn 
 - Laniakea → Universe: both scenes build the NGC/IC layer from the same catalogue with one style (`NGC_STYLE`).
 - One distance per galaxy: M81 (11.8 Mly), NGC 253 (11.4 Mly) and Centaurus A (12 Mly) now use the cosmos-data group values everywhere. The Council of Giants table (McCall 2014, MNRAS 440, 405) gives rounded values; the real distance uncertainty is about ±5–10%. Each Council galaxy records which source its number comes from.
 - `tests/proxies.test.js` checks these pairs numerically (style, projection, sprite size, exclusivity). That is not a check of the rendered brightness on a GPU.
+
+## Earth–Moon adventure (`adventure.js`, `voice/trip_*`, checked 10 November 2026)
+Ported from `feature/earth-moon-adventure` (03e3e84, PR #4, not merged). Every scientific statement in the narration and its on-screen caption, with the public page read on 10 Nov 2026:
+
+| Clip | Statement | Source |
+|---|---|---|
+| `trip_earth` | Earth, “the blue world” (a description: its ocean covers most of it) | https://science.nasa.gov/earth/facts/ — “Earth's global ocean, which covers about 71% of the planet's surface”. |
+| `trip_earth_found` | Earth has one Moon | https://science.nasa.gov/earth/facts/ — “Earth has one moon.”; https://science.nasa.gov/moon/facts/ — “The Moon is Earth's only natural satellite.” (Earth can briefly capture small asteroids — same Earth page — not counted as moons.) |
+| `trip_moon` | The Moon goes around Earth | https://science.nasa.gov/moon/facts/ — “It goes around the Earth at a distance of about … 385,000 kilometers.” |
+| `trip_moon_found` | Craters: “Rocks from space made these dents.” | https://science.nasa.gov/moon/facts/ — “cratered and pitted from impacts by asteroids, meteorites, and comets”. |
+| `trip_moon_found` | “The Moon is much farther from Earth than we show here.” | Same page: mean distance 384,400 km, “30 Earth-sized planets could fit in between”. The app’s default view puts the Moon 1.5 Earth diameters from Earth (`data.js` `MOON.dist` = 1.5 units, Earth diameter 1 unit; true 30.1). The story switches Real scale off, so the sentence is true whenever it plays. |
+| `trip_mars_found` | Rust in its rocks and dust makes Mars look red | https://science.nasa.gov/mars/facts/ — “Mars looks reddish … due to oxidization — or rusting — of iron in the rocks, regolith … and dust”. |
+| `trip_saturn`, `trip_saturn_found` | Big, bright rings made of many pieces of ice and rock | https://science.nasa.gov/saturn/facts/ — rings “made of billions of small chunks of ice and rock coated with other materials such as dust”. |
+| `f_Moon_0`, `f_Moon_1` | The Moon goes around Earth; rocky surface with many craters | https://science.nasa.gov/moon/facts/ (as above). These two, `that_Moon` and `yes_Moon` were ported for kid mode (`kids.js`), which the current app does not load; the story does not play them. |
+
+**Corrected narration (two clips re-recorded, same Kokoro bm_george pipeline):** the old `trip_done` said “You can explore, play Find it, or tap Replay to travel again” and `trip_explore` said “Tap Replay whenever you want our adventure again”. The current app has no Find it game, and after leaving the story the way back is the Adventure chip, not Replay. New text: “What an adventure! Earth, the Moon, Mars, and Saturn. Explore on your own now, or tap Replay to travel again.” and “Tap a world to discover a fact. Tap Adventure whenever you want our trip again.” These were app-navigation errors, not science errors; no scientific statement in the old clips was found wrong.
+
+**Clip = caption check:** all 13 unchanged clips were re-rendered from their caption text with `tools/build-voice.py`’s settings (Kokoro-82M v1.0, kokoro-onnx, bm_george, speed 0.85, same ffmpeg filter) and are byte-identical to the old branch’s files, so each clip says exactly its caption. No speech-to-text was run.
+
+**Illustration, not data:** the scene is the app’s teaching model. Distances are shortened (planets: 25 × AU^0.6 units; Moon: 1.5 units), the Sun is shown at 1/5 size, surfaces are the photographic maps credited above, and orbits are held still during the story; each stop’s panel says so (“Illustration · …”). The old branch’s 2.4-unit kid-mode Moon gap is not used (the story runs in the normal view).

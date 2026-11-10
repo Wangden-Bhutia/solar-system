@@ -70,5 +70,20 @@
  "lab_phases": "Move the Moon and watch from Earth. The Sun lights half the Moon. We see different amounts of that sunlit half.",
  "lab_compare": "Compare two nearby worlds. Your mass stays the same, but gravity changes your weight.",
  "lab_try": "Change one thing. Watch what happens. Then ask why.",
- "lab_day": "Turn the globe to find the boundary between day and night. Earth spins into sunlight and out again. The axis guide tilts about 23.4 degrees."
+ "lab_day": "Turn the globe to find the boundary between day and night. Earth spins into sunlight and out again. The axis guide tilts about 23.4 degrees.",
+ "trip_earth": "Our adventure starts at home. Tap Earth, the blue world!",
+ "trip_earth_found": "You found our home! Earth has one Moon. Let’s visit it.",
+ "trip_moon": "The Moon goes around Earth. Can you tap the Moon? You can use the Visit Moon button too.",
+ "trip_moon_found": "Hello, Moon! Look at those craters. Rocks from space made these dents. The Moon is much farther from Earth than we show here.",
+ "trip_mars": "Let’s zoom out to meet our neighbours. Find Mars, the red planet. Use Show me if you need a hand.",
+ "trip_mars_found": "There is Mars! Rust in its rocks and dust makes it look red. You found another world!",
+ "trip_saturn": "Now look for Saturn, the world with big, bright rings. Use Show me if you need a hand.",
+ "trip_saturn_found": "You found Saturn! Its rings are made of many pieces of ice and rock.",
+ "trip_retry": "A different world! Let’s look together.",
+ "trip_done": "What an adventure! Earth, the Moon, Mars, and Saturn. Explore on your own now, or tap Replay to travel again.",
+ "trip_explore": "Tap a world to discover a fact. Tap Adventure whenever you want our trip again.",
+ "f_Moon_0": "Moon. The Moon goes around Earth.",
+ "f_Moon_1": "Moon. The Moon has a rocky surface with many craters.",
+ "that_Moon": "That is the Moon.",
+ "yes_Moon": "Yes! That is the Moon!"
 }
