@@ -9,7 +9,7 @@ const hms = (h, m, s) => 15 * (h + m / 60 + s / 3600), dms = (sg, d, m, s) => sg
 export function skyPosition(ra, dec, mly, unitMly) { const [l, b] = toGalactic(ra, dec); return galacticPosition(l, b, mly * 1000).map(v => v / (unitMly * 1000)); }
 
 // Base64 → bytes without depending on atob or Buffer (works in browsers, Node and the test sandboxes).
-function base64Bytes(b64) {
+export function base64Bytes(b64) {
   const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/', map = new Uint8Array(128); for (let i = 0; i < 64; i++) map[A.charCodeAt(i)] = i;
   const n = b64.replace(/=+$/, '').length, out = new Uint8Array(Math.floor(n * 3 / 4));
   for (let i = 0, o = 0; i < n; i += 4) { const v = map[b64.charCodeAt(i)] << 18 | map[b64.charCodeAt(i + 1)] << 12 | map[b64.charCodeAt(i + 2)] << 6 | map[b64.charCodeAt(i + 3)];

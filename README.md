@@ -113,3 +113,13 @@ Two more levels finish the zoom. **Laniakea** (1 unit = 1 million light-years) s
 
 ## One zoom, six scales
 Solar System → nearby stars → Milky Way → Local Group → Laniakea → observable universe is a single continuous zoom with no cuts. When a scene's camera reaches its outer limit and you keep pinching or scrolling out, the next scale dissolves in around the Sun while the current one recedes and darkens, driven directly by your fingers or wheel, so you can stop or reverse mid-way. Every step after the first is to scale (camera distances ÷ 1,000, ÷ 10, ÷ 100 and ÷ 100), and every scale shares the same black sky. Zooming in at the inner limit plays the same blend backwards. The scale ladder under the top bar shows where you are and can be tapped (or used by keyboard) to jump between levels.
+
+## One continuous zoom ("Powers of Ten")
+- **One zoom coordinate.** `zoom.js` and `zoom-ladder.js` hold Z = ln(camera distance in light-years) for every scale, with momentum. The wheel gain is the scenes' old OrbitControls gain (zoomSpeed 1.8: 100 wheel units = 0.0923 in Z), and pinch uses the same log basis. Seams are Z intervals one decade wide, and a steady gesture keeps the same rate through them. OrbitControls only rotate.
+- **Continuity, not cross-fades.** `lod.js` fades each object by its own on-screen size, position or density. Proxies are drawn identically by both scales and swapped mid-seam: the sky, the Sun's glow, the HYG star field and the Oort cloud. One "you are here" anchor label is carried across every seam.
+- **Transition structures.** `transition.js` and `transition-data.js` are built by `tools/build_transition.py`; sources are in docs/sources.md and illustrations are labelled as such.
+- **Scale readout.** `hud.js` shows width of view, distance from the Sun and light-crossing time, with caveats for the compressed Solar model, views centred away from the Sun, and viewpoints outside the observable universe.
+- **Reduced motion.** `prefers-reduced-motion` turns off momentum and makes settles instant.
+- **Diagnostics.** `?zoomlog` (and `?zoomlog=bright`) give an opt-in local frame log. Nothing is uploaded.
+
+Evidence, measurements and the open acceptance items for the continuous zoom: [docs/shots/powers-of-ten/EVIDENCE.md](docs/shots/powers-of-ten/EVIDENCE.md).
