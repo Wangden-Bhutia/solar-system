@@ -217,3 +217,32 @@ Ported from `feature/earth-moon-adventure` (03e3e84, PR #4, not merged). Every s
 **Clip = caption check:** all 13 unchanged clips were re-rendered from their caption text with `tools/build-voice.py`’s settings (Kokoro-82M v1.0, kokoro-onnx, bm_george, speed 0.85, same ffmpeg filter) and are byte-identical to the old branch’s files, so each clip says exactly its caption. No speech-to-text was run.
 
 **Illustration, not data:** the scene is the app’s teaching model. Distances are shortened (planets: 25 × AU^0.6 units; Moon: 1.5 units), the Sun is shown at 1/5 size, surfaces are the photographic maps credited above, and orbits are held still during the story; each stop’s panel says so (“Illustration · …”). The old branch’s 2.4-unit kid-mode Moon gap is not used (the story runs in the normal view).
+
+### Powers of Ten tour (tour.js)
+
+Accessed 10 November 2026. Every number in a tour caption (the one-line key fact in the collapsed bar and the full caption behind "i") is listed in that stop's `facts` with the sources below (tests/tour.test.js fails on a number without one). The caption does not repeat the view's distance: the scale readout (hud.js) stays visible just above the bar and is the one distance readout; at each stop it shows the stop's camera distance from the Sun (≈ in the compressed Solar System).
+
+| Stop | Caption number | Source |
+|---|---|---|
+| Earth | 12,756 km equatorial diameter | NASA NSSDCA Earth fact sheet, https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html |
+| Inner planets | 1 au = 149,597,870,700 m (exact) | IAU 2012 Resolution B2, https://iauarchive.eso.org/static/resolutions/IAU2012_English.pdf |
+| Inner planets | 8 min 19 s sunlight time (computed: 149,597,870,700 m ÷ 299,792,458 m/s = 499.0 s) | c is exact in the SI: BIPM SI Brochure, https://www.bipm.org/en/publications/si-brochure |
+| All planets | Neptune 30.07 au (semimajor axis 30.07 au, J2000) | NASA NSSDCA Neptune fact sheet, https://nssdc.gsfc.nasa.gov/planetary/factsheet/neptunefact.html |
+| All planets | 4 h 10 min sunlight time (computed: 30.07 × 499.0 s = 15,005 s) | as above |
+| Heliosphere | Voyager 1 crossed the heliopause in 2012 at 121.6 au; Voyager 2 on 5 Nov 2018 at about 119 au | Burlaga et al. 2019, Nature Astronomy 3, 1007, https://doi.org/10.1038/s41550-019-0920-y ; NASA JPL, https://www.jpl.nasa.gov/news/voyager-2-illuminates-boundary-of-interstellar-space/ (dates) |
+| Oort cloud | inner edge 2,000–5,000 au, outer edge 10,000–100,000 au; theorised, never observed directly | NASA Science, https://science.nasa.gov/solar-system/oort-cloud/facts/ |
+| Nearest stars | Proxima Centauri 4.25 ly (4.2465 ly, rounded) | NASA Goddard, Goddard Glossary: Light-Year, https://svs.gsfc.nasa.gov/vis/a010000/a014100/a014142/script_32675_00.html |
+| Local Bubble | about 1,000 ly wide; supernovae from about 14 million years ago | Zucker et al. 2022, Nature 601, 334, https://doi.org/10.1038/s41586-021-04286-5 ; CfA release, https://www.cfa.harvard.edu/news/1000-light-year-wide-bubble-surrounding-earth-source-all-nearby-young-stars |
+| Our spiral arm | Local Arm mapped by VLBI parallaxes of high-mass star-forming regions (no number) | Reid et al. 2019, ApJ 885, 131, https://doi.org/10.3847/1538-4357/ab4a11 |
+| Milky Way | about 100,000 ly across | NASA Science, https://science.nasa.gov/universe/exoplanets/our-milky-way-galaxy-how-big-is-space/ |
+| Milky Way | Sun to Sgr A* about 27,000 ly (R0 = 8,277 ± 9 pc × 3.2616 ly/pc = 26,996 ly) | GRAVITY Collaboration 2022, A&A 657, L12, https://doi.org/10.1051/0004-6361/202142465 |
+| Local Group | Andromeda about 2.5 million ly, nearest major galaxy | NASA Science (Hubble Messier catalogue), https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-31/ |
+| Laniakea | about 500 million ly across, 100,000 galaxies, Milky Way on the outskirts | University of Hawaiʻi News, https://www.hawaii.edu/news/2014/09/03/uh-scientist-maps-supercluster-of-galaxies-names-it-laniakea/ ; Tully et al. 2014, Nature 513, 71, https://doi.org/10.1038/nature13674 |
+| Looking back | light from about 5.5 billion ly away (distance now) left 4.6 billion years ago | computed in cosmos-data.js (SHELLS) for flat ΛCDM with Planck 2018 parameters, https://doi.org/10.1051/0004-6361/201833910 ; 4.6 billion years for the Solar System's formation: NASA Science, https://science.nasa.gov/solar-system/oort-cloud/facts/ |
+| Observable universe | age 13.787 billion years | Planck 2018 results VI, A&A 641, A6, https://doi.org/10.1051/0004-6361/201833910 |
+| Observable universe | edge about 46 billion ly away (particle horizon) | Davis & Lineweaver 2004, PASA 21, 97, https://doi.org/10.1071/AS03040 |
+
+- *Illustrations*, labelled as such in the caption: the heliosphere spheres, the Oort cloud, the Local Bubble globe, the cosmic web, the spiral arms (a model, extrapolated far from the Sun) and the Milky Way itself (a model, never photographed from outside).
+- The app's Laniakea card says "about 400–500 million light-years" (COSMOS_FACTS). The tour quotes the University of Hawaiʻi figure, 500 million. The two do not conflict.
+- The Universe scene marks the edge at 46.5 billion ly (cosmos-data.js EDGE_GLY); the tour caption rounds it to about 46 billion, the Davis & Lineweaver value.
+- Where the stops sit: each stop is a camera distance from the Sun chosen outside the zoom seams (zoom-ladder.js), so the glide never ends half-way between two scales. The Solar System stops use the app's own framings for the current screen (the inner planets, all planets, a 243 au circle for the heliopause), and the readout shows what they represent in the compressed model (≈).

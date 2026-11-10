@@ -286,3 +286,38 @@ body.time-resting .hud{opacity:0}
 #story[data-phase="outro"] .story-actions{display:none}
 body.story .hud{bottom:calc(var(--story-h,0px) + 20px + env(safe-area-inset-bottom))}
 body.story #hint{display:none}
+/* ---- Powers of Ten tour (tour.js): the Tour chip, a slim caption bar at the bottom, the first-visit hint ----
+   Collapsed bar (budget ≤ 110 px; tests/tour.test.js adds these numbers up): border 1 + padding 6 + title line 18 +
+   short line 17 + gap 4 + buttons 44 + padding 6 + border 1 = 97 px. Translucent so the scene shows through. */
+#tour-start{color:var(--gold)}
+#tour-start svg{color:var(--gold)}
+#tour-start[aria-pressed="true"]{background:rgba(60,48,20,.8);border-color:rgba(243,200,135,.5)}
+.tour{position:fixed;z-index:12;left:50%;transform:translateX(-50%);bottom:calc(var(--safe-b) + 8px);width:min(calc(100vw - 16px - var(--safe-l) - var(--safe-r)),520px);box-sizing:border-box;padding:6px 10px 6px;border:1px solid rgba(170,195,235,.16);border-radius:16px;background:rgba(8,14,26,.42);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:var(--text)}
+.tour[hidden]{display:none}
+.tour-sum{display:block;width:100%;margin:0;padding:0;border:0;background:none;color:inherit;text-align:left;font:inherit;cursor:pointer}
+.tour-head{display:block;height:18px;font-size:13.5px;line-height:18px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px #000}
+.tour-kicker{color:var(--gold);font-variant-numeric:tabular-nums;font-weight:600}
+.tour-short{display:block;height:17px;font-size:12.5px;line-height:17px;color:#d6e2f3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px #000}
+.tour-more{max-height:min(38vh,300px);overflow:auto;margin-top:6px;padding-top:6px;border-top:1px solid rgba(170,195,235,.16);font-size:13.5px;line-height:1.4}
+.tour-more[hidden]{display:none}
+.tour-more p{margin:0 0 6px}
+.tour[data-open="true"]{background:rgba(8,14,26,.82)}
+.tour-note{color:var(--muted);font-size:12px;font-style:italic}
+.tour-sources{font-size:11.5px;color:var(--muted)}
+.tour-sources a{color:var(--accent)}
+.tour-nav{display:flex;justify-content:space-between;gap:4px;height:44px;margin-top:4px}
+.tour-nav button{flex:1;max-width:72px;height:44px;min-width:44px;min-height:44px;padding:0;border:0;border-radius:22px;background:rgba(255,255,255,.06);color:var(--text);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.tour-nav button svg{width:18px;height:18px}
+.tour-nav button:disabled{opacity:.35;cursor:default}
+.tour-nav #tour-play{background:rgba(182,217,241,.18)}
+.tour-nav #tour-info[aria-expanded="true"]{background:rgba(243,200,135,.22);color:var(--gold)}
+.tour-hint{position:fixed;z-index:11;left:50%;transform:translateX(-50%);top:calc(var(--safe-t) + 100px);width:min(calc(100vw - 24px),420px);box-sizing:border-box;display:flex;align-items:stretch;border-radius:16px;background:rgba(12,20,36,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(243,200,135,.35)}
+.tour-hint[hidden]{display:none}
+.tour-hint button{background:none;border:0;color:var(--text);font:inherit;font-size:13.5px;cursor:pointer;min-height:44px}
+#tour-hint-go{flex:1;text-align:left;padding:8px 6px 8px 14px;color:var(--gold)}
+#tour-hint-x{flex:0 0 44px;color:var(--muted)}
+/* The scale readout stays the one distance readout: just above the bar while touring. */
+body.touring .hud{bottom:calc(var(--tour-h,0px) + 16px + env(safe-area-inset-bottom))}
+body.touring #gtime{display:none}
+body:not([data-sheet="closed"]) .tour{display:none}
+body:not([data-sheet="closed"]) .tour-hint{display:none}
