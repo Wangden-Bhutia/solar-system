@@ -560,7 +560,8 @@ for (const belt of belts) lod.add(belt.pts, LEAVING);
 const hygSky = hygPoints('ecl', 1);
 { const a = hygSky.geometry.attributes.position; for (let i = 0; i < a.count; i++) { const x = a.getX(i), y = a.getY(i), z = a.getZ(i), l = Math.hypot(x, y, z) || 1; a.setXYZ(i, x / l, y / l, z / l); } }
 hygSky.frustumCulled = false; hygSky.renderOrder = -9; scene.add(hygSky);
-const oort = pointCloud(oortPositions(), { color: 0x9db4dc, size: 1, opacity: 0.16, layer: 'oort' }); // an illustration of something no one has seen: kept faint oort.frustumCulled = false; scene.add(oort);
+const oort = pointCloud(oortPositions(), { color: 0x9db4dc, size: 1, opacity: 0.16, layer: 'oort' }); // an illustration of something no one has seen: kept faint
+oort.frustumCulled = false; scene.add(oort);
 const helio = [[HELIO.heliopauseAU, 0.3], [HELIO.terminationShockAU, 0.16]].map(([au, op]) => { const w = wireShell({ color: 0x7f9ccf, opacity: op, layer: 'heliosphere' }); w.userData.au = au; scene.add(w); return w; });
 lod.add(hygSky, { inner: 'proxy', alone: 'fixed' });
 lod.add(oort, { inner: 'proxy', alone: 'size' });
@@ -617,6 +618,7 @@ function drift(dt) {
   if (f <= 0 || controls.target.lengthSq() === 0) return;
   const k = f >= 1 ? 1 : Math.min(1, f * dt * 3.5); zoomOff.copy(controls.target).multiplyScalar(-k); controls.target.add(zoomOff); camera.position.add(zoomOff);
 }
+export { scene as solarScene, lod as solarLod, oort as solarOort }; // read by tests
 export { bodies, focus, unfocus, camera, controls, renderer, pickAt, applyVisibleRegion, HOME, handleTap, inSystem, drift as solarDrift };
 window.__solar = { pickAt, screenOf: n => { const bounds=canvas.getBoundingClientRect(); const b = bodies.find(x => x.data.name === n); const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera); return [bounds.left + (p.x + 1) / 2 * bounds.width, bounds.top + (1 - p.y) / 2 * bounds.height]; }, focusByName: n => focus(bodies.find(b => b.data.name === n)), setKid };
 window.__cam = () => [camera.position.toArray().map(v => +v.toFixed(3)), controls.target.toArray().map(v => +v.toFixed(3))];

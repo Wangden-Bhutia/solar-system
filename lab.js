@@ -211,7 +211,7 @@ function goLevel(target,after){
  const play=()=>{Zc=zOfLevel(levelOf(state.value.view));animateTo(arrivalZ(target,out),then);};
  // Only a few views need a move first: a selected world (let go and centre the Sun) and a view zoomed in so far
  // off-centre that there is no room left to slide back to the Sun on the way in.
- if(cur==='solar'){if(solarFocused?.())unfocus(false);if(solarOffCentre()>1e-9)solarDrift?.(1e9);play();return;}
+ if(cur==='solar'){if(solarFocused?.())unfocus(false);if(solarOffCentred())solarDrift?.(1e9);play();return;}
  if(!out&&RECENTRE[cur]&&!(cur==='galaxy'?galaxyView.atSun():localView.zoomState().atSun)&&zOfLevel(cur)-SEAM_Z[pairFor(cur,-1)][1]<Math.log(5)){(cur==='galaxy'?galaxyView.zoomToSun:localView.zoomBackIn)(play);return;}
  play();
 }
@@ -227,6 +227,9 @@ const sheetOpen=()=>state.value.sheet==='half'||state.value.sheet==='full';
 // Where the zoom may go from here. A seam may be entered only with the clock at today (every map is drawn as
 // the sky is now) and, going in from the Milky Way or the Local Group, with the view centred on the Sun (the next map's centre);
 // at that edge the zoom stops and the clock rewinds, or the view glides to the Sun, first.
+// Off the Sun by more than a millionth of the camera distance (a relative test: a damped pan's leftover, a few
+// units at 10^8 units away, is not 'off-centre' and must not hold the zoom at the seam).
+const solarOffCentred=()=>solarOffCentre()>1e-6*Math.max(1,solarDistance());
 function zoomBounds(){
  const l=bridge?null:levelOf(state.value.view);
  const lo=lv=>{const p=pairFor(lv,-1);return p?SEAM_Z[p][0]:solarZ(controls.minDistance||0.6,real());};
@@ -236,7 +239,7 @@ function zoomBounds(){
  if(ck&&ck.time()!==0){if(pin){b.min=Math.max(b.min,SEAM_Z[pin][1]);b.gateIn=()=>ck.rewind();}if(pout){b.max=Math.min(b.max,SEAM_Z[pout][0]);b.gateOut=()=>ck.rewind();}}
  if(l==='galaxy'&&!b.gateIn&&!galaxyView.atSun()){b.min=Math.max(b.min,SEAM_Z[pin][1]);b.gateIn=()=>galaxyView.zoomToSun();}
  if(l==='local'&&!b.gateIn&&localView.zoomState().atSun===false){b.min=Math.max(b.min,SEAM_Z[pin][1]);b.gateIn=()=>localView.zoomBackIn();}
- if(l==='solar'&&solarOffCentre()>1e-9){b.max=Math.min(b.max,SEAM_Z[pout][0]);b.gateOut=()=>{if(solarFocused?.())unfocus(false);solarDrift?.(1e9);};}
+ if(l==='solar'&&solarOffCentred()){b.max=Math.min(b.max,SEAM_Z[pout][0]);b.gateOut=()=>{if(solarFocused?.())unfocus(false);solarDrift?.(1e9);};}
  return b;
 }
 function zoomTick(dt,instant){
@@ -282,6 +285,8 @@ function updateTimeBar(){
  if(!still)restSince=0;else if(!restSince)restSince=now;
  const show=still&&now-restSince>450;
  if(gtime.classList.contains('resting')!==show){gtime.classList.toggle('resting',show);document.body.classList.toggle('time-resting',show);}
+ // While faded out it is also out of reach of the keyboard and screen readers (not only of taps).
+ if(gtime.hasAttribute('inert')===show){if(show)gtime.removeAttribute('inert');else gtime.setAttribute('inert','');}
 }
 hooks.afterFrame=()=>{updateHud();updateTimeBar();hooks.afterFrameLog?.();};
 // Inside a seam the "you are here" anchor stands at the Sun's label: the Sun's own label gives way (one label, not two).
@@ -305,10 +310,12 @@ $('labels').addEventListener('wheel',e=>{e.preventDefault();$('c').dispatchEvent
 const pinch=new Map();let spread=0;
 const spreadOf=()=>{let ax=0,ay=0,bx=0,by=0,i=0;for(const p of pinch.values()){if(i===0){ax=p.x;ay=p.y;}else{bx=p.x;by=p.y;}i++;}return Math.hypot(ax-bx,ay-by);};
 const nowMs=e=>globalThis.performance?.now?.()??e.timeStamp??Date.now();
-// While two fingers pinch, no scene rotates (as before, when each scene's OrbitControls owned the pinch): with
-// its zoom off, OrbitControls would otherwise keep the first finger's rotation going under the pinch.
+// While two fingers pinch, no scene rotates or pans (as before, when each scene's OrbitControls owned the pinch):
+// with its zoom off, OrbitControls would otherwise keep the first finger's rotation going under the pinch, and turn
+// the fingers' sliding midpoint into a pan. In the Solar System (the only scale with pan on) that pan moved the
+// centre off the Sun on every real pinch, so the off-centre gate below held the zoom at the Solar → Stars seam.
 const held=new Map(),allControls=()=>[controls,starsView.controls,galaxyView.controls,localView.controls,sceneOf(levelOf(state.value.view))?.controls].filter(Boolean);
-const lockRotate=on=>{if(on){for(const c of allControls())if(!held.has(c)){held.set(c,c.enableRotate);c.enableRotate=false;}}else{for(const [c,v] of held)c.enableRotate=v;held.clear();}};
+const lockRotate=on=>{if(on){for(const c of allControls())if(!held.has(c)){held.set(c,[c.enableRotate,c.enablePan]);c.enableRotate=false;c.enablePan=false;}}else{for(const [c,[r,p]] of held){c.enableRotate=r;c.enablePan=p;}held.clear();}};
 document.addEventListener('pointerdown',e=>{if(e.target!==$('c'))return;pinch.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch.size===2){spread=spreadOf();lockRotate(true);}},true);
 document.addEventListener('pointermove',e=>{const p=pinch.get(e.pointerId);if(!p)return;p.x=e.clientX;p.y=e.clientY;if(pinch.size!==2)return;const d=spreadOf();if(spread>0&&d>0)zoomInput(pinchZ(d/spread),'pinch',nowMs(e));spread=d;},true);
 for(const t of ['pointerup','pointercancel'])document.addEventListener(t,e=>{if(!pinch.delete(e.pointerId))return;if(pinch.size<2){if(spread>0)zoom.release(nowMs(e));spread=0;if(!pinch.size)lockRotate(false);}},true);

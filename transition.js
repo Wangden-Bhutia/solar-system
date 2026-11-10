@@ -133,16 +133,38 @@ export function pointCloud(pos, { color = 0xffffff, size = 1.5, opacity = 0.5, l
   const p = new THREE.Points(g, new THREE.PointsMaterial({ color, size, sizeAttenuation: false, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }));
   p.userData.layer = layer; p.userData.illustration = layer !== 'hyg' && layer !== 'globulars'; return p;
 }
-// A soft shell of radius 1 for boundaries that have no surface (the heliopause, the Local Bubble, a void): a
-// faint glow that is brightest at its edge, where the line of sight grazes the most of it, like a soap bubble
-// seen against the dark. Earlier this was a wire globe; latitude/longitude lines read as an artificial grid.
-// It keeps the old name and API (scale it to size; material.opacity is what the level-of-detail code fades).
-export function wireShell({ color = 0x6f86b8, opacity = 0.35, layer = '' } = {}) {
-  const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
-  m.onBeforeCompile = sh => {
-    sh.vertexShader = 'varying float vRim;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n vRim = 1.0 - abs(dot(normalize(normalMatrix * normal), normalize(-mvPosition.xyz)));');
-    sh.fragmentShader = 'varying float vRim;\n' + sh.fragmentShader.replace('#include <dithering_fragment>', '#include <dithering_fragment>\n gl_FragColor.a *= pow(vRim, 3.0);');
-  };
-  const l = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 32), m);
-  l.userData.layer = layer; l.userData.illustration = true; return l;
+// A shell of radius 1 for boundaries that have no surface (the heliopause, the Local Bubble, a void); scale it to
+// size; material.opacity is what the level-of-detail code fades. Two looks, both illustrations:
+// - 'soft' (default): a faint glow brightest at its edge, where the line of sight grazes the most of it, like a
+//   soap bubble seen against the dark. It only reads from OUTSIDE: seen from inside, every line of sight meets the
+//   shell nearly face-on, so the rim term is close to 0 (shellPeak below).
+// - 'wire': three great circles and two latitude rings, for a shell the camera stays inside (the Local Bubble in
+//   the star map, whose 500-ly radius is beyond the star map's 300-ly settled range).
+export const SHELL_RIM_POW = 3;
+// The soft shell's shader hook (shared, so copies of the material keep it: Material.clone() drops onBeforeCompile).
+export function softShellHook(sh) {
+  sh.vertexShader = 'varying float vRim;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n vRim = 1.0 - abs(dot(normalize(normalMatrix * normal), normalize(-mvPosition.xyz)));');
+  sh.fragmentShader = 'varying float vRim;\n' + sh.fragmentShader.replace('#include <dithering_fragment>', '#include <dithering_fragment>\n gl_FragColor.a *= pow(vRim, ' + SHELL_RIM_POW.toFixed(1) + ');');
+}
+// The brightest the shell's look gets (0–1 factor on opacity) seen from distance d of the centre of a shell of
+// radius R. Soft: outside, some line of sight grazes it (1); inside, the most oblique view is at asin(d/R) from the
+// normal, so the peak is (1 − cos)^SHELL_RIM_POW. Wire lines do not depend on the viewing angle (1).
+export function shellPeak(style, d, R) {
+  if (style === 'wire' || d >= R) return 1;
+  const s = d / R; return (1 - Math.sqrt(1 - s * s)) ** SHELL_RIM_POW;
+}
+export function wireShell({ color = 0x6f86b8, opacity = 0.35, layer = '', style = 'soft' } = {}) {
+  let l;
+  if (style === 'wire') {
+    const pts = [], N = 96, ring = (f) => { for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2, b = (i + 1) / N * Math.PI * 2; pts.push(...f(a), ...f(b)); } };
+    ring(a => [Math.cos(a), 0, Math.sin(a)]); ring(a => [Math.cos(a), Math.sin(a), 0]); ring(a => [0, Math.cos(a), Math.sin(a)]);
+    for (const y of [-0.5, 0.5]) { const s = Math.sqrt(1 - y * y); ring(a => [s * Math.cos(a), y, s * Math.sin(a)]); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pts), 3));
+    l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false }));
+  } else {
+    const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+    m.onBeforeCompile = softShellHook;
+    l = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 32), m);
+  }
+  l.userData.layer = layer; l.userData.illustration = true; l.userData.shell = style; return l;
 }
