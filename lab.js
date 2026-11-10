@@ -1,4 +1,4 @@
-import { bodies, focus, unfocus, hooks, renderer, controls, setHomeScope } from './app.js';
+import { bodies, focus, unfocus, hooks, renderer, controls, setHomeScope, fitHomeDistance, homeRadius, homeDirection } from './app.js';
 import { createStars } from './stars.js';
 import { frameOf, eclToGal, galToEcl, seamUp } from './frames.js';
 import { showLabel, labelWidth, frameEvict, setExclusions } from './labels.js';
@@ -12,7 +12,7 @@ import { viewWidth, hudText } from './hud.js';
 import { STAR_TIME, yearsLabel, approachLabel } from './star-motion.js';
 import { pairOf, periastron, apastron, nextPeriastron, keplerMass } from './star-pairs.js';
 import { TIME_RANGE, timeLabel, lapsLabel, milestone, VC_SUN, OMEGA_ARMS, OMEGA_BAR, SUN_PERIOD } from './galaxy-motion.js';
-import { LEVELS, levelIndex, PAIRS, pairFor, SEAMS, SEAM_Z, LEVEL_NAMES, layoutAt, zOf, dOf, UNIT_LY, AU_LY, solarZ, solarUnits, viewRate, smooth } from './zoom-ladder.js';
+import { LEVELS, levelIndex, PAIRS, pairFor, SEAMS, SEAM_Z, LEVEL_NAMES, layoutAt, zOf, dOf, UNIT_LY, AU_LY, solarZ, solarUnits, viewRate, smooth, auToUnits, metricBlend } from './zoom-ladder.js';
 import { SAFE as LABEL_SAFE } from './labels.js';
 import { camera, drawSolar, setSolarDistance, solarDistance, solarBusy, isRealScale, solarFocused, solarEdge,solarHome, solarOffCentre, solarDrift, solarAnchor, solarCamera, hideSunLabel } from './app.js';
 import { createZoomController, wheelZ, pinchZ } from './zoom.js';
@@ -20,6 +20,7 @@ import { createZoomLog } from './zoomlog.js';
 import { STAR_FACTS, habitableZone, sizeFromMass, lightLeftYear } from './stars-data.js';
 import { createExperiments } from './experiments.js';
 import { createLabState } from './lab-state.js';
+import { createTour, mountTour, TOUR_STOPS } from './tour.js';
 import { swipe, emptyTap, openHeight, classifyDrag, visibleRegion } from './sheet.js';
 import { seasonGeometry, daylightHours, noonAltitude, phaseGeometry, phaseName, weightNewtons, NEARBY, wrap } from './science.js';
 import { INSIGHTS, STRIKING, genericInsight, NASA, CHECKED, MOON_COUNT, SAT_SOURCES, JPL_RADII, DWARF_SOURCES, SBDB } from './insights.js';
@@ -80,7 +81,7 @@ $('gnow').onclick=()=>{clockOf(clockLevel())?.rewind();paintTime();};
 const reduceMotion=()=>!!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const smoothFrames=()=>typeof globalThis.requestAnimationFrame==='function'&&!reduceMotion();
 const zoom=createZoomController({reduced:reduceMotion});
-let bridge=null,animating=false,Zc=0;
+let bridge=null,animating=false,Zc=0,animGen=0,tourRef=null,tourUi=null,tourGen=0,tourWait=null; // animGen: a glide is cancelled (the tour's halt) by moving it on
 const views={solar:{view:'explore',feature:'orbit'},stars:{view:'stars'},galaxy:{view:'galaxy'},local:{view:'local'},super:{view:'super'},universe:{view:'universe'}};
 const viewDirOf=l=>l==='solar'?camera.position.clone().sub(controls.target).normalize():sceneOf(l).viewDir();
 const real=()=>!!isRealScale?.();
@@ -184,8 +185,8 @@ function animateTo(end,done){
   const p=Math.min(1,Math.max(0,(rc.z0-Z)/(rc.z0-zs)));if(p<=rc.p)return;sc.towardSun(rc.p<1?(p-rc.p)/(1-rc.p):1);rc.p=p;};
  const fin=()=>{animating=false;if(bridge){const [a,b]=SEAM_Z[bridge.pair];Zc=end>=b?b:a;settle(end>=b?'outer':'inner');}done?.();};
  if(!smoothFrames()){animating=true;placeZ(end);recentre(end);fin();return;}
- animating=true;let last=performance.now(),k=0;
- const tick=now=>{const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;
+ animating=true;let last=performance.now(),k=0;const gen=++animGen;
+ const tick=now=>{if(gen!==animGen)return;const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;
   k=Math.min(1,k+dt/dur);const e=k<.5?2*k*k:1-(-2*k+2)**2/2,Z=from+(end-from)*e;placeZ(Z);recentre(Z);
   if(k>=1)fin();else globalThis.requestAnimationFrame(tick);};
  globalThis.requestAnimationFrame(tick);
@@ -204,6 +205,7 @@ let pendingTrip=null;
 const markGoing=t=>{for(const b of $('ladder').querySelectorAll('button'))if((b.dataset.level===t)!==(b.dataset.going==='true'))b.dataset.going=String(b.dataset.level===t);};
 function runPending(){if(!pendingTrip||bridge||animating)return;const p=pendingTrip;pendingTrip=null;goLevel(p.target,p.after);}
 function goLevel(target,after){
+ if(tourRef?.active)tourRef.exit(); // a ladder tap or the voyage takes over from the tour
  const cur=levelOf(state.value.view);if(bridge||animating){pendingTrip={target,after};markGoing(target);return;}if(target===cur){markGoing(null);after?.();return;}markGoing(target);stopAudio();$('settings').open=false;zoom.stop();
  const out=levelIndex(target)>levelIndex(cur);
  const ck=clockOf(cur);if(ck&&ck.time()!==0){animating=true;ck.rewind(()=>{animating=false;if(pendingTrip)runPending();else goLevel(target,after);});return;} // back to today first: every map is drawn as the sky is now
@@ -284,14 +286,14 @@ function updateHud(){
 // zoom starts), so nothing pops up in the middle of a zoom; the scale readout gives way to it while it shows.
 let restSince=0;
 function updateTimeBar(){
- const now=globalThis.performance?.now?.()??Date.now(),still=!bridge&&!zoom.moving&&!gtime.hidden;
+ const now=globalThis.performance?.now?.()??Date.now(),still=!bridge&&!zoom.moving&&!gtime.hidden&&!document.body.classList.contains('touring');
  if(!still)restSince=0;else if(!restSince)restSince=now;
  const show=still&&now-restSince>450;
  if(gtime.classList.contains('resting')!==show){gtime.classList.toggle('resting',show);document.body.classList.toggle('time-resting',show);}
  // While faded out it is also out of reach of the keyboard and screen readers (not only of taps).
  if(gtime.hasAttribute('inert')===show){if(show)gtime.removeAttribute('inert');else gtime.setAttribute('inert','');}
 }
-hooks.afterFrame=()=>{updateHud();updateTimeBar();hooks.afterFrameLog?.();};
+hooks.afterFrame=()=>{updateHud();updateTimeBar();tourUi?.frame();hooks.afterFrameLog?.();};
 // Inside a seam the "you are here" anchor stands at the Sun's label: the Sun's own label gives way (one label, not two).
 hooks.labelsOff=b=>!!bridge&&b.data.name==='Sun';
 // Labels never sit under the top controls: the band down to the scale ladder's bottom edge (read on layout only).
@@ -299,9 +301,9 @@ const safeTop=()=>{const r=$('ladder')?.getBoundingClientRect?.();LABEL_SAFE.top
 // Rects no label may cover, read each frame from the real elements (before this frame writes any label): the open
 // sheet, the time bar and the scale readout. The top controls are SAFE.top (above).
 const exRect=el=>{const r=el?.getBoundingClientRect?.();return r&&r.width>0&&r.height>0?[r.left,r.top,r.right,r.bottom]:null;};
-const exList=[null,null,null];
-function readExclusions(){const sh=$('sheet');exList[0]=sh&&sh.dataset.state!=='closed'?exRect(sh):null;exList[1]=!gtime.hidden&&!document.body.classList.contains('bridging')?exRect(gtime):null;exList[2]=!hudEl.hidden&&!document.body.classList.contains('time-resting')?exRect(hudEl):null;setExclusions(exList,globalThis.innerWidth||Infinity,globalThis.innerHeight||Infinity);}
-hooks.beforeFrame=dt=>{readExclusions();zoomTick(dt);zlog?.frame(dt,currentZ(),bridge,levelOf(state.value.view));};
+const exList=[null,null,null,null,null];
+function readExclusions(){const sh=$('sheet');exList[0]=sh&&sh.dataset.state!=='closed'?exRect(sh):null;exList[1]=!gtime.hidden&&!document.body.classList.contains('bridging')?exRect(gtime):null;exList[2]=!hudEl.hidden&&!document.body.classList.contains('time-resting')?exRect(hudEl):null;exList[3]=tourUi&&!tourUi.card.hidden?exRect(tourUi.card):null;exList[4]=tourUi&&!tourUi.hint.hidden?exRect(tourUi.hint):null;setExclusions(exList,globalThis.innerWidth||Infinity,globalThis.innerHeight||Infinity);}
+hooks.beforeFrame=dt=>{readExclusions();tourFrame(dt);zoomTick(dt);zlog?.frame(dt,currentZ(),bridge,levelOf(state.value.view));};
 // dz: a change of Z from a gesture (zoom.js gains). Zooming out of a selected world lets go of it.
 function zoomInput(dz,kind,now){
  if(animating||!dz)return false;
@@ -312,7 +314,7 @@ function zoomInput(dz,kind,now){
  if(!smoothFrames())zoomTick(0,true);
  return true;
 }
-$('c').addEventListener('wheel',e=>{if(zoomInput(wheelZ(e.deltaY,e.deltaMode,e.ctrlKey),'wheel'))e.preventDefault?.();},{passive:false});
+$('c').addEventListener('wheel',e=>{tourRef?.interrupt();if(zoomInput(wheelZ(e.deltaY,e.deltaMode,e.ctrlKey),'wheel'))e.preventDefault?.();},{passive:false});
 // Name labels sit above the scene and would swallow the wheel: pass it through so zooming works anywhere.
 $('labels').addEventListener('wheel',e=>{e.preventDefault();$('c').dispatchEvent(new WheelEvent('wheel',{deltaX:e.deltaX,deltaY:e.deltaY,deltaMode:e.deltaMode,clientX:e.clientX,clientY:e.clientY,ctrlKey:e.ctrlKey,bubbles:true,cancelable:true}));},{passive:false});
 const pinch=new Map();let spread=0;
@@ -324,7 +326,7 @@ const nowMs=e=>globalThis.performance?.now?.()??e.timeStamp??Date.now();
 // centre off the Sun on every real pinch, so the off-centre gate below held the zoom at the Solar → Stars seam.
 const held=new Map(),allControls=()=>[controls,starsView.controls,galaxyView.controls,localView.controls,sceneOf(levelOf(state.value.view))?.controls].filter(Boolean);
 const lockRotate=on=>{if(on){for(const c of allControls())if(!held.has(c)){held.set(c,[c.enableRotate,c.enablePan]);c.enableRotate=false;c.enablePan=false;}}else{for(const [c,[r,p]] of held){c.enableRotate=r;c.enablePan=p;}held.clear();}};
-document.addEventListener('pointerdown',e=>{if(e.target!==$('c'))return;pinch.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch.size===2){spread=spreadOf();lockRotate(true);}},true);
+document.addEventListener('pointerdown',e=>{if(e.target!==$('c'))return;tourRef?.interrupt();pinch.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch.size===2){spread=spreadOf();lockRotate(true);}},true);
 document.addEventListener('pointermove',e=>{const p=pinch.get(e.pointerId);if(!p)return;p.x=e.clientX;p.y=e.clientY;if(pinch.size!==2)return;const d=spreadOf();if(spread>0&&d>0)zoomInput(pinchZ(d/spread),'pinch',nowMs(e));spread=d;},true);
 for(const t of ['pointerup','pointercancel'])document.addEventListener(t,e=>{if(!pinch.delete(e.pointerId))return;if(pinch.size<2){if(spread>0)zoom.release(nowMs(e));spread=0;if(!pinch.size)lockRotate(false);}},true);
 function pickGalaxy(g){dismissHint();go({view:'local',landmark:g.name,sheet:'peek'});}
@@ -898,6 +900,44 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system'||starsV
 }
 addEventListener('resize',()=>{if(state.value.view==='compare')paintCompare();});
 render();
+
+// ---- Powers of Ten (tour.js): one tap glides from Earth to the edge of the observable universe, stopping about
+// once per power of ten. Each stop is played with the same glide as the scale ladder (animateTo), or a cut with
+// reduced motion; a touch, pinch or wheel on the scene pauses it, and ✕ leaves you exploring from where you are.
+// Where a stop is, as Z. The Solar System stops use the app's own framings (fitHomeDistance) for the current screen.
+function tourZ(stop){const a=stop.at;
+ if(a.ly)return Math.log(a.ly);
+ if(a.overview)return zOf('universe',universeView().overviewDistance());
+ const b=$('c').getBoundingClientRect(),asp=(b.width||1)/(b.height||1),dir=homeDirection(asp),fit=r=>fitHomeDistance(r,camera.fov,asp,dir);
+ if(a.fit)return solarZ(fit(homeRadius(a.fit)),real());
+ // A circle fitAU au across in the model: the model's blend depends on Z itself, so settle it in a few rounds.
+ let Z=solarZ(fit(auToUnits(a.fitAU,real()?1:0)),real());for(let i=0;i<8&&!real();i++)Z=solarZ(fit(auToUnits(a.fitAU,metricBlend(Z))),real());return Z;}
+const framesRun=()=>typeof globalThis.requestAnimationFrame==='function';
+const tourAfter=(cond,then)=>{if(!framesRun()||cond())then();else tourWait={cond,then};};
+function tourFrame(dt){
+ if(tourWait&&tourWait.cond()){const f=tourWait.then;tourWait=null;f();}
+ if(!tourRef?.active)return;
+ if(state.value.sheet!=='closed'&&!tourRef.paused)tourRef.pause(); // a card opened (a tap, Journeys, the menu): wait
+ tourRef.tick(dt);}
+function tourTravel(stop,done){
+ const g=++tourGen,ok=()=>g===tourGen&&!!tourRef?.active;tourWait=null;
+ stopAudio();$('settings').open=false;pendingTrip=null;markGoing(null);zoom.stop();
+ const cur=levelOf(state.value.view),ck=clockOf(cur);
+ if(ck&&ck.time()!==0&&!bridge){ck.rewind(()=>{if(ok())tourTravel(stop,done);});return;} // every map is drawn as the sky is now
+ if(ORBITS.has(state.value.view))starsView.closeSystem();
+ state.update({view:cur==='solar'?'explore':views[cur].view,journey:null,experiment:null,star:null,landmark:null,voyage:null,sheet:'closed'});render();
+ const glide=(Z,then)=>{if(!bridge)Zc=zOfLevel(levelOf(state.value.view));animateTo(Z,()=>{if(ok())then();});};
+ if(stop.at.focus){const b=bodies.find(x=>x.data.name===stop.at.focus);
+  const land=()=>{state.update({world:b.data.name,feature:'overview'});focus(b,{silent:true,outside:true});tourAfter(()=>!solarBusy(),()=>{if(ok())done();});};
+  if(cur==='solar'&&!bridge)land();else glide(tourZ(TOUR_STOPS.find(s=>s.at.fit)),land);return;}
+ const Z=tourZ(stop);
+ if(cur==='solar'&&!bridge&&(solarFocused?.()||solarOffCentred())){unfocus(true,smoothFrames()?1.4:0.01);tourAfter(()=>!solarBusy(),()=>{if(ok())glide(Z,done);});return;}
+ glide(Z,done);}
+// Stop a move where it is: the glide (its frames are dropped), a wait for the Solar System's camera flight, and
+// the zoom controller takes over at the current Z (so a gesture right after carries on from here).
+function tourHalt(){tourGen++;tourWait=null;if(animating){animGen++;animating=false;}zoom.set(Zc);}
+tourRef=createTour({travel:tourTravel,halt:tourHalt,readout:()=>hudEl.hidden?null:[hudB.textContent,hudA.textContent],onChange:()=>tourUi?.paint()});
+tourUi=mountTour(document,tourRef,{storage:globalThis.localStorage,afterNode:$('journeys')});
 // ---- Install and offline ----
 // "Install app" uses the browser's own install prompt where it offers one (Android, desktop Chrome/Edge); on
 // iPhone and iPad the note explains Share → Add to Home Screen. Installing, or "Save for offline", stores the
@@ -923,4 +963,4 @@ paintOffline();
 if(sw&&standalone()&&typeof setTimeout==='function')setTimeout(saveOffline,4000);
 // Offline: cache what has been loaded, so the app opens again without a connection (sw.js).
 if(globalThis.isSecureContext&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(reg=>setTimeout(()=>reg.active?.postMessage({cache:[location.href.split('#')[0],...performance.getEntriesByType('resource').map(e=>e.name)]}),3000)).catch(()=>{});
-window.__lab={state,go,experiments,player,setSheet,starsView,galaxyView,localView,zoom,placeZ,get Z(){return Zc;},get bridge(){return bridge;},get animating(){return animating;},get Zcam(){return currentZ();},get anchor(){return anchorNow;},get pendingTrip(){return pendingTrip?.target??null;},sceneOf:l=>(l==='super'||l==='universe')&&!built(l)?null:sceneOf(l)};
+window.__lab={state,go,experiments,player,setSheet,starsView,galaxyView,localView,zoom,placeZ,get Z(){return Zc;},get bridge(){return bridge;},get animating(){return animating;},get Zcam(){return currentZ();},get anchor(){return anchorNow;},get pendingTrip(){return pendingTrip?.target??null;},sceneOf:l=>(l==='super'||l==='universe')&&!built(l)?null:sceneOf(l),tour:tourRef,tourUi,tourZ};
