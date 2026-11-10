@@ -62,6 +62,9 @@ KOKORO_MODEL=/path/kokoro-v1.0.onnx KOKORO_VOICES=/path/voices-v1.0.bin python t
 - **Offline.** A service worker (`sw.js`) keeps everything the app has loaded, so after one visit with a connection it opens without one. **Save for offline** (or installing the app) stores all of it at once (60 files, about 4.0 MB; `tools/stamp.mjs` writes the figure into the menu from `precache.json`), using `precache.json`, which `tools/stamp.mjs` writes at deploy. An installed app refreshes its saved copy on each launch, downloading only changed files. The page itself is fetched fresh when online, so new versions show at once.
 - **Install.** `manifest.webmanifest` and two icons let phones add the app to the home screen.
 
+## Sources and what is real
+☰ → Sources lists every fact the app shows, grouped by where it appears (world cards, labs and questions, guided journeys, the Powers of Ten tour, the Earth–Moon adventure, stars and galaxies, the scale readout), each with tappable links to its sources, and a "Real or illustration?" list of what each view draws to scale and what it changes. Cards, labs and tour stops link to their own section ("All sources ›"). It is built from the app's data (`sources.js`), works offline, and `node tools/check-sources.mjs` re-checks every link. See docs/sources.md.
+
 ## Run and test
 ```
 python3 -m http.server 8780 --bind 0.0.0.0

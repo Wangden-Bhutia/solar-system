@@ -23,10 +23,12 @@ import { createLabState } from './lab-state.js';
 import { createTour, mountTour, TOUR_STOPS } from './tour.js';
 import { swipe, emptyTap, openHeight, classifyDrag, visibleRegion } from './sheet.js';
 import { seasonGeometry, daylightHours, noonAltitude, phaseGeometry, phaseName, weightNewtons, NEARBY, wrap } from './science.js';
-import { INSIGHTS, STRIKING, genericInsight, NASA, CHECKED, MOON_COUNT, SAT_SOURCES, JPL_RADII, DWARF_SOURCES, SBDB } from './insights.js';
+import { INSIGHTS, STRIKING, genericInsight, dwarfInsight, moonInsight, NASA, CHECKED, MOON_COUNT, SAT_SOURCES, JPL_RADII, DWARF_SOURCES, SBDB } from './insights.js';
 import { LINES, VOICE } from './voice/lines.js';
 import { createVoicePlayer } from './voice-player.js';
 import { initAdventure } from './adventure.js';
+import { REFS, LAB_REFS } from './sources.js';
+import { mountSources, refLinks } from './sources-page.js';
 import * as solarApp from './app.js';
 import { PREDICTIONS, judge, JOURNEYS, VOYAGE, journey, canAdvance, eclipseGeometry, tideLabel, tideRange, scaleWalk, sizeLike, formatMetres, formatDuration, lightSeconds, sunlightTo, AU_KM, FOOTBALL_CM, MOON_INCLINATION } from './learn.js';
 let adventure=null; // the Earth–Moon guided story (adventure.js), set up below
@@ -505,12 +507,12 @@ function paintMoonLab(){
   $('experiment-result').innerHTML=`<strong>${g.label}</strong><p>The Moon is ${Math.abs(g.latitude).toFixed(2)}° ${g.latitude>=0?'above':'below'} the Earth–Sun line — about ${g.moonWidths.toFixed(1)} Moon-widths.</p><p>${g.kind==='none'&&(wrap(s.phase)<1||Math.abs(wrap(s.phase)-180)<1)?'Slide the crossing point toward the Sun line and try again.':g.kind==='none'?'Pick New or Full first.':'This happens only when a new or full Moon falls near a crossing point: a few times a year, never every month.'}</p>`;
   $('experiment-summary').textContent='The Moon’s orbit is tilted about 5° to Earth’s. Most months it slips past above or below the Sun and Earth’s shadow. Twice a year or so, the crossing points line up with the Sun: eclipse season.';
   $('view-caption').textContent='From Earth · near new Moon the Sun’s disc sits behind the Moon (misses larger than a Sun-width are pulled into view) · in a lunar eclipse the Moon turns coppery';
-  $('experiment-depth').innerHTML=`<p>Latitude above or below Earth’s orbital plane = asin(sin ${MOON_INCLINATION}° × sin(Moon angle − crossing angle)). A solar eclipse needs the Moon within about 1.5° of the Earth–Sun line at new Moon (about 0.9° for a total or annular one); a lunar eclipse within about 1.0° at full Moon (about 0.4° for a total one). These are approximate teaching limits; real limits shift with the Moon’s and Earth’s changing distances.</p><p>The crossing points (nodes) slowly drift, so eclipse seasons come about every 173 days. This model ignores where on Earth an eclipse is visible and cannot predict real eclipse dates.</p><a href="https://science.nasa.gov/eclipses/" target="_blank" rel="noopener">NASA · Eclipses</a> · ${sourceLink('moonfact','NASA · Moon orbit data')}${sourceNote}`;
+  $('experiment-depth').innerHTML=`<p>Latitude above or below Earth’s orbital plane = asin(sin ${MOON_INCLINATION}° × sin(Moon angle − crossing angle)). A solar eclipse needs the Moon within about 1.5° of the Earth–Sun line at new Moon (about 0.9° for a total or annular one); a lunar eclipse within about 1.0° at full Moon (about 0.4° for a total one). These are approximate teaching limits; real limits shift with the Moon’s and Earth’s changing distances.</p><p>The crossing points (nodes) slowly drift, so eclipse seasons come about every 173 days. This model ignores where on Earth an eclipse is visible and cannot predict real eclipse dates.</p>${refLinks(LAB_REFS.eclipses)}${sourceNote}`;
  }else{
   $('experiment-result').innerHTML=`<strong>${t.name}</strong><p>Tidal range about ${Math.round(t.ratio*100)}% of the smallest (neap) range. ${t.name==='Spring tides'?'Sun and Moon pull in line: highest highs, lowest lows.':t.name==='Neap tides'?'Sun and Moon pull at right angles and partly cancel: gentle tides.':'Between the two.'}</p><p>Two bulges: one under the Moon, one on the far side. Earth turns through both, so most coasts get two high tides a day.</p>`;
   $('experiment-summary').textContent='The Moon pulls the near-side ocean a little more, and Earth a little more than the far-side ocean. That stretches the oceans into two bulges. The Sun does the same, about half as strongly.';
   $('view-caption').textContent='Looking down on the North Pole · Sun to the right · ocean bulges exaggerated thousands of times';
-  $('experiment-depth').innerHTML=`<p>The Sun’s tide-raising force is about 46% of the Moon’s, because tidal force falls off with the cube of distance. Range here = √(1 + 0.46² + 2 × 0.46 × cos 2θ), relative to the Moon alone, where θ is the Moon’s angle from the Sun. Spring tides (new and full Moon) are about 2.7 times neap tides in this ideal model.</p><p>Real tides depend strongly on coastlines and ocean basins: some places get one tide a day, the Bay of Fundy gets 16 m, and peaks often lag the Moon by hours or days. Use a local tide table for real times.</p><a href="https://oceanservice.noaa.gov/education/tutorial_tides/" target="_blank" rel="noopener">NOAA · Tides tutorial</a>${sourceNote}`;
+  $('experiment-depth').innerHTML=`<p>The Sun’s tide-raising force is about 46% of the Moon’s, because tidal force falls off with the cube of distance. Range here = √(1 + 0.46² + 2 × 0.46 × cos 2θ), relative to the Moon alone, where θ is the Moon’s angle from the Sun. Spring tides (new and full Moon) are about 2.7 times neap tides in this ideal model.</p><p>Real tides depend strongly on coastlines and ocean basins: some places get one tide a day, the Bay of Fundy gets 16 m, and peaks often lag the Moon by hours or days. Use a local tide table for real times.</p>${refLinks(LAB_REFS.tides)}${sourceNote}`;
  }
 }
 // Scale walk and light race. The real Solar System stays live behind the sheet.
@@ -653,20 +655,6 @@ function aimCamera(s,body){
  if(key===cameraKey)return;cameraKey=key;
  if(key==='overview')unfocus(true,1.5);else focus(body,{silent:true,outside:s.world!=='Sun'&&!system,dur:1.1,mul:system?systemMul(body):0}); // approach from the sunlit side
 }
-function dwarfInsight(d){
- const belt=d.a<5,years=d.period/365.25,km=d.km.toLocaleString('en-IN');
- return {intro:`${d.name} is ${d.kind==='Asteroid'?'one of the largest asteroids':'a dwarf planet'}, about ${km} km across, in the ${belt?'asteroid belt between Mars and Jupiter':'Kuiper Belt beyond Neptune'}.`,
-  question:'See its orbit',experiment:null,line:null,features:[['overview','Look closer'],['orbit','Its orbit']],
-  deeper:`${d.name} takes about ${years<10?years.toFixed(1):Math.round(years)} years to go round the Sun, at an average of ${d.a} AU. Its orbit is tilted ${d.i}° to Earth’s and ${d.e>0.15?'noticeably stretched':'nearly round'} (eccentricity ${d.e}).${d.name==='Pluto'?' At its closest it comes inside Neptune’s orbit, but the two never meet: Pluto goes round twice for every three Neptune orbits.':''}${belt?' The asteroid belt holds over a million rocks larger than 1 km, yet together they weigh less than our Moon. They are so far apart that spacecraft fly through without trying to dodge.':' The Kuiper Belt is a wide ring of icy worlds left over from when the planets formed.'}`,
-  source:null,dwarf:true};
-}
-function moonInsight(d){
- const km=Math.round(d.km).toLocaleString('en-IN');
- return {intro:`${d.name} is one of ${d.parent}’s moons, about ${km} km across.`,question:`See all of ${d.parent}’s big moons`,experiment:null,line:null,
-  features:[['overview','Look closer'],['parent',`Back to ${d.parent}`]],
-  deeper:`${d.name} is about ${km} km across and orbits ${d.parent} once every ${d.period<2?(d.period*24).toFixed(1)+' hours':d.period.toFixed(d.period<10?2:1)+' days'}, at an average of ${d.aKm.toLocaleString('en-IN')} km. Like our Moon, it keeps the same face toward its planet.${d.incl?' Its orbit is tilted past upright, so it travels the opposite way to its planet’s spin.':''}`,
-  source:null,moon:true};
-}
 // "Its moons": the planet's known-moon count, then a button for each big moon drawn in the scene.
 function paintMoons(s,body,ms){
  const show=s.feature==='moons'&&ms.length>0;$('world-moons').hidden=!show;
@@ -703,7 +691,8 @@ function paintExplore(){
  $('world-deeper').textContent=info.deeper;
  // Avoid stale, changing outer-planet moon counts in the new UI; dated legacy figures remain in data.js.
  $('world-facts').innerHTML=body.data.facts.filter(([k])=>k!=='Moons').map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
- const url=info.source?NASA[info.source]:`https://science.nasa.gov/${s.world==='Sun'?'sun':s.world.toLowerCase()}/facts/`;
+ const url=info.source?NASA[info.source]:REFS[`nasa${s.world}`]?.url;
+ $('world-all-sources').dataset.sources=moon?'src-world-moons':dwarf?'src-world-dwarfs':`src-world-${s.world}`;
  const photoCredit=PHOTO_MAPS.includes(s.world)?'<p class="fine">Surface map: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noopener">Solar System Scope</a> (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>), based on NASA mission imagery.</p>':s.world==='Venus'?'<p class="fine">Shown as its cloud tops, as Venus looks from space; its surface is only seen by radar.</p>':'';
  if(dwarf){const [label,href]=DWARF_SOURCES[s.world];$('world-sources').innerHTML=`<a href="${href}" target="_blank" rel="noopener">${label}</a> · <a href="${SBDB(s.world)}" target="_blank" rel="noopener">JPL · orbit elements</a><p class="fine">Size and orbit data read 9 November 2026. Surface colours are illustrative: only Pluto, Ceres and Vesta have been seen up close.</p>`;}
  else if(moon){$('world-sources').innerHTML=`<a href="${SAT_SOURCES[body.data.parent]}" target="_blank" rel="noopener">NASA · ${body.data.parent} satellite fact sheet</a> · <a href="${JPL_RADII}" target="_blank" rel="noopener">JPL · moon sizes</a><p class="fine">Orbit and size data read 9 November 2026. Colours are illustrative.</p>`;}
@@ -719,6 +708,7 @@ const entryOf=name=>starsView.entries.find(e=>e.name===name);
 // The two largest scales (cosmos-data.js): Laniakea and the observable universe.
 function pickCosmos(level,item){dismissHint();go({view:level,landmark:item.name,sheet:'peek'});}
 function paintCosmos(){
+ $('star-all-sources').dataset.sources='src-beyond-cosmos';
  const s=state.value,lv=s.view,it=s.landmark&&sceneOf(lv).items().find(x=>x.name===s.landmark);narration=null;$('action').hidden=true;$('star-panel').hidden=false;
  $('star-companions').textContent='';$('star-planets').innerHTML='';
  const rows=r=>$('star-facts').innerHTML=r.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
@@ -753,6 +743,7 @@ function paintCosmos(){
 }
 // The Local Group: our galaxy's neighbourhood (local-data.js).
 function paintLocal(){
+ $('star-all-sources').dataset.sources='src-beyond-local';
  const s=state.value,g=s.landmark&&localView.galaxies.find(x=>x.name===s.landmark);narration=null;$('action').hidden=true;$('star-panel').hidden=false;
  $('star-companions').textContent='';$('star-planets').innerHTML='';
  const caveat='<p>Galaxies are placed by their real direction in the sky and measured distance; 1 unit here is 10,000 light-years, so the Milky Way is drawn exactly as in the previous level, shrunk ten times. The spirals’ tilts come from their measured inclination and orientation. The shapes of Andromeda, Triangulum and the Magellanic Clouds are simple models, and dwarf galaxies are drawn as glows: most are too faint and spread out to show at this scale.</p>';
@@ -779,6 +770,7 @@ function paintLocal(){
  $('star-depth').innerHTML=`${caveat}${g.short==='Andromeda'?'<p>Andromeda’s light is blueshifted: it is coming towards us. Its sideways motion is much harder to measure, which is why the odds of a collision keep changing. Earlier studies predicted a head-on merger in about 4.5 billion years; Sawala et al. (2025), adding newer Gaia and Hubble data and the pull of Triangulum and the Large Magellanic Cloud, found about a 50% chance of a merger in the next 10 billion years.</p>':''}<a href="https://en.wikipedia.org/wiki/${encodeURIComponent(wiki)}" target="_blank" rel="noopener">${g.name}</a>${g.short==='Andromeda'?' · <a href="https://en.wikipedia.org/wiki/Andromeda%E2%80%93Milky_Way_collision" target="_blank" rel="noopener">Andromeda–Milky Way collision</a>':''}${sourceNote}`;
 }
 function paintGalaxy(){
+ $('star-all-sources').dataset.sources='src-beyond-galaxy';
  const s=state.value,m=s.landmark&&galaxyView.landmarks.find(x=>x.name===s.landmark);narration=null;$('action').hidden=true;$('star-panel').hidden=false;
  $('star-companions').textContent='';$('star-planets').innerHTML='';
  const caveat='<p>No one has seen the Milky Way from outside: we live inside its disc. This picture is a model built from maps of gas, young stars and their measured distances. The spiral arms follow published fits (Reid et al. 2019) and are best known on our side; the far side is extrapolated. Landmarks are placed by their real direction and distance.</p>';
@@ -799,6 +791,7 @@ function paintGalaxy(){
  $('star-depth').innerHTML=`${caveat}<a href="https://en.wikipedia.org/wiki/${encodeURIComponent(m.name.replace(/ /g,'_'))}" target="_blank" rel="noopener">${m.name}: distance and position</a>${sourceNote}`;
 }
 function paintStar(){
+ $('star-all-sources').dataset.sources='src-beyond-stars';
  const s=state.value,e=s.star&&entryOf(s.star);narration=null;
  $('star-panel').hidden=!e;$('action').hidden=true;
  if(!e){$('kicker').textContent='Our neighbourhood';$('title').textContent='The nearest stars';$('fact').textContent='Every star and brown dwarf within 16 light-years.';$('view-caption').textContent='';return;}
@@ -827,6 +820,7 @@ const starKindShort=t=>t[0]==='D'?'white dwarf':'LTY'.includes(t[0])?'brown dwar
 let pairText='';
 function paintPairClock(){const i=starsView.pairInfo();if(!i||state.value.view!=='pair')return;const t=`Year ${Math.floor(i.year)} · ${fmt(i.sep,1)} AU apart`;if(t!==pairText){pairText=t;$('view-caption').textContent=`${t} · one lap shown in about 12 seconds`;}}
 function paintPair(){
+ $('star-all-sources').dataset.sources='src-beyond-stars';
  const s=state.value,e=entryOf(s.star),pr=pairOf(e.name);narration=null;$('action').hidden=true;
  if(starsView.pairInfo()?.pr!==pr)starsView.openPair(e);pairText='';
  const brown=pr.brown,lap=pr.P<100?`${fmt(pr.P,1)} years`:`about ${fmt(Math.round(pr.P/10)*10)} years`,next=nextPeriastron(pr,new Date().getFullYear()+new Date().getMonth()/12);
@@ -946,6 +940,15 @@ function tourHalt(){tourGen++;tourWait=null;if(animating){animGen++;animating=fa
 tourRef=createTour({travel:tourTravel,halt:tourHalt,onStart:()=>{if(adventure&&adventure.phase!=='off')adventure.end(true);}, // one guided story at a time
  readout:()=>hudEl.hidden?null:[hudB.textContent,hudA.textContent],onChange:()=>tourUi?.paint()});
 tourUi=mountTour(document,tourRef,{storage:globalThis.localStorage,afterNode:$('journeys')});
+// ---- Sources (sources-page.js): a full-screen list over the scene; closing it returns to the same place ----
+// Opened from the menu, a card's or lab's "All sources" button, or a tour stop's sources (any [data-sources]).
+// A playing tour waits while it is open and carries on when it closes.
+let sourcesPausedTour=false;
+const sourcesUi=mountSources(document,{
+ onOpen:()=>{if(tourRef?.active&&!tourRef.paused&&!tourRef.finished){tourRef.pause();sourcesPausedTour=true;}},
+ onClose:()=>{if(sourcesPausedTour&&tourRef?.active&&tourRef.paused)tourRef.resume();sourcesPausedTour=false;}});
+$('open-sources').onclick=()=>{$('settings').open=false;sourcesUi.open(null,$('settings').querySelector('summary'));};
+document.addEventListener('click',e=>{const b=e.target.closest?.('[data-sources]');if(!b)return;e.preventDefault();sourcesUi.open(b.dataset.sources,b);});
 // ---- Install and offline ----
 // "Install app" uses the browser's own install prompt where it offers one (Android, desktop Chrome/Edge); on
 // iPhone and iPad the note explains Share → Add to Home Screen. Installing, or "Save for offline", stores the
@@ -973,4 +976,4 @@ paintOffline();
 if(sw&&standalone()&&typeof setTimeout==='function')setTimeout(saveOffline,4000);
 // Offline: cache what has been loaded, so the app opens again without a connection (sw.js).
 if(globalThis.isSecureContext&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(reg=>setTimeout(()=>reg.active?.postMessage({cache:[location.href.split('#')[0],...performance.getEntriesByType('resource').map(e=>e.name)]}),3000)).catch(()=>{});
-window.__lab={state,go,experiments,player,setSheet,starsView,galaxyView,localView,zoom,placeZ,get Z(){return Zc;},get bridge(){return bridge;},get animating(){return animating;},get Zcam(){return currentZ();},get anchor(){return anchorNow;},get pendingTrip(){return pendingTrip?.target??null;},sceneOf:l=>(l==='super'||l==='universe')&&!built(l)?null:sceneOf(l),tour:tourRef,tourUi,tourZ};
+window.__lab={sources:sourcesUi,state,go,experiments,player,setSheet,starsView,galaxyView,localView,zoom,placeZ,get Z(){return Zc;},get bridge(){return bridge;},get animating(){return animating;},get Zcam(){return currentZ();},get anchor(){return anchorNow;},get pendingTrip(){return pendingTrip?.target??null;},sceneOf:l=>(l==='super'||l==='universe')&&!built(l)?null:sceneOf(l),tour:tourRef,tourUi,tourZ};

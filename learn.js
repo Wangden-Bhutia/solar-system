@@ -105,7 +105,7 @@ export const PREDICTIONS = {
     explain: `About ${formatDuration(sunlightTo('Neptune'))}. Thirty times farther means thirty times longer.` },
   closest: { q: 'In June, when it is summer in India, is Earth at its closest to the Sun?',
     options: ['Yes, it is closest then', 'No — Earth is farthest from the Sun in early July', 'The distance never changes'], answer: 1,
-    explain: 'Earth is closest around 3 January and farthest around 4 July, only about 3% apart. Distance does not cause seasons; the tilt does.' },
+    explain: 'Earth is closest around 3 January and farthest in early July (3 to 6 July in recent years), only about 3% apart. Distance does not cause seasons; the tilt does.' },
   'mars-day': { q: 'How long is one day on Mars?',
     options: ['About 10 hours', 'About 24 hours 40 minutes', 'About 687 Earth days'], answer: 1,
     explain: 'A Martian day (a “sol”) lasts about 24 hours 40 minutes, very close to ours. 687 days is the length of its year.' },

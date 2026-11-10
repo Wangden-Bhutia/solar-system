@@ -204,7 +204,8 @@ export function mountTour(doc, tour, { storage, afterNode } = {}) {
       q('tour-title').textContent = s.title; q('tour-short').textContent = s.short; q('tour-text').textContent = s.text;
       const note = s.illustration || s.model || ''; q('tour-note').hidden = !note; q('tour-note').textContent = note;
       const keys = sourcesOf(s);
-      q('tour-sources').innerHTML = (keys.length > 1 ? 'Sources: ' : 'Source: ') + keys.map(k => `<a href="${esc(SOURCES[k].url)}" target="_blank" rel="noopener">${esc(SOURCES[k].label)}</a>`).join(' · ');
+      q('tour-sources').innerHTML = (keys.length > 1 ? 'Sources: ' : 'Source: ') + keys.map(k => `<a href="${esc(SOURCES[k].url)}" target="_blank" rel="noopener">${esc(SOURCES[k].label)}</a>`).join(' · ')
+        + ` <button type="button" class="tour-all" data-sources="src-tour-${esc(s.id)}">All sources ›</button>`; // lab.js opens the Sources screen
       setOpen(false); // each stop starts collapsed
     }
     q('tour-prev').disabled = tour.index === 0;
