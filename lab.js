@@ -282,6 +282,8 @@ function updateTimeBar(){
  if(!still)restSince=0;else if(!restSince)restSince=now;
  const show=still&&now-restSince>450;
  if(gtime.classList.contains('resting')!==show){gtime.classList.toggle('resting',show);document.body.classList.toggle('time-resting',show);}
+ // While faded out it is also out of reach of the keyboard and screen readers (not only of taps).
+ if(gtime.hasAttribute('inert')===show){if(show)gtime.removeAttribute('inert');else gtime.setAttribute('inert','');}
 }
 hooks.afterFrame=()=>{updateHud();updateTimeBar();hooks.afterFrameLog?.();};
 // Inside a seam the "you are here" anchor stands at the Sun's label: the Sun's own label gives way (one label, not two).

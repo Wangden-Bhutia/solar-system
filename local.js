@@ -164,7 +164,9 @@ export function createLocal({ renderer, canvas, labelsEl, onPick, galaxy = null 
   const OUTWARD = [sheet, voidShell, ...far];
   function proxyCopies(scale) {
     return OUTWARD.map(o => { const m = o.material.clone(); m.opacity = o.material.userData.base ?? o.material.opacity;
-      const c = o.isSprite ? new THREE.Sprite(m) : o.isLineSegments ? new THREE.LineSegments(o.geometry, m) : new THREE.Points(o.geometry, m);
+      if (o.material.onBeforeCompile !== THREE.Material.prototype.onBeforeCompile) m.onBeforeCompile = o.material.onBeforeCompile; // clone() drops the soft shell's shader hook
+      const c = o.isSprite ? new THREE.Sprite(m) : o.isLineSegments ? new THREE.LineSegments(o.geometry, m) : o.isMesh ? new THREE.Mesh(o.geometry, m) : new THREE.Points(o.geometry, m);
+      if (o.userData.shell) c.userData.shell = o.userData.shell;
       c.position.copy(o.position).multiplyScalar(scale); c.scale.copy(o.scale).multiplyScalar(scale); if (o.isSprite) c.userData.px = o.userData.px;
       c.frustumCulled = false; c.userData.proxyOf = o; c.userData.layer = o.userData.layer || 'far-glow'; return c; });
   }

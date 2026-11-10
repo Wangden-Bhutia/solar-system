@@ -32,7 +32,8 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
   // Illustrations: the Oort cloud (the same sample the Solar System draws, here in light-years) and the Local
   // Bubble, a ~1,000-ly-wide cavity of hot thin gas around the Sun (drawn as a sphere; its real shape is irregular).
   const oort = pointCloud(oortPositions().map(v => v * AU_LY), { color: 0x9db4dc, size: 1, opacity: 0.16, layer: 'oort' }); oort.frustumCulled = false; scene.add(oort);
-  const bubble = wireShell({ color: 0x7a6fb0, opacity: 0.25, layer: 'local-bubble' }); bubble.scale.setScalar(LOCAL_BUBBLE_LY / 2); scene.add(bubble);
+  const bubble = wireShell({ color: 0x7a6fb0, opacity: 0.25, layer: 'local-bubble', style: 'wire' }); // the camera stays inside it here: wire lines (a soft rim only reads from outside)
+  bubble.scale.setScalar(LOCAL_BUBBLE_LY / 2); scene.add(bubble);
   // Distance rings in the plane of the Solar System: 5, 10 and 15 light-years from the Sun.
   const rings = new THREE.Group(); scene.add(rings);
   for (const r of [5, 10, 15]) {
