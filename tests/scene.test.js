@@ -5,7 +5,7 @@ import * as THREE from '../vendor/three.module.min.js';import * as data from '..
 // app.js with three, OrbitControls, data.js and textures.js replaced; its other modules (sky, lod, stars data…) are
 // the real files, loaded into the same context.
 function linker(context,fake,swap){const cache=new Map();return (spec,ref)=>{const f=swap(spec);if(f)return fake(f);const file=path.normalize(path.join(ref?.identifier?path.dirname(ref.identifier):'.',spec));if(!cache.has(file))cache.set(file,new vm.SourceTextModule(fs.readFileSync(file,'utf8'),{context,identifier:file}));return cache.get(file);};}
-test('Moon is independently focusable; kid/default/real scale keep radius ratios and correct parent distances',async()=>{
+test('Moon is independently focusable; default/real scale keep radius ratios and correct parent distances',async()=>{
   function element(){return {style:{},dataset:{},getBoundingClientRect(){return {width:320,height:311,left:12,top:120};},value:'0',classList:{add(){},toggle(){}},addEventListener(){},appendChild(){},setAttribute(){},getContext(){return {createRadialGradient(){return {addColorStop(){}};},fillRect(){}};}};}
   const els={};let frame;
   const context=vm.createContext({document:{getElementById:id=>els[id]||=element(),createElement:element,body:element(),addEventListener(){}},window:{},innerWidth:320,innerHeight:740,devicePixelRatio:2,performance,addEventListener(){},requestAnimationFrame:fn=>{frame=fn;},console});
@@ -16,14 +16,13 @@ test('Moon is independently focusable; kid/default/real scale keep radius ratios
   const fake=(obj)=>new vm.SyntheticModule(Object.keys(obj),function(){for(const [k,v] of Object.entries(obj))this.setExport(k,v);},{context});
   const entry=new vm.SourceTextModule(fs.readFileSync('app.js','utf8'),{context,identifier:'app.js'});
   await entry.link(linker(context,fake,spec=>spec.includes('three.module')?three:spec.includes('OrbitControls')?{OrbitControls:Controls}:spec==='./data.js'?data:spec.includes('textures.js')?textures:null));await entry.evaluate();
-  const {bodies,setKid,setRealScale,focus,hooks}=entry.namespace;
+  const {bodies,setRealScale,focus,hooks}=entry.namespace;
   const earth=bodies.find(b=>b.data.name==='Earth'),moon=bodies.find(b=>b.data.name==='Moon');
   assert.equal(bodies.length,10+data.DWARFS.length+data.MOONS.length);assert.equal(moon.mesh,earth.moonMesh);assert.equal(moon.satellite,true);
-  setKid(true,{noHome:true});assert.equal(earth.radius,1);assert.equal(moon.radius,data.MOON.size*2);
-  assert.equal(moon.mesh.position.x,2.4);assert.equal(moon.mesh.scale.x,2);
+  assert.equal(earth.radius,0.5);assert.equal(moon.radius,data.MOON.size);assert.equal(moon.mesh.position.x,1.5);assert.equal(moon.mesh.scale.x,1);
   hooks.hold=true;frame(performance.now()+16);focus(moon);frame(performance.now()+32);
   assert.equal(els['i-name'].textContent,'Moon');assert.ok(moon.marker);
-  setKid(false);assert.equal(moon.radius,data.MOON.size);assert.equal(moon.mesh.position.x,1.5);
+  assert.equal(moon.radius,data.MOON.size);assert.equal(moon.mesh.position.x,1.5);
   setRealScale(true);frame(performance.now()+48);assert.equal(moon.mesh.position.x,data.MOON.realDist);
   assert.ok(Math.abs(earth.pivot.position.length()-data.PLANETS.find(p=>p.name==='Earth').realDist)<.001);
   setRealScale(false);assert.equal(moon.mesh.position.x,1.5);

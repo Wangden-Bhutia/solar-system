@@ -349,7 +349,7 @@ let preferences;try{preferences=JSON.parse(localStorage.getItem('solar.kids.v1')
 // for anyone who had tapped once on this origin, including testers of a newer build.)
 let hintSeen=false;
 $('sound').checked=!preferences.muted;
-const player=createVoicePlayer({lines:LINES,durations:VOICE.dur,onState:s=>{
+const player=createVoicePlayer({lines:LINES,durations:VOICE.dur,versions:VOICE.hash,onState:s=>{
  if(s==='idle' && lastAudioState==='retry')return;
  lastAudioState=s;$('audio-status').textContent=s==='loading'?'Loading voice…':s==='speaking'?'Reading this card':s==='retry'?'Tap ♫ to try again.':'';
 }});

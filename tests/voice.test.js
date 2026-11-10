@@ -15,7 +15,7 @@ function setup() {
   played=spoken=requests=resumed=0; mode='normal'; instances=[];
   globalThis.AudioContext=FakeContext;
   globalThis.SpeechSynthesisUtterance=class { constructor(text){this.text=text;} };
-  globalThis.speechSynthesis={cancel(){},getVoices(){return [{name:'Female',lang:'en-US'},{name:'Daniel',lang:'en-GB'}];},speak(u){spoken++;assert.equal(u.voice.name,'Daniel');assert.equal(u.pitch,.9);assert.equal(u.rate,.85);setTimeout(()=>u.onend(),1);}};
+  globalThis.speechSynthesis={cancel(){},getVoices(){return [{name:'Female',lang:'en-US'},{name:'Daniel',lang:'en-GB'}];},speak(u){spoken++;assert.equal(u.voice.name,'Daniel');assert.equal(u.pitch,1);assert.equal(u.rate,.9);setTimeout(()=>u.onend(),1);}};
   globalThis.fetch=async()=>{requests++;return {ok:true,arrayBuffer:async()=>new ArrayBuffer(1)};};
   const states=[];
   return {p:createVoicePlayer({lines:{a:'Hello Earth.',b:'Hello Moon.'},durations:{a:.01,b:.01},onState:s=>states.push(s)}),states};

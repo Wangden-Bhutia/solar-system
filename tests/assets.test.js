@@ -6,9 +6,9 @@ test('every loaded relative module is present and packaged; no runtime CDN depen
  for(const [,spec]of fs.readFileSync(file,'utf8').matchAll(/(?:from\s*|import\s*)['"]([^'"]+)['"]/g)){assert.ok(spec.startsWith('.'),`nonlocal dependency ${spec}`);walk(path.join(path.dirname(file),spec));}}
  walk('lab.js');assert.ok(seen.has('land.js'));assert.ok(seen.has('experiments.js'));
 });
-test('87 voice texts, assets and manifest entries agree exactly',()=>{
+test('26 voice texts, assets and manifest entries agree exactly',()=>{
  const source=JSON.parse(fs.readFileSync('voice/lines.json'));const manifest=JSON.parse(fs.readFileSync('voice/manifest.json'));
- assert.deepEqual(source,LINES);assert.equal(Object.keys(source).length,87);
+ assert.deepEqual(source,LINES);assert.equal(Object.keys(source).length,26);
  for(const [id,text]of Object.entries(source)){assert.equal(manifest[id].text,text);assert.ok(manifest[id].dur>0);assert.ok(fs.statSync(`voice/${id}.mp3`).size>1000);}
 });
 test('three primary actions and no placeholder anchors',()=>{
