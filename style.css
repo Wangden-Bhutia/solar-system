@@ -347,3 +347,15 @@ body:not([data-sheet="closed"]) .tour-hint{display:none}
 .src-more,.tour-all{background:none;border:0;padding:6px 0;min-height:32px;font-size:12.5px;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
 .tour-all{padding:0 0 0 4px;min-height:0;font-size:11.5px}
 body.sources-open #tour,body.sources-open #tour-hint{visibility:hidden}
+/* Back to Earth (lab.js): a slim chip at the top right, under the scale ladder; it steps down below the tour's hint or
+   the Continue prompt while either shows. Hidden while a card, the tour, the adventure or the Sources screen is open. */
+.home-earth{position:fixed;z-index:12;top:calc(var(--safe-t) + 96px);right:calc(var(--safe-r) + 12px);gap:5px}
+.home-earth[hidden]{display:none}
+.home-earth span{font-size:14px;line-height:1}
+body.hint-up .home-earth{top:calc(var(--safe-t) + 156px)}
+.experiment-mode .home-earth{display:none}
+/* Continue where you left off: the tour hint's slot and look (they never show together) */
+#resume-go{flex:1;text-align:left;padding:8px 6px 8px 14px;color:var(--accent)}
+#resume-x{flex:0 0 44px;color:var(--muted)}
+.resume-hint{border-color:rgba(194,223,243,.35)}
+body.sources-open #resume,body.sources-open .home-earth{visibility:hidden}
