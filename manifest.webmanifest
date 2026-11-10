@@ -1,7 +1,7 @@
 {
-  "name": "Our Solar System",
-  "short_name": "Solar System",
-  "description": "An interactive journey from the Solar System to the edge of the observable universe.",
+  "name": "A Mote in a Sunbeam",
+  "short_name": "Mote",
+  "description": "From the Sun to the edge of the universe.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

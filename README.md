@@ -1,4 +1,7 @@
-# Solar System · Look closer
+# A Mote in a Sunbeam
+
+*From the Sun to the edge of the universe.* The home-screen name is **Mote**.
+
 
 An interactive, static Three.js Solar System. The space scene fills the screen; everything else lives in one bottom sheet.
 
