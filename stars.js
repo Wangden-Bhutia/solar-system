@@ -31,7 +31,7 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
   const hyg = hygPoints('ecl', 1); hyg.frustumCulled = false; scene.add(hyg);
   // Illustrations: the Oort cloud (the same sample the Solar System draws, here in light-years) and the Local
   // Bubble, a ~1,000-ly-wide cavity of hot thin gas around the Sun (drawn as a sphere; its real shape is irregular).
-  const oort = pointCloud(oortPositions().map(v => v * AU_LY), { color: 0x9db4dc, size: 1.2, opacity: 0.35, layer: 'oort' }); oort.frustumCulled = false; scene.add(oort);
+  const oort = pointCloud(oortPositions().map(v => v * AU_LY), { color: 0x9db4dc, size: 1, opacity: 0.16, layer: 'oort' }); oort.frustumCulled = false; scene.add(oort);
   const bubble = wireShell({ color: 0x7a6fb0, opacity: 0.25, layer: 'local-bubble' }); bubble.scale.setScalar(LOCAL_BUBBLE_LY / 2); scene.add(bubble);
   // Distance rings in the plane of the Solar System: 5, 10 and 15 light-years from the Sun.
   const rings = new THREE.Group(); scene.add(rings);
@@ -77,9 +77,12 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
   for (const ring of rings.children) lod.add(ring, 'size');
   for (const d of dots) {
     if (d.e.sun) { lod.add(d.sprite, { outer: 'proxy', inner: 'model', alone: 'fixed' }); continue; }
-    lod.add(d.sprite, 'marker'); lod.add(d.stem, 'marker', { at: d.sprite.position }); lod.add(d.trail, 'marker', { at: d.sprite.position });
+    // Coming out of the Solar System (this map is the outer scale) the stars fade in across the whole seam, not in its
+    // first quarter, so they don't all switch on at once; towards the Galaxy they merge into the anchor as before.
+    const starRule = { outer: 'model', inner: 'marker', alone: 'marker' };
+    lod.add(d.sprite, starRule); lod.add(d.stem, starRule, { at: d.sprite.position }); lod.add(d.trail, starRule, { at: d.sprite.position });
   }
-  lod.add(nearLine, 'fixed');
+  lod.add(nearLine, { outer: 'model', inner: 'fixed', alone: 'fixed' });
   lod.add(hyg, { inner: 'proxy', outer: 'proxy', alone: 'size' });
   lod.add(oort, { outer: 'proxy', inner: 'size', alone: 'size' });
   lod.add(bubble, 'size', { appear: [60, 250] });

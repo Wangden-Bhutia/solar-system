@@ -471,7 +471,10 @@ function frame(now) {
   for (const b of labelOrder) {
     const p = b.mesh.getWorldPosition(tmp).project(camera);
     const x = bounds.left + (p.x + 1) / 2 * bounds.width, y = bounds.top + (1 - p.y) / 2 * bounds.height;
-    const w = b.data.name.length * 4.9 + 10, h = 13; // matches the .lbl tag: 8px text, 5px side padding
+    // The label's real width, measured once it has been laid out (an estimate from the name's length until then),
+    // plus a 3 px gap, so neighbouring names never touch.
+    const el0 = b.label; if (!b.labelW && el0 && el0.offsetWidth > 0) b.labelW = el0.offsetWidth;
+    const w = (b.labelW || b.data.name.length * 5.4 + 12) + 3, h = 15;
     // Above the world if there is room, otherwise below it. Too small to matter (lod) → no label.
     let spot = 0, x0 = x - w / 2, x1 = x + w / 2, y0 = 0, y1 = 0;
     // A world closer than MERGE_PX to the Sun on screen has merged into it (lod.js 'marker' rule): no label, and
@@ -557,7 +560,7 @@ for (const belt of belts) lod.add(belt.pts, LEAVING);
 const hygSky = hygPoints('ecl', 1);
 { const a = hygSky.geometry.attributes.position; for (let i = 0; i < a.count; i++) { const x = a.getX(i), y = a.getY(i), z = a.getZ(i), l = Math.hypot(x, y, z) || 1; a.setXYZ(i, x / l, y / l, z / l); } }
 hygSky.frustumCulled = false; hygSky.renderOrder = -9; scene.add(hygSky);
-const oort = pointCloud(oortPositions(), { color: 0x9db4dc, size: 1.2, opacity: 0.35, layer: 'oort' }); oort.frustumCulled = false; scene.add(oort);
+const oort = pointCloud(oortPositions(), { color: 0x9db4dc, size: 1, opacity: 0.16, layer: 'oort' }); // an illustration of something no one has seen: kept faint oort.frustumCulled = false; scene.add(oort);
 const helio = [[HELIO.heliopauseAU, 0.3], [HELIO.terminationShockAU, 0.16]].map(([au, op]) => { const w = wireShell({ color: 0x7f9ccf, opacity: op, layer: 'heliosphere' }); w.userData.au = au; scene.add(w); return w; });
 lod.add(hygSky, { inner: 'proxy', alone: 'fixed' });
 lod.add(oort, { inner: 'proxy', alone: 'size' });

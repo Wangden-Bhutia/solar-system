@@ -274,7 +274,16 @@ function updateHud(){
  const h=hudText({widthLy:viewWidth(Math.exp(z),cam.fov,aspect),sunLy,model,offSun});
  hudSet(hudA,h.lines[0]);hudSet(hudB,h.lines[1]);hudSet(hudC,h.lines[2]);hudSet(hudN,h.note);
 }
-hooks.afterFrame=()=>{updateHud();hooks.afterFrameLog?.();};
+// The time bar eases in only once the zoom has come to rest at a scale with a clock (and eases out as soon as a
+// zoom starts), so nothing pops up in the middle of a zoom; the scale readout gives way to it while it shows.
+let restSince=0;
+function updateTimeBar(){
+ const now=globalThis.performance?.now?.()??Date.now(),still=!bridge&&!zoom.moving&&!gtime.hidden;
+ if(!still)restSince=0;else if(!restSince)restSince=now;
+ const show=still&&now-restSince>450;
+ if(gtime.classList.contains('resting')!==show){gtime.classList.toggle('resting',show);document.body.classList.toggle('time-resting',show);}
+}
+hooks.afterFrame=()=>{updateHud();updateTimeBar();hooks.afterFrameLog?.();};
 // Inside a seam the "you are here" anchor stands at the Sun's label: the Sun's own label gives way (one label, not two).
 hooks.labelsOff=b=>!!bridge&&b.data.name==='Sun';
 // Labels never sit under the top controls: the band down to the scale ladder's bottom edge (read on layout only).
