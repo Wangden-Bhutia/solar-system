@@ -11,7 +11,7 @@ import { STAR_NEAR, STAR_FAR, SCENE_RANGE } from './zoom-ladder.js';
 import { createPlacer, placeAll, forgetLabel } from './labels.js';
 import { skyPoints, placeSky, glowTex, glowScale } from './sky.js';
 import { createLod, seamWindow } from './lod.js';
-import { hygPoints, oortPositions, pointCloud, wireShell, LOCAL_BUBBLE_LY } from './transition.js';
+import { hygPoints, setHygField, oortPositions, pointCloud, wireShell, LOCAL_BUBBLE_LY } from './transition.js';
 import { AU_LY } from './zoom-ladder.js';
 
 // glowTex: the shared glow (sky.js), so the Sun here and the Solar System's far-away Sun are drawn identically.
@@ -73,7 +73,7 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
   // Per-object level of detail (lod.js): stars fade as they merge into the Sun on screen, rings and lines as they
   // shrink; the sky is drawn once across a seam; the Sun is the same glow as the Solar System's far-away Sun
   // (swapped at mid-seam) and cross-fades with the Milky Way map's "You are here" marker.
-  const ORIGIN = new THREE.Vector3(), lod = createLod();
+  const ORIGIN = new THREE.Vector3(), lod = createLod(); scene.userData.lod = lod; // read by tests and ?diag
   lod.add(sky, 'proxy');
   for (const ring of rings.children) lod.add(ring, 'size');
   for (const d of dots) {
@@ -184,7 +184,7 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
       // each glow at about 2.2 × its nominal pixel size whatever the screen or sheet height.
       const k = glowScale(1, camera.fov, vh);
       for (const d of dots) d.sprite.scale.setScalar(Math.max(d.sprite.userData.px, d === nearDot ? 9 : 0) * k * (d.e === selected ? 1.6 : 1));
-      placeSky(sky, camera); lod.update(camera.position, ORIGIN, vh, camera.fov, seam); lastVh = vh;
+      placeSky(sky, camera); setHygField(hyg, camera.position.length()); lod.update(camera.position, ORIGIN, vh, camera.fov, seam, camera); lastVh = vh;
       if (labelsLive) placeLabels(camera, bounds, starItems);
       const clear = renderer.autoClear; renderer.autoClear = !overlay; renderer.render(scene, camera); renderer.autoClear = clear;
     } else {

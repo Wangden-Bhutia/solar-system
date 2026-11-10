@@ -5,7 +5,7 @@ import fs from 'node:fs';import vm from 'node:vm';import path from 'node:path';i
 import * as THREE from '../vendor/three.module.min.js';
 // fakeClock: performance.now() inside the app advances only with step() (50 ms a frame), so scene glides that
 // time themselves by the wall clock run at frame speed. Off by default.
-export async function bootApp({width=412,height=915,stored={},seed=1,fakeClock=false,reducedMotion=false,onRender=null}={}){
+export async function bootApp({layout=null,width=412,height=915,stored={},seed=1,fakeClock=false,reducedMotion=false,onRender=null}={}){
  let t=performance.now();const perf=fakeClock?{now:()=>t}:performance;
  const {window,document}=parseHTML(fs.readFileSync('index.html','utf8'));
  const selections=new WeakMap();Object.defineProperty(window.HTMLSelectElement.prototype,'value',{configurable:true,get(){return selections.get(this)??this.querySelector('option')?.textContent??'';},set(v){selections.set(this,v);}});
@@ -15,6 +15,9 @@ export async function bootApp({width=412,height=915,stored={},seed=1,fakeClock=f
  document.getElementById('stage').getBoundingClientRect=()=>rect(0,0,width,height);
  const sheetHeights={closed:0,peek:200,half:height*.52,full:height-80};
  const sheet=document.getElementById('sheet');sheet.getBoundingClientRect=()=>{const h=sheetHeights[sheet.dataset.state];return rect(0,height-h,width,h);};
+ // layout(document, rect): optional boxes for fixed controls (tests/phone-layout.js); the scale readout is created by
+ // lab.js, so its box is attached once it exists (hudRect).
+ const lay=layout?layout(document,rect,width,height):null;
  const captured=new Set();canvas.setPointerCapture=id=>captured.add(id);canvas.releasePointerCapture=id=>captured.delete(id);canvas.hasPointerCapture=id=>captured.has(id);
  const proto=window.HTMLElement.prototype;if(!proto.focus)proto.focus=function(){};
  // linkedom has no PointerEvent: a minimal one with the standard init dictionary.
@@ -45,6 +48,7 @@ export async function bootApp({width=412,height=915,stored={},seed=1,fakeClock=f
  const syn=(key,obj)=>{if(cache.has(key))return cache.get(key);const m=new vm.SyntheticModule(Object.keys(obj),function(){for(const[k,v]of Object.entries(obj))this.setExport(k,v);},{context});cache.set(key,m);return m;};
  const entry=await link('./lab.js');await entry.link(link);await entry.evaluate();
  const app=cache.get('app.js').namespace,lab=window.__lab;
+ if(lay?.hudRect){const hud=document.getElementById('hud');if(hud)hud.getBoundingClientRect=()=>lay.hudRect(hud)||rect(0,0,0,0);}
  // Every pending animation-frame callback runs once per step, as in a browser (the app loop, glides, the zoom).
  const step=(n=1)=>{for(let i=0;i<n;i++){t+=50;const q=queue;queue=[];for(const [,f] of q)f(t);}};
  const pe=(type,x,y,o={})=>new PointerEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,pointerId:o.id??1,pointerType:o.type??'touch',buttons:type==='pointerup'||type==='pointercancel'?0:1});

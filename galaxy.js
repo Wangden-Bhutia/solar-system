@@ -5,15 +5,20 @@ import { R0, ARMS, armRadius, discPosition, galaxyParticles, LANDMARKS } from '.
 import { GALAXY_NEAR, GALAXY_FAR, SCENE_RANGE } from './zoom-ladder.js';
 import { createPlacer, placeAll, forgetLabel } from './labels.js';
 import { skyPoints, placeSky } from './sky.js';
-import { createLod, seamWindow } from './lod.js';
-import { hygPoints, globularPositions, haloPositions, sgrPositions, magellanicPositions, pointCloud } from './transition.js';
+import { createLod, seamWindow, starLayer } from './lod.js';
+import { hygPoints, setHygField, globularPositions, haloPositions, sgrPositions, magellanicPositions, pointCloud } from './transition.js';
 import { omega, ARMS_OMEGA, BAR_OMEGA, SUN_OMEGA, turn, sunPosition, tracerStars, TIME_RANGE, MYR_PER_SEC } from './galaxy-motion.js';
 
 // Each particle carries its own angular speed (radians per Myr); the vertex shader turns it about the
 // centre by omega × t, so the whole Galaxy moves on the GPU with one uniform. Same maths as turn().
 const uT = { value: 0 };
+// Chained after any hook already on the material (the HYG completeness fade), with its own program cache key so a
+// spun HYG field and a spun cloud never share a compiled program.
 function spinning(mat) {
-  mat.onBeforeCompile = sh => {
+  const prev = Object.hasOwn(mat, 'onBeforeCompile') ? mat.onBeforeCompile : null; mat.userData.progKey = (prev ? mat.userData.progKey || '' : '') + '+spin';
+  mat.customProgramCacheKey = () => mat.userData.progKey;
+  mat.onBeforeCompile = (sh, r) => {
+    if (prev) prev(sh, r);
     sh.uniforms.uT = uT;
     sh.vertexShader = 'attribute float omega;\nuniform float uT;\n' + sh.vertexShader.replace('#include <begin_vertex>',
       '#include <begin_vertex>\n{ float a = omega * uT; float c = cos(a), s = sin(a); transformed.xz = vec2(transformed.x * c - transformed.z * s, transformed.x * s + transformed.z * c); }');
@@ -44,7 +49,7 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
   let tracers = null;
   // Brighter stars at their true orbital speed: they stream through the arms (inner ones overtake, outer ones lag).
   { const tr = tracerStars(); const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.BufferAttribute(tr.positions, 3)); tg.setAttribute('omega', new THREE.BufferAttribute(tr.omegas, 1));
-    scene.add(tracers = new THREE.Points(tg, spinning(new THREE.PointsMaterial({ color: 0xfff1d6, size: 1.9, sizeAttenuation: false, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })))); scene.children.at(-1).frustumCulled = false; }
+    scene.add(tracers = new THREE.Points(tg, spinning(new THREE.PointsMaterial({ color: 0xfff1d6, size: 1.9, sizeAttenuation: false, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })))); scene.children.at(-1).frustumCulled = false; starLayer(tracers.material); }
   // Central glow of the bulge.
   const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: 0xffd8a0, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending })); core.scale.setScalar(26); scene.add(core);
   // The Sun's orbit around the centre, and a marker for the Sun.
@@ -55,7 +60,7 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
   const hyg = hygPoints('gal', 1000); hyg.geometry.setAttribute('omega', new THREE.BufferAttribute(new Float32Array(hyg.geometry.attributes.position.count).fill(SUN_OMEGA), 1));
   spinning(hyg.material); hyg.frustumCulled = false; scene.add(hyg);
   // The 157 globular clusters of Harris 1996 (2010 edition), at their measured positions.
-  const globulars = pointCloud(globularPositions(1), { color: 0xffe2b0, size: 2.4, opacity: 0.85, layer: 'globulars' }); scene.add(globulars);
+  const globulars = pointCloud(globularPositions(1), { color: 0xffe2b0, size: 2.4, opacity: 0.85, layer: 'globulars' }); scene.add(globulars); starLayer(globulars.material); // separate stars: max-blend safety net (lod.js)
   // Illustrations: the stellar halo (a random sample of its density law), the Sagittarius stream's plane, and the
   // Magellanic Clouds' glow at their measured places.
   const halo = pointCloud(haloPositions(), { color: 0x9fb0d8, size: 1.2, opacity: 0.22, layer: 'halo' }); scene.add(halo);
@@ -75,7 +80,7 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
   // Per-object level of detail (lod.js). Going out to the Local Group the particle disc, the bulge glow and the
   // black hole cross-fade with the Local Group's picture of the Milky Way (a different model of the same thing);
   // other landmarks fade as they merge into the Sun on screen; the Sun's marker cross-fades with the star map's Sun.
-  const sunMark = marks.find(x => x.here), lod = createLod();
+  const sunMark = marks.find(x => x.here), lod = createLod(); scene.userData.lod = lod;
   lod.add(sky, 'proxy');
   // Exact stand-ins (proxy pairs) at the Local Group seam: the Local Group draws copies of these very objects
   // (shared geometry, cloned materials, positions ÷ 10), so they are swapped at mid-seam rather than cross-faded.
@@ -137,7 +142,7 @@ export function createGalaxy({ renderer, canvas, labelsEl, onPick, onTime }) {
     camera.updateProjectionMatrix(); fly.step(dt); tick(dt); drift(dt); controls.update();
     const k = 2 * Math.tan(camera.fov * Math.PI / 360) * 2 / vh; // ~ pixels → non-attenuated sprite scale
     for (const x of marks) x.sprite.scale.setScalar((x.m.name === 'Sun' ? 14 : x.m.name === 'Sagittarius A*' ? 12 : 9) * k * (x.m === selected ? 1.7 : 1));
-    placeSky(sky, camera); lod.update(camera.position, sunMark.sprite.position, vh, camera.fov, seam);
+    placeSky(sky, camera); setHygField(hyg, camera.position.distanceTo(sunMark.sprite.position) * 1000); lod.update(camera.position, sunMark.sprite.position, vh, camera.fov, seam, camera);
     // Sun-sized glow scales with distance from the camera so the bulge reads as a glow, not a disc.
     placeLabels(canvas.getBoundingClientRect());
     const clear = renderer.autoClear; renderer.autoClear = !overlay; renderer.render(scene, camera); renderer.autoClear = clear;

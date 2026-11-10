@@ -77,7 +77,7 @@ export function createLocal({ renderer, canvas, labelsEl, onPick, galaxy = null 
   const tmp = new THREE.Vector3(); let last = 0, selected = null, on = false, hideHere = false, seamNow = null;
   // Per-object level of detail (lod.js): the Milky Way's particles and marker cross-fade with the Galaxy scene's
   // model of it; other galaxies fade as they shrink (discs, clouds) or merge into the Milky Way on screen (markers).
-  const lod = createLod(), mwMark = marks[0], ORIGIN = new THREE.Vector3();
+  const lod = createLod(), mwMark = marks[0], ORIGIN = new THREE.Vector3(); scene.userData.lod = lod;
   lod.add(sky, 'proxy');
   // Leaving structures appear only once the camera is out past them (appear: camera distance from the Milky Way).
   const OUT = { appear: [400, 1500] };
@@ -130,7 +130,7 @@ export function createLocal({ renderer, canvas, labelsEl, onPick, galaxy = null 
     for (const sp of far) sp.scale.setScalar(sp.userData.px * k);
     for (const x of marks) x.sprite.scale.setScalar(x.sprite.userData.px * (x.g.i != null || x.g.blob || x.g.here ? 1.6 : 1) * k * (x.g === selected ? 1.7 : 1));
     camera.far = Math.max(1e5, camera.position.length() * 4); camera.updateProjectionMatrix();
-    placeSky(sky, camera); lod.update(camera.position, ORIGIN, vh, camera.fov, seam);
+    placeSky(sky, camera); lod.update(camera.position, ORIGIN, vh, camera.fov, seam, camera);
     placeLabels(canvas.getBoundingClientRect());
     const clear = renderer.autoClear; renderer.autoClear = !overlay; renderer.render(scene, camera); renderer.autoClear = clear;
   }

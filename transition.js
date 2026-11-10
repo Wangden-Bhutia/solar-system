@@ -9,6 +9,7 @@ import { starPosition, starColor } from './stars-data.js';
 import { toGalactic, galacticPosition, R0, KPC } from './galaxy-data.js';
 import { base64Bytes, CLUSTERS } from './cosmos-data.js';
 import { GALAXIES, LOCAL_UNIT } from './local-data.js';
+import { starLayer } from './lod.js';
 
 // ---- Measured sizes (sources in docs/sources.md) ----
 export const KUIPER_AU = [30, 50];                  // the classical Kuiper belt, about 30–50 AU
@@ -54,14 +55,44 @@ export function hygPositions(frame = 'ecl', unitLy = 1) {
   }
   return pos;
 }
+// ---- Completeness (A1 white pile, docs/sources.md "HYG completeness") ----
+// The layer is the catalogue's naked-eye stars, V ≤ 6.5: a brightness-limited sample, not a volume-limited one. A
+// star of magnitude V at distance d would still be in it out to its completeness distance d_lim = d × 10^((6.5 − V)/5)
+// (where it would fade to V = 6.5). Seen from the Sun that is exactly the naked-eye sky; seen from outside, the field
+// is ~17× denser in its inner 100 ly than its mean, so it piles up at the Sun. Each star therefore carries d_lim, and
+// a field radius R (the camera's distance from the Sun, 1 ly to 1,000 ly) keeps only the stars that would be in the
+// catalogue anywhere inside R: weight = log-smoothstep of d_lim from 0.8 R to R. With the camera inside the Solar
+// System (R = 1 ly) every star is drawn as before; from outside the 1,000-ly field the drawn subset is the one that
+// is complete to 1,000 ly (M ≤ −0.93: 977 of the 7,696 stars in the packed data) at full weight, with a smooth fade for those just short of it. No
+// star is added, moved or recoloured; stars only fade. Pure maths here; the same formula runs in the vertex shader.
+export const HYG_VLIM = 6.5, HYG_FIELD_LY = 1000, HYG_FADE = 0.8, HYG_RMIN = 1;
+export const completeLy = (V, ly) => ly * 10 ** ((HYG_VLIM - V) / 5);
+export const hygFieldR = dLy => Math.max(HYG_RMIN, Math.min(HYG_FIELD_LY, dLy));
+export function hygWeight(dlim, R) { const t = Math.min(1, Math.max(0, Math.log(dlim / (HYG_FADE * R)) / Math.log(1 / HYG_FADE))); return t * t * (3 - 2 * t); }
+// Vertex-shader version of hygWeight (identical maths); a star of weight 0 is not rasterised at all.
+function hygShader(mat) {
+  mat.userData.hygR = { value: HYG_RMIN }; mat.userData.progKey = 'hyg';
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.uHygR = mat.userData.hygR;
+    sh.vertexShader = 'attribute float hygDlim;\nuniform float uHygR;\n' + sh.vertexShader
+      .replace('#include <color_vertex>', '#include <color_vertex>\nfloat hygT = clamp(log(hygDlim / (' + HYG_FADE.toFixed(2) + ' * uHygR)) / log(' + (1 / HYG_FADE).toFixed(4) + '), 0.0, 1.0); float hygW = hygT * hygT * (3.0 - 2.0 * hygT); vColor *= hygW;')
+      .replace('#include <fog_vertex>', '#include <fog_vertex>\nif (hygW <= 0.0) gl_Position = vec4(0.0, 0.0, 2.0, 1.0);');
+  };
+  mat.customProgramCacheKey = () => mat.userData.progKey;
+  return mat;
+}
+// Set the field radius of a layer from the camera's distance from the Sun (ly). Returns R.
+export function setHygField(points, dLy) { const R = hygFieldR(dLy); points.material.userData.hygR.value = R; return R; }
+
 // The same field drawn identically by the star map and the Milky Way (a proxy pair across their seam):
 // fixed-size round points, one colour per star from its B − V, brightness from its magnitude.
 export const HYG_PX = 2;
 export function hygPoints(frame, unitLy) {
-  const s = hygStars(), col = new Float32Array(s.count * 3);
-  for (let i = 0; i < s.count; i++) { const c = starColor(bvTemp(s.bv[i])), k = magGain(s.mag[i]); col[i * 3] = c[0] * k; col[i * 3 + 1] = c[1] * k; col[i * 3 + 2] = c[2] * k; }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(hygPositions(frame, unitLy), 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const p = new THREE.Points(g, new THREE.PointsMaterial({ size: HYG_PX, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const s = hygStars(), col = new Float32Array(s.count * 3), dl = new Float32Array(s.count);
+  for (let i = 0; i < s.count; i++) { const c = starColor(bvTemp(s.bv[i])), k = magGain(s.mag[i]); col[i * 3] = c[0] * k; col[i * 3 + 1] = c[1] * k; col[i * 3 + 2] = c[2] * k; dl[i] = completeLy(s.mag[i], s.ly[i]); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(hygPositions(frame, unitLy), 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('hygDlim', new THREE.BufferAttribute(dl, 1));
+  g.userData.fluxKeep = dl.map(d => hygWeight(d, HYG_FIELD_LY) > 0.5 ? 1 : 0); // what flux dimming sees (lod.js cloudStats)
+  const p = new THREE.Points(g, starLayer(hygShader(new THREE.PointsMaterial({ size: HYG_PX, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }))));
   p.userData.layer = 'hyg'; return p;
 }
 

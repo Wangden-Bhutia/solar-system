@@ -4,6 +4,7 @@ import { SUN, PLANETS, MOON, MOONS, DWARFS, keplerPosition, beltElements, SUN_SH
 let realScale = false; const D = d => realScale ? d.realDist : d.dist;
 import { skyPoints, placeSky, glowTex, glowScale } from './sky.js';
 import { createLod, sizeFade, PX } from './lod.js';
+import { beginLabelFrame, frameFree, frameClaim, labelFrame, HYST_PX, HOLD_FRAMES } from './labels.js';
 import { SUN_ENTRY, starPixels, starColor } from './stars-data.js';
 import { hygPoints, oortPositions, pointCloud, wireShell, HELIO } from './transition.js';
 import { solarZ, metricBlend, auToUnits, AU_LY } from './zoom-ladder.js';
@@ -410,9 +411,13 @@ const placedBoxes = new Float64Array(bodies.length * 4 + 8);
 const offset = new THREE.Vector3(), delta = new THREE.Vector3(), sunScr = new THREE.Vector3();
 const MERGE_PX = 16; // = lod.js PX.mergeHi
 let placed = 0;
-const free = (x0, y0, x1, y1) => { for (let i = 0; i < placed * 4; i += 4) if (x0 < placedBoxes[i + 2] && x1 > placedBoxes[i] && y0 < placedBoxes[i + 3] && y1 > placedBoxes[i + 1]) return false; return true; };
+// Free of the other Solar names, and of everything the frame's one placement (labels.js) keeps clear: the top
+// controls, the open sheet, the time bar, the scale readout. A name already on screen keeps its spot while it is
+// clear; a hidden one needs HYST_PX of room and, after a collision, HOLD_FRAMES frames (no flicker in a zoom).
+const free = (x0, y0, x1, y1, m = 0) => { for (let i = 0; i < placed * 4; i += 4) if (x0 - m < placedBoxes[i + 2] && x1 + m > placedBoxes[i] && y0 - m < placedBoxes[i + 3] && y1 + m > placedBoxes[i + 1]) return false; return frameFree(x0, y0, x1, y1, m); };
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
+  beginLabelFrame(); // one label placement per frame across every scale (labels.js)
   hooks.beforeFrame?.(dt); // the zoom controller moves the camera (or a seam) first
   if (hooks.renderOverride) { hooks.renderOverride(); hooks.afterFrame?.(); requestAnimationFrame(frame); return; }
   const bounds = canvas.getBoundingClientRect();
@@ -482,9 +487,14 @@ function frame(now) {
     const merged = b !== bodies[0] && b !== focused && Math.hypot(x - sunX, y - sunY) < MERGE_PX;
     if (b !== bodies[0] && !b.satellite) b.mesh.visible = !(merged && Math.hypot(x - sunX, y - sunY) < PX.mergeLo);
     if (!merged && p.z < 1 && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05 && !(b.satellite && !(b.host ? inSystem(b) : focused)) && !(hooks.labelsOff?.(b))) {
-      if (free(x0, y - 6 - h, x1, y - 6)) { spot = 1; y0 = y - 6 - h; y1 = y - 6; } else if (free(x0, y + 6, x1, y + 6 + h)) { spot = 2; y0 = y + 6; y1 = y + 6 + h; }
+      const c0 = b.label._c, was = c0 && c0.spot > 0 ? c0.spot : 0, held = !was && b.lblHid && labelFrame() - b.lblHid < HOLD_FRAMES;
+      // The side it already shows on first (no hopping), then the other; a hidden name needs HYST_PX of room.
+      const m = was ? 0 : HYST_PX, up = () => free(x0, y - 6 - h, x1, y - 6, m), down = () => free(x0, y + 6, x1, y + 6 + h, m);
+      if (!held) { if (was === 2 ? down() : up()) spot = was === 2 ? 2 : 1; else if (was === 2 ? up() : down()) spot = was === 2 ? 1 : 2; }
+      if (spot === 1) { y0 = y - 6 - h; y1 = y - 6; } else if (spot === 2) { y0 = y + 6; y1 = y + 6 + h; }
+      if (was && !spot) b.lblHid = labelFrame();
     }
-    if (spot) { const i = placed * 4; placedBoxes[i] = x0; placedBoxes[i + 1] = y0; placedBoxes[i + 2] = x1; placedBoxes[i + 3] = y1; placed++; }
+    if (spot) { const i = placed * 4; placedBoxes[i] = x0; placedBoxes[i + 1] = y0; placedBoxes[i + 2] = x1; placedBoxes[i + 3] = y1; placed++; frameClaim(b.lblItem || (b.lblItem = { el: b.label }), x0, y0, x1, y1); }
     const el = b.label, c = el._c || (el._c = { spot: -1, x: NaN, y: NaN });
     if (c.spot !== spot) { el.style.visibility = spot ? 'visible' : 'hidden'; el.hidden = !spot; }
     // DOM writes only when the label moved by 0.1 px or more (or changed side).
@@ -547,7 +557,7 @@ export function hideSunLabel() { const el = bodies[0].label; if (!el.hidden) { e
 // Per-object level of detail (lod.js). Orbits, belts and trails fade as they shrink while the zoom leaves the
 // Solar System; the sky is drawn once across the seam; the Sun's disc gives way to its far-away glow by its own
 // apparent size, and the glow swaps with the star map's identical Sun at mid-seam.
-const lod = createLod(), ORIGIN = new THREE.Vector3(), LEAVING = { inner: 'size', alone: 'fixed' };
+const lod = createLod(), ORIGIN = new THREE.Vector3(), LEAVING = { inner: 'size', alone: 'fixed' }; scene.userData.lod = lod;
 lod.add(stars, 'proxy');
 for (const b of bodies) { if (b.orbit) lod.add(b.orbit, LEAVING, { L: 1 }); if (b.ellipse) lod.add(b.ellipse, LEAVING); if (b.trail) lod.add(b.trail, LEAVING, { L: Math.max(1, D(b.data)) }); }
 for (const belt of belts) lod.add(belt.pts, LEAVING);
@@ -582,7 +592,7 @@ export function clipFor(d) { return { near: Math.max(0.05, d * 1e-5), far: Math.
 function setClip() { const c = clipFor(camera.position.distanceTo(controls.target)); if (c.far !== camera.far || c.near !== camera.near) { camera.near = c.near; camera.far = c.far; camera.updateProjectionMatrix(); } }
 let sunGlow = 0;
 function applyLod(vh, seam) {
-  solarPlace(); placeSky(stars, camera); placeSky(hygSky, camera); lod.update(camera.position, ORIGIN, vh, camera.fov, seam);
+  solarPlace(); placeSky(stars, camera); placeSky(hygSky, camera); lod.update(camera.position, ORIGIN, vh, camera.fov, seam, camera);
   // Leaving structures appear only once the camera is out past them (represented distance from the Sun).
   oort.material.opacity *= logStep(camAU, 600, 2500); oort.visible = oort.material.opacity > 0.002;
   for (const w of helio) { w.material.opacity *= logStep(camAU, w.userData.au * 2, w.userData.au * 5); w.visible = w.material.opacity > 0.002; }
