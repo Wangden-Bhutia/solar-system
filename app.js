@@ -547,7 +547,7 @@ export function hideSunLabel() { const el = bodies[0].label; if (!el.hidden) { e
 // Per-object level of detail (lod.js). Orbits, belts and trails fade as they shrink while the zoom leaves the
 // Solar System; the sky is drawn once across the seam; the Sun's disc gives way to its far-away glow by its own
 // apparent size, and the glow swaps with the star map's identical Sun at mid-seam.
-const lod = createLod(), ORIGIN = new THREE.Vector3(), LEAVING = { inner: 'size', alone: 'fixed' };
+const lod = createLod(), ORIGIN = new THREE.Vector3(), LEAVING = { inner: 'size', alone: 'fixed' }; scene.userData.lod = lod;
 lod.add(stars, 'proxy');
 for (const b of bodies) { if (b.orbit) lod.add(b.orbit, LEAVING, { L: 1 }); if (b.ellipse) lod.add(b.ellipse, LEAVING); if (b.trail) lod.add(b.trail, LEAVING, { L: Math.max(1, D(b.data)) }); }
 for (const belt of belts) lod.add(belt.pts, LEAVING);
@@ -582,7 +582,7 @@ export function clipFor(d) { return { near: Math.max(0.05, d * 1e-5), far: Math.
 function setClip() { const c = clipFor(camera.position.distanceTo(controls.target)); if (c.far !== camera.far || c.near !== camera.near) { camera.near = c.near; camera.far = c.far; camera.updateProjectionMatrix(); } }
 let sunGlow = 0;
 function applyLod(vh, seam) {
-  solarPlace(); placeSky(stars, camera); placeSky(hygSky, camera); lod.update(camera.position, ORIGIN, vh, camera.fov, seam);
+  solarPlace(); placeSky(stars, camera); placeSky(hygSky, camera); lod.update(camera.position, ORIGIN, vh, camera.fov, seam, camera);
   // Leaving structures appear only once the camera is out past them (represented distance from the Sun).
   oort.material.opacity *= logStep(camAU, 600, 2500); oort.visible = oort.material.opacity > 0.002;
   for (const w of helio) { w.material.opacity *= logStep(camAU, w.userData.au * 2, w.userData.au * 5); w.visible = w.material.opacity > 0.002; }

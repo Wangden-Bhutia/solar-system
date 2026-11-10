@@ -51,7 +51,7 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, min, max =
   // "you are here" marker cross-fades with the scale next to it; copies of the next scale's objects (rule 'proxy')
   // swap with them at mid-seam.
   const ANCHOR = new THREE.Vector3(...home);
-  const buildLod = () => { lod = createLod(); scene.traverse(o => { if (o.material) lod.add(o, o.userData.sky ? 'proxy' : rules.get(o) ?? 'size', o.userData.lodOpts); }); };
+  const buildLod = () => { lod = createLod(); scene.userData.lod = lod; scene.traverse(o => { if (o.material) lod.add(o, o.userData.sky ? 'proxy' : rules.get(o) ?? 'size', o.userData.lodOpts); }); };
   const fadeOf = it => it.sprite ? it.sprite.userData.fade ?? 1 : it.ring ? it.ring.userData.fade ?? 1 : seamWindow(seamNow);
   const reduce = () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const portrait = () => { const r = canvas.getBoundingClientRect(); return r.height > r.width; };
@@ -99,7 +99,7 @@ function createScene({ renderer, canvas, labelsEl, onPick, near, far, min, max =
     for (const x of marks) x.sprite.scale.setScalar(x.sprite.userData.px * k * (x.item === selected ? 1.7 : 1));
     for (const sp of glows) sp.scale.setScalar(sp.userData.px * k);
     for (const o of scene.children) if (o.userData.sky) placeSky(o, camera);
-    lod.update(camera.position, ANCHOR, vh, camera.fov, seam);
+    lod.update(camera.position, ANCHOR, vh, camera.fov, seam, camera);
     placeLabels(canvas.getBoundingClientRect());
     const clear = renderer.autoClear; renderer.autoClear = !overlay; renderer.render(scene, camera); renderer.autoClear = clear;
   }
