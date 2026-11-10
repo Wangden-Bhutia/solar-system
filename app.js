@@ -111,7 +111,7 @@ for (const d of PLANETS) {
   const body = { data: d, pivot, mesh, trail, orbit, radius: d.size, angle: Math.random() * Math.PI * 2 };
   if (d.moon) {
     const mp = new THREE.Object3D(); pivot.add(mp);
-    const mm = new THREE.Mesh(new THREE.SphereGeometry(MOON.size, 20, 12), new THREE.MeshStandardMaterial({ map: tex('Moon').map, bumpMap: tex('Moon').bump, bumpScale: MOON.size * .04, roughness: 0.95 }));
+    const mm = new THREE.Mesh(new THREE.SphereGeometry(MOON.size, 64, 40), new THREE.MeshStandardMaterial({ map: tex('Moon').map, bumpMap: tex('Moon').bump, bumpScale: MOON.size * .04, roughness: 0.95 }));
     mm.position.x = MOON.dist; mp.add(mm); body.moonPivot = mp; body.moonMesh = mm; photo(mm.material, 'moon', { normal:'moon-normal' });
   }
   bodies.push(body); addLabel(body);
@@ -184,7 +184,7 @@ for (const m of MOONS) {
   const orbitPivot = new THREE.Object3D(); plane.add(orbitPivot);
   const t = tex('Moon'), mat = m.plain ? new THREE.MeshStandardMaterial({ color: m.color, roughness: 0.9 })
     : new THREE.MeshStandardMaterial({ map: t.map || t, bumpMap: t.bump || null, bumpScale: m.size * 0.04, color: m.color, roughness: 0.95 });
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(m.size, 24, 16), mat); mesh.position.x = m.dist; orbitPivot.add(mesh);
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(m.size, 40, 28), mat); mesh.position.x = m.dist; orbitPivot.add(mesh);
   const ring = new THREE.Line(unitCircle, moonOrbitMat); ring.scale.setScalar(m.dist); ring.visible = false; plane.add(ring);
   const body = { data: m, mesh, radius: m.size, satellite: true, host, orbitPivot, moonRing: ring, angle: Math.random() * Math.PI * 2 };
   (host.moons ||= []).push(body); bodies.push(body); addLabel(body);

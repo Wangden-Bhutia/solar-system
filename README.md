@@ -56,7 +56,7 @@ KOKORO_MODEL=/path/kokoro-v1.0.onnx KOKORO_VOICES=/path/voices-v1.0.bin python t
 
 ## Fast start and offline use
 - **Faster start.** The app no longer paints procedural planet maps that the photographs replace a moment later: planets start in a plain colour until their photo arrives (the procedural map is used only if a photo fails). The labs' 3D scene and the two largest scales are built only when first opened. On a phone-speed simulation (CPU slowed 4×), the time until the Solar System is tappable fell from about 4.9 s to about 1.4 s.
-- **Offline.** A service worker (`sw.js`) keeps everything the app has loaded, so after one visit with a connection it opens without one. **Save for offline** (or installing the app) stores all ~4.5 MB at once, using `precache.json`, which `tools/stamp.mjs` writes at deploy. An installed app refreshes its saved copy on each launch, downloading only changed files. The page itself is fetched fresh when online, so new versions show at once.
+- **Offline.** A service worker (`sw.js`) keeps everything the app has loaded, so after one visit with a connection it opens without one. **Save for offline** (or installing the app) stores all of it at once (60 files, about 4.0 MB; `tools/stamp.mjs` writes the figure into the menu from `precache.json`), using `precache.json`, which `tools/stamp.mjs` writes at deploy. An installed app refreshes its saved copy on each launch, downloading only changed files. The page itself is fetched fresh when online, so new versions show at once.
 - **Install.** `manifest.webmanifest` and two icons let phones add the app to the home screen.
 
 ## Run and test

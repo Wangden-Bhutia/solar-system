@@ -61,7 +61,7 @@ test('412×915: Adventure chip starts the story; four stops by tapping, Show me 
   // Wrong world: the camera stays put, the story asks again.
   tapWorld(a, 'Mars'); assert.equal(a.sheet, 'closed'); assert.equal(cap(a), `${LINES.trip_retry} ${LINES.trip_earth}`); assert.equal(a.app.solarFocused?.() ?? null, null);
   tapWorld(a, 'Earth'); assert.equal(a.sheet, 'closed', 'no world card during the story'); assert.equal(cap(a), LINES.trip_earth_found);
-  assert.equal(main(a).textContent, 'Visit the Moon →'); assert.equal(a.$('story-skip').hidden, true);
+  assert.equal(main(a).textContent, 'On to the Moon →'); assert.equal(a.$('story-skip').hidden, true);
   a.click(main(a)); a.step(40);
   assert.equal(a.$('story-step').textContent, '2 / 4 · Our Moon'); assert.equal(cap(a), LINES.trip_moon); assert.equal(main(a).textContent, 'Visit Moon');
   const [mx, my, mz] = a.screenOf('Moon'); assert.ok(mx > 0 && mx < 412 && my > 0 && my < 915 && mz < 1, `Moon on screen at ${mx.toFixed(0)},${my.toFixed(0)}`);
