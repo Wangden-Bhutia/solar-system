@@ -1,5 +1,11 @@
 // Tap-unlocked Web Audio; no autoplay on load or on returning from another app.
-export function createVoicePlayer({ lines, durations, onState = () => {} }) {
+// Device speech, when a clip can't play: a male English voice where the device has one, at a calm pace.
+export const FALLBACK = { rate: 0.9, pitch: 1 };
+export const MALE_VOICE = /male|george|daniel|david|james|arthur|oliver|guy|ryan|thomas|alex|fred|rishi|aaron/i;
+export const pickVoice = voices => { const vs = voices.filter(v => /^en/i.test(v.lang)); return vs.find(v => MALE_VOICE.test(v.name) && !/female/i.test(v.name)) || vs[0] || null; };
+// versions: clip id → content hash (voice/lines.js VOICE.hash). It goes in the clip URL, so a re-recorded clip is
+// fetched fresh while the service worker keeps serving a clip it already has (cache-first) offline.
+export function createVoicePlayer({ lines, durations, versions = {}, onState = () => {} }) {
   let ctx, source, finish, token = 0;
   const cache = new Map();
   const state = value => onState(value);
@@ -23,7 +29,7 @@ export function createVoicePlayer({ lines, durations, onState = () => {} }) {
     if (!cache.has(id)) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 6000);
-      cache.set(id, fetch(`voice/${id}.mp3`, { signal: controller.signal })
+      cache.set(id, fetch(`voice/${id}.mp3${versions[id] ? `?h=${versions[id]}` : ''}`, { signal: controller.signal })
         .then(r => { if (!r.ok) throw Error('clip unavailable'); return r.arrayBuffer(); })
         .then(b => ctx.decodeAudioData(b)).catch(() => { cache.delete(id); return null; })
         .finally(() => clearTimeout(timeout)));
@@ -33,10 +39,8 @@ export function createVoicePlayer({ lines, durations, onState = () => {} }) {
   function fallback(text, me) {
     return new Promise(resolve => {
       if (!('speechSynthesis' in globalThis)) { state('retry'); return resolve(); }
-      const u = new SpeechSynthesisUtterance(text); u.rate = 0.85; u.pitch = 0.9;
-      const vs = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
-      const male = /male|george|daniel|david|james|arthur|oliver|guy|ryan|thomas|alex|fred|rishi|aaron/i;
-      u.voice = vs.find(v => male.test(v.name) && !/female/i.test(v.name)) || vs[0] || null;
+      const u = new SpeechSynthesisUtterance(text); u.rate = FALLBACK.rate; u.pitch = FALLBACK.pitch; // calm and unhurried, normal pitch
+      u.voice = pickVoice(speechSynthesis.getVoices());
       let timer;
       const done = () => { clearTimeout(timer); if (finish === done) finish = null; resolve(); };
       finish = done;

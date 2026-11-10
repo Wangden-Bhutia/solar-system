@@ -4,7 +4,7 @@
 <nav id="world-nav" aria-label="Go to a world"><label>Go to a world <select id="world"></select></label></nav>
 <main id="stage" aria-label="Interactive space scene">
  <canvas id="c" aria-label="3D Solar System. Drag to look around. Tap a planet, the Sun or the Moon to open its card. Keyboard: use Go to a world in the menu."></canvas>
- <div id="labels"></div><div id="here" hidden></div><div id="orbit-map" hidden></div>
+ <div id="labels"></div><div id="orbit-map" hidden></div>
 </main>
 <nav id="topbar" aria-label="Navigation">
  <button id="journeys" class="chip" aria-label="Guided journeys"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1.5l1.6 4.4 4.4 1.6-4.4 1.6L8 13.5 6.4 9.1 2 7.5l4.4-1.6z"/></svg>Journeys</button>
@@ -96,5 +96,5 @@
  </div>
 </section>
 <!-- Data targets used by the original scene module; not visible UI. -->
-<div hidden><span id="scaleNote"></span><div id="info"><h2 id="i-name"></h2><p id="i-blurb"></p><dl id="i-facts"></dl><button id="info-close"></button></div><button id="kidBtn"></button></div>
+<div hidden><span id="scaleNote"></span><div id="info"><h2 id="i-name"></h2><p id="i-blurb"></p><dl id="i-facts"></dl><button id="info-close"></button></div></div>
 <script type="module" src="lab.js"></script></body></html>

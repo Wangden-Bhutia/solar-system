@@ -211,7 +211,7 @@ for (const b of bodies) {
 // Simulation state
 let playing = true, speedExp = 0, trailsOn = true, focused = null;
 let lastSize = [0, 0];
-export const hooks = { kid: false, onFocus: null, intercept: null, focusMul: 0, here: false, renderOverride: null, hold: false, homeScope: 'all' };
+export const hooks = { onFocus: null, intercept: null, focusMul: 0, renderOverride: null, hold: false, homeScope: 'all' };
 const BASE_DAYS_PER_SEC = 365.26 / 20; // 1 Earth year per 20 s at 1x
 // Overview only: the Sun is drawn at half its default size (1/10 of true size instead of 1/5) so
 // the inner planets are not hidden behind it, and orbits run at 1/5 speed so they are easy to tap.
@@ -233,7 +233,7 @@ function placeBodies() {
 function updateTrails() {
   for (const b of bodies) {
     if (!b.trail) continue;
-    b.trail.visible = trailsOn && !hooks.kid; if (!b.trail.visible) continue;
+    b.trail.visible = trailsOn; if (!b.trail.visible) continue;
     const pos = b.trail.geometry.attributes.position, col = b.trail.geometry.attributes.color;
     const span = Math.min(0.35, 0.35) * Math.PI * 2; // trail covers ~35% of orbit
     const base = b.angle + (simDays / b.data.period) * Math.PI * 2, c = new THREE.Color(b.data.color);
@@ -255,7 +255,7 @@ function focus(b, opts = {}) {
   document.getElementById('i-name').textContent = b.data.name;
   document.getElementById('i-blurb').textContent = b.data.blurb;
   document.getElementById('i-facts').innerHTML = b.data.facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
-  info.hidden = hooks.kid;
+  info.hidden = false;
   if (!opts.silent && hooks.onFocus) hooks.onFocus(b);
 }
 function unfocus(goHome, dur) {
@@ -368,8 +368,7 @@ function resize() {
   renderer.setSize(w, h, false); lastSize = [w, h]; camera.aspect = w / h;
   const portrait = h >= w;
   hooks.homeScope = realScale ? 'all' : chosenScope || (portrait ? 'inner' : 'all');
-  if (hooks.kid) HOME.pos.copy(HOME_DIRECTION).multiplyScalar(150 / Math.min(1, w/h));
-  else { const dir = homeDirection(w / h); HOME.pos.copy(dir).multiplyScalar(fitHomeDistance(homeRadius(hooks.homeScope), camera.fov, w / h, dir)); }
+  { const dir = homeDirection(w / h); HOME.pos.copy(dir).multiplyScalar(fitHomeDistance(homeRadius(hooks.homeScope), camera.fov, w / h, dir)); }
   // The edge of this scale is the all-planets view: zooming further hands over to the stars, so you never pass
   // through a far view where the Sun shrinks and the enlarged inner planets pile up on top of each other.
   // (Zooming further hands over to the stars: lab.js and zoom-ladder.js own those limits; edgeDistance is
@@ -423,18 +422,17 @@ function frame(now) {
   const bounds = canvas.getBoundingClientRect();
   if (bounds.width !== lastSize[0] || bounds.height !== lastSize[1]) { renderer.setSize(bounds.width, bounds.height, false); lastSize = [bounds.width, bounds.height]; } // resizing every frame reallocates the drawing buffer
   const view = applyVisibleRegion(camera, bounds.width, bounds.height, hooks.visible?.(bounds.width, bounds.height));
-  const kidSlow = hooks.kid ? 0.25 : 1;
-  const overview = !focused && !hooks.kid && !realScale, blend = Math.min(1, dt * 4);
+  const overview = !focused && !realScale, blend = Math.min(1, dt * 4);
   const approach = (v, target) => Math.abs(target - v) < 1e-3 ? target : v + (target - v) * blend;
   sunView = approach(sunView, overview ? OVERVIEW_SUN : 1); motionView = approach(motionView, overview ? OVERVIEW_MOTION : 1);
   { const sun = bodies[0], base = realScale ? SUN_SHRINK : 1; sun.mesh.scale.setScalar(base * sunView); sun.radius = SUN.size * base * sunView; }
-  const kidMotion = kidSlow * (hooks.kid || realScale ? 1 : motionView);
-  const dDays = playing && !hooks.hold ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidMotion : 0;
+  const viewMotion = realScale ? 1 : motionView;
+  const dDays = playing && !hooks.hold ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * viewMotion : 0;
   simDays += dDays; advanceMoons(dt, dDays);
   placeBodies(); placeBelts();
   for (const b of bodies) {
     const hours = Math.abs(b.data.rot); // direction comes from the tilt (Venus 177°, Uranus 98°)
-    const spin = playing && !hooks.hold ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * kidMotion * 24 / hours * 0.02 * Math.PI * 2 : 0;
+    const spin = playing && !hooks.hold ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * viewMotion * 24 / hours * 0.02 * Math.PI * 2 : 0;
     if (!b.satellite) b.mesh.rotation.y += spin;
     if (b.mesh.userData.axis) b.mesh.userData.axis.visible = focused === b;
     if (b.mesh.userData.clouds) b.mesh.userData.clouds.rotation.y += spin * 0.15 + dt * 0.01;
@@ -501,12 +499,6 @@ function frame(now) {
     if (spot && (c.spot !== spot || Math.abs(c.x - x) > 0.05 || Math.abs(c.y - y) > 0.05)) { el.style.transform = `translate(${x}px,${y}px) translate(-50%,${spot === 1 ? 'calc(-100% - 6px)' : '6px'})`; el.dataset.box = `${x0.toFixed(1)},${y0.toFixed(1)},${x1.toFixed(1)},${y1.toFixed(1)}`; c.x = x; c.y = y; }
     c.spot = spot;
   }
-  // "You are here" marker on Earth (kid overview only)
-  const earth = earthBody;
-  const hp = earth.mesh.getWorldPosition(tmp).project(camera);
-  const showHere = hooks.kid && hooks.here && !focused && fly.t >= 1 && hp.z < 1;
-  hereEl.hidden = !showHere;
-  if (showHere) hereEl.style.transform = `translate(${bounds.left + (hp.x + 1) / 2 * bounds.width}px,${bounds.top + (1 - hp.y) / 2 * bounds.height}px)`;
   // Show markers only for bodies that are too small to see/tap
   const pxPerUnit = view.height / 2 / Math.tan(camera.fov * Math.PI / 360);
   for (const b of bodies) { const dd = camera.position.distanceTo(b.mesh.getWorldPosition(tmp)); b.marker.visible = inSystem(b) && (b === bodies[0] || b.satellite || b.mesh.visible) && b.radius * (b === bodies[0] && realScale ? SUN_SHRINK : 1) / dd * pxPerUnit < 5; if (b.moonRing) b.moonRing.visible = inSystem(b) && !realScale; }
@@ -514,25 +506,6 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-const hereEl = document.getElementById('here');
-const ambient = scene.children.find(o => o.isAmbientLight);
-export function setKid(on, opts = {}) {
-  if (on && realScale) document.getElementById('realBtn').click();
-  hooks.kid = on;
-  document.body.classList.toggle('kid', on);
-  ambient.intensity = on ? 1.6 : 0.08;
-  for (const b of bodies) {
-    const k = on && (b.pivot || b.satellite) ? 2 : 1; // kid: planets x2 (same for all, ratios kept)
-    b.mesh.scale.setScalar(k); b.radius = b.data.size * k;
-    if (b.mesh.userData.ring) b.mesh.userData.ring.scale.setScalar(k);
-    if (b.trail) b.trail.visible = !on && trailsOn;
-    if (b.moonPivot) { const m = b.moonPivot.children[0]; m.scale.setScalar(on ? 2 : 1); m.position.x = on ? b.radius + 1.4 : (realScale ? MOON.realDist : MOON.dist); }
-  }
-  trailsHidden = on;
-  resize();
-  if (!opts.noHome) unfocus(true);
-}
-let trailsHidden = false;
 export function setRealScale(on) {
   realScale = on; document.body.classList.toggle('real', on);
   const sun = bodies[0]; sun.mesh.scale.setScalar(on ? SUN_SHRINK : 1); sun.radius = SUN.size * (on ? SUN_SHRINK : 1);
@@ -630,5 +603,5 @@ function drift(dt) {
 }
 export { scene as solarScene, lod as solarLod, oort as solarOort }; // read by tests
 export { bodies, focus, unfocus, camera, controls, renderer, pickAt, applyVisibleRegion, HOME, handleTap, inSystem, drift as solarDrift };
-window.__solar = { pickAt, screenOf: n => { const bounds=canvas.getBoundingClientRect(); const b = bodies.find(x => x.data.name === n); const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera); return [bounds.left + (p.x + 1) / 2 * bounds.width, bounds.top + (1 - p.y) / 2 * bounds.height]; }, focusByName: n => focus(bodies.find(b => b.data.name === n)), setKid };
+window.__solar = { pickAt, screenOf: n => { const bounds=canvas.getBoundingClientRect(); const b = bodies.find(x => x.data.name === n); const p = b.mesh.getWorldPosition(new THREE.Vector3()).project(camera); return [bounds.left + (p.x + 1) / 2 * bounds.width, bounds.top + (1 - p.y) / 2 * bounds.height]; }, focusByName: n => focus(bodies.find(b => b.data.name === n)) };
 window.__cam = () => [camera.position.toArray().map(v => +v.toFixed(3)), controls.target.toArray().map(v => +v.toFixed(3))];

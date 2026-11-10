@@ -44,14 +44,16 @@ export function stampSite(dir, v) {
 }
 
 // Every file the app can use, as the page will request it (scripts and styles carry the deploy stamp), so
-// "Install" / "Save for offline" can store the whole app in one go. sw.js itself is left out.
+// "Install" / "Save for offline" can store the whole app in one go. sw.js itself is left out, and so are the
+// voice clips (voice/*.mp3): they are optional, so each one is cached by sw.js the first time it plays.
+export const isClip = f => /^voice\/.*\.mp3$/.test(f);
 export function precacheList(dir, v) {
   return walk(dir).map(f => path.relative(dir, f).split(path.sep).join('/'))
-    .filter(f => f !== 'sw.js' && f !== 'precache.json' && !f.startsWith('.') && !f.endsWith('.md') && !f.endsWith('.txt'))
+    .filter(f => f !== 'sw.js' && f !== 'precache.json' && !f.startsWith('.') && !f.endsWith('.md') && !f.endsWith('.txt') && !isClip(f))
     .map(f => f === 'index.html' ? './' : /\.(m?js|css)$/.test(f) ? `${f}?v=${v}` : f).sort();
 }
 export function writePrecache(dir, v) {
-  const files = precacheList(dir, v), bytes = walk(dir).reduce((s, f) => s + fs.statSync(f).size, 0);
+  const files = precacheList(dir, v), bytes = files.reduce((s, f) => s + fs.statSync(path.join(dir, f === './' ? 'index.html' : f.split('?')[0])).size, 0);
   fs.writeFileSync(path.join(dir, 'precache.json'), JSON.stringify({ version: v, bytes, files }));
   return files.length;
 }

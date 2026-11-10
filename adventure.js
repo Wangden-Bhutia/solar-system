@@ -52,7 +52,7 @@ export function initAdventure(api, doc = document) {
   const trip = createAdventure();
   let phase = 'off'; // 'off' | 'stop' | 'done' | 'outro'
   let speaking = false, lastIds = null, run = 0, wasPlaying = null, scopeBefore = null, outroTimer = null;
-  const player = createVoicePlayer({ lines: LINES, durations: VOICE.dur, onState: s => { speaking = s === 'loading' || s === 'speaking'; paintVoice(s); } });
+  const player = createVoicePlayer({ lines: LINES, durations: VOICE.dur, versions: VOICE.hash, onState: s => { speaking = s === 'loading' || s === 'speaking'; paintVoice(s); } });
 
   // Entry chip, next to Journeys in the top bar.
   const chip = doc.createElement('button');

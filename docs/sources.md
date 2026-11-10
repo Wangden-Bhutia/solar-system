@@ -26,14 +26,14 @@ Definitions used:
 - Day length = NSSDCA "Length of day" (solar day). Where that differs a lot from the spin (sidereal rotation), both are shown.
 - Moon counts: NSSDCA sheets list Jupiter 95 / Saturn 274, which are older than the NASA Science pages; the app uses the newer NASA Science counts.
 
-## Kid-mode facts
+## Card narration facts (`f_<World>_0` clips)
 - "Mars looks red because of rusty dust": https://science.nasa.gov/mars/facts/ (accessed 8 Nov 2026) — "iron minerals in the Martian dirt oxidize, or rust, causing the surface to look red".
 - "About 1,300 Earths could fit inside Jupiter": Jupiter fact sheet volume ratio 1,321.
 - "About 1.3 million Earths could fit inside the Sun": Sun fact sheet volume ratio 1,304,000.
 - "A day on Venus is longer than its year": length of day 2,802 h (≈117 d) vs orbit 224.7 d.
 - "Uranus spins on its side": obliquity 97.77°.
-- "Nearly 300 moons" (Saturn): 293, NASA Science, Aug 2026.
-- All other kid facts restate values in the table above.
+- "Mercury is the closest planet to the Sun", "Neptune is the farthest", "Saturn has beautiful rings": restate the table above.
+- (The older kid-mode game and sticker lines were removed with kid mode in November 2026.)
 
 ## Earth geography
 - Coastlines: Natural Earth 1:110m Land (`ne_110m_land`), public domain — https://www.naturalearthdata.com/ (file fetched from https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson, 8 Nov 2026).
@@ -45,7 +45,7 @@ Definitions used:
 - Default orbit radius = 25 × AU^0.6 (Mercury 14.2, Earth 25, Jupiter 67.3, Neptune 192.9 units). True ratio Neptune/Mercury is 78:1; shown as 13.6:1.
 - Real scale orbit radius = AU × 11,727 units (1 AU = 149,597,870.7 km at the same scale as the sizes) — sizes and distances both true.
 - Moon: true size; its distance is shrunk to 1.5 units by default (true would be 30.1 units, used in Real scale).
-- Kid mode doubles all planet sizes equally (ratios kept) and keeps the Sun at 1/5; small planets get glowing dot markers and a 60 px tap area.
+- Small planets get glowing dot markers and a 60 px tap area.
 
 ## Voice
 - Kokoro-82M v1.0 TTS model, voice `bm_george` — Apache-2.0 — https://huggingface.co/hexgrad/Kokoro-82M
@@ -210,7 +210,7 @@ Ported from `feature/earth-moon-adventure` (03e3e84, PR #4, not merged). Every s
 | `trip_moon_found` | “The Moon is much farther from Earth than we show here.” | Same page: mean distance 384,400 km, “30 Earth-sized planets could fit in between”. The app’s default view puts the Moon 1.5 Earth diameters from Earth (`data.js` `MOON.dist` = 1.5 units, Earth diameter 1 unit; true 30.1). The story switches Real scale off, so the sentence is true whenever it plays. |
 | `trip_mars_found` | Rust in its rocks and dust makes Mars look red | https://science.nasa.gov/mars/facts/ — “Mars looks reddish … due to oxidization — or rusting — of iron in the rocks, regolith … and dust”. |
 | `trip_saturn`, `trip_saturn_found` | Big, bright rings made of many pieces of ice and rock | https://science.nasa.gov/saturn/facts/ — rings “made of billions of small chunks of ice and rock coated with other materials such as dust”. |
-| `f_Moon_0`, `f_Moon_1` | The Moon goes around Earth; rocky surface with many craters | https://science.nasa.gov/moon/facts/ (as above). These two, `that_Moon` and `yes_Moon` were ported for kid mode (`kids.js`), which the current app does not load; the story does not play them. |
+| (removed) | `f_Moon_0`, `f_Moon_1`, `that_Moon`, `yes_Moon` were ported for kid mode, which nothing loads; they were removed in the voice trim (November 2026). | — |
 
 **Corrected narration (two clips re-recorded, same Kokoro bm_george pipeline):** the old `trip_done` said “You can explore, play Find it, or tap Replay to travel again” and `trip_explore` said “Tap Replay whenever you want our adventure again”. The current app has no Find it game, and after leaving the story the way back is the Adventure chip, not Replay. New text: “What an adventure! Earth, the Moon, Mars, and Saturn. Explore on your own now, or tap Replay to travel again.” and “Tap a world to discover a fact. Tap Adventure whenever you want our trip again.” These were app-navigation errors, not science errors; no scientific statement in the old clips was found wrong.
 

@@ -31,9 +31,9 @@ Earth's Natural Earth coastlines and procedural planet details are preserved. No
 - Voice: Kokoro-82M v1.0 `bm_george`, speed 0.85, Apache-2.0 weights (https://huggingface.co/hexgrad/Kokoro-82M); kokoro-onnx runtime MIT (https://github.com/thewh1teagle/kokoro-onnx).
 
 ## Optional voice
-Listen reads the visible introduction using tap-initiated Web Audio. No autoplay on entry, world changes or slider movement. Existing saved mute preference is preserved. Missing clips/unsupported Web Audio fall back to Web Speech (male voice if the device provides one; pitch 0.9, rate 0.85). Returning from another app requires another Listen tap. These compatibility mechanisms are tested with mocks, not a claim of actual Android playback.
+Listen reads the visible introduction using tap-initiated Web Audio. No autoplay on entry, world changes or slider movement. Existing saved mute preference is preserved. Missing clips/unsupported Web Audio fall back to Web Speech (a male English voice if the device provides one; calm rate 0.9, normal pitch 1). Returning from another app requires another Listen tap. These compatibility mechanisms are tested with mocks, not a claim of actual Android playback.
 
-87 MP3s, mono 24 kHz / 32 kbps, 1,271,028 bytes total: the 65 kid clips, seven lab clips and 15 Earth–Moon adventure clips. Clips load on demand; Pages copies `voice/` and the deploy's `precache.json` lists every clip, so **Save for offline** stores them with the app. Runtime Three.js and audio are local assets; there are no CDN imports.
+26 MP3s, mono 24 kHz / 32 kbps, 628,312 bytes, one calm male voice (Kokoro bm_george, speed 0.85): eight world cards (Sun to Neptune), seven labs and the eleven Earth–Moon adventure lines. Only clips the app can play are kept (`tests/voice-trim.test.js` checks there are no orphans). The Voice switch (menu) is on by default and nothing plays until a tap. Clips are **not** part of Save for offline / install (that download is 60 files, about 4.0 MB); each clip is fetched the first time it plays, with its content hash in the URL (`?h=`), and the service worker keeps it, so a clip heard once also plays offline. Runtime Three.js and audio are local assets; there are no CDN imports.
 
 Regenerate from `voice/lines.json`: install `kokoro-onnx soundfile` plus ffmpeg, download the model and voice weights separately, then:
 ```
