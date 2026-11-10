@@ -259,3 +259,11 @@ body.bridging #gtime{visibility:hidden}
 .hud{position:fixed;left:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:5;pointer-events:none;font:11px/1.35 system-ui,sans-serif;color:#c9d4ea;background:rgba(0,0,8,.45);padding:4px 7px;border-radius:6px;max-width:62vw;font-variant-numeric:tabular-nums}
 .hud .hud-note{color:#8f9bb5;font-size:10px}
 .hud .hud-note:empty{display:none}
+
+/* The time bar eases in once a zoom has come to rest (lab.js updateTimeBar), never mid-zoom; the scale readout
+   steps aside while it shows. */
+#gtime{opacity:0;transform:translate(-50%,10px);pointer-events:none;transition:opacity .4s ease,transform .4s ease}
+#gtime.resting{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.hud{transition:opacity .4s ease}
+body.time-resting .hud{opacity:0}
+@media (prefers-reduced-motion:reduce){#gtime,.hud{transition:none}}
