@@ -1,7 +1,7 @@
 import { bodies, focus, unfocus, hooks, renderer, controls, setHomeScope } from './app.js';
 import { createStars } from './stars.js';
 import { frameOf, eclToGal, galToEcl, seamUp } from './frames.js';
-import { showLabel } from './labels.js';
+import { showLabel, labelWidth, frameEvict, setExclusions } from './labels.js';
 import { createGalaxy } from './galaxy.js';
 import { createLocal } from './local.js';
 import { createLaniakea, createUniverse } from './cosmos.js';
@@ -117,9 +117,11 @@ function placeAnchor(i,o,t){
  if(!okI&&!okO){showLabel(anchorItem,false);anchorNow.x=NaN;return;}
  const k=smooth(t),A=okI?aIn:aOut,B=okO?aOut:aIn,x=A.x+(B.x-A.x)*k,y=A.y+(B.y-A.y)*k,off=A.off+(B.off-A.off)*k,text=t<0.5?A.text:B.text;
  if(anchorEl.textContent!==text)anchorEl.textContent=text;
- showLabel(anchorItem,true,x,y,Math.round(off*10)/10,1);anchorNow.x=x;anchorNow.y=y;anchorNow.text=text;
+ showLabel(anchorItem,true,x,y,Math.round(off*10)/10,1);claimAnchor(x,y,Math.round(off*10)/10);anchorNow.x=x;anchorNow.y=y;anchorNow.text=text;
 }
-function placeAnchorFrom(l){const b=$('c').getBoundingClientRect();if(!anchorOf(l,aIn,b))return;if(anchorEl.textContent!==aIn.text)anchorEl.textContent=aIn.text;showLabel(anchorItem,true,aIn.x,aIn.y,Math.round(aIn.off*10)/10,1);anchorNow.x=aIn.x;anchorNow.y=aIn.y;anchorNow.text=aIn.text;}
+function placeAnchorFrom(l){const b=$('c').getBoundingClientRect();if(!anchorOf(l,aIn,b))return;if(anchorEl.textContent!==aIn.text)anchorEl.textContent=aIn.text;showLabel(anchorItem,true,aIn.x,aIn.y,Math.round(aIn.off*10)/10,1);claimAnchor(aIn.x,aIn.y,Math.round(aIn.off*10)/10);anchorNow.x=aIn.x;anchorNow.y=aIn.y;anchorNow.text=aIn.text;}
+// The anchor matters most: it takes its box in the frame's one label placement and hides any name under it.
+function claimAnchor(x,y,off){const w=labelWidth(anchorItem);frameEvict(anchorItem,x-w/2,y-off-13,x+w/2,y-off);}
 function hideAnchor(){showLabel(anchorItem,false);anchorNow.x=NaN;anchorNow.text='';}
 // Each scale's centre of view crosses the seam with it (the Galaxy may be centred on the Sun or on its own centre).
 // Stars ⇄ Galaxy always meets at the Sun, so it carries no centre.
@@ -133,7 +135,8 @@ function beginBridge(pair){
  const tgt=bridgeTarget(pair,cur),k=SEAMS[pair]?.k;
  bridge={pair,t:0,dir:viewDirOf(cur),frame:frameOf(cur),tgt,tgtOuter:tgt&&k?tgt.clone().divideScalar(k):null,dom:cur};state.update({sheet:'closed',star:null,landmark:null});
  // Only the dominant scale's names are placed while both are drawn; they swap at the middle of the seam.
- for(const l of PAIRS[pair]){showLabelsOf(l,true);setLive(l,l===cur);if(l!=='solar')sceneOf(l).hideHere?.(true);}
+ // (the current scale's names are already on: re-enabling them would hide them all for the opening frame, a blink)
+ for(const l of PAIRS[pair]){if(l!==cur)showLabelsOf(l,true);setLive(l,l===cur);if(l!=='solar')sceneOf(l).hideHere?.(true);}
  document.body.classList.add('bridging');render();
  // The anchor takes over from the scene's own label on this very frame (it is placed from the current scale's
  // camera, which is up to date; the seam itself is first drawn on the next frame).
@@ -293,7 +296,12 @@ hooks.afterFrame=()=>{updateHud();updateTimeBar();hooks.afterFrameLog?.();};
 hooks.labelsOff=b=>!!bridge&&b.data.name==='Sun';
 // Labels never sit under the top controls: the band down to the scale ladder's bottom edge (read on layout only).
 const safeTop=()=>{const r=$('ladder')?.getBoundingClientRect?.();LABEL_SAFE.top=r&&r.bottom>0?r.bottom+4:0;};safeTop();globalThis.addEventListener?.('resize',safeTop);
-hooks.beforeFrame=dt=>{zoomTick(dt);zlog?.frame(dt,currentZ(),bridge,levelOf(state.value.view));};
+// Rects no label may cover, read each frame from the real elements (before this frame writes any label): the open
+// sheet, the time bar and the scale readout. The top controls are SAFE.top (above).
+const exRect=el=>{const r=el?.getBoundingClientRect?.();return r&&r.width>0&&r.height>0?[r.left,r.top,r.right,r.bottom]:null;};
+const exList=[null,null,null];
+function readExclusions(){const sh=$('sheet');exList[0]=sh&&sh.dataset.state!=='closed'?exRect(sh):null;exList[1]=!gtime.hidden&&!document.body.classList.contains('bridging')?exRect(gtime):null;exList[2]=!hudEl.hidden&&!document.body.classList.contains('time-resting')?exRect(hudEl):null;setExclusions(exList,globalThis.innerWidth||Infinity,globalThis.innerHeight||Infinity);}
+hooks.beforeFrame=dt=>{readExclusions();zoomTick(dt);zlog?.frame(dt,currentZ(),bridge,levelOf(state.value.view));};
 // dz: a change of Z from a gesture (zoom.js gains). Zooming out of a selected world lets go of it.
 function zoomInput(dz,kind,now){
  if(animating||!dz)return false;
