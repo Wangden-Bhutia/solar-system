@@ -89,10 +89,13 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   const B = (color, o = {}) => new THREE.MeshBasicMaterial({ color: C(color), ...o });
   const mesh = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); return m; };
   const tube = (pts, r, mat) => new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p => V(...p))), 24, r, 8), mat);
-  function skyDome(top, horizon, below = horizon, r = 2400) {
-    const d = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 16), new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { a: { value: C(top) }, b: { value: C(horizon) }, c: { value: C(below) } },
-      vertexShader: 'varying float y;void main(){y=normalize(position).y;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-      fragmentShader: 'uniform vec3 a,b,c;varying float y;void main(){vec3 col=y>0.?mix(b,a,pow(clamp(y,0.,1.),0.55)):mix(b,c,clamp(-y*5.,0.,1.));gl_FragColor=vec4(col,1.);\n#include <colorspace_fragment>\n}' }));
+  // Sky gradient, with an optional sun drawn into the sky itself, so the land in front covers it naturally
+  // (a flat glow sprite at the horizon was cut off by the ground in a hard line).
+  function skyDome(top, horizon, below = horizon, r = 2400, sun = null) {
+    const dir = V(...(sun?.dir || [0, -1, 0])).normalize();
+    const d = new THREE.Mesh(new THREE.SphereGeometry(r, 48, 24), new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { a: { value: C(top) }, b: { value: C(horizon) }, c: { value: C(below) }, sd: { value: dir }, sc: { value: C(sun?.col || '#000000') } },
+      vertexShader: 'varying vec3 p;void main(){p=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+      fragmentShader: 'uniform vec3 a,b,c,sd,sc;varying vec3 p;void main(){float y=p.y;vec3 col=y>0.?mix(b,a,pow(clamp(y,0.,1.),0.55)):mix(b,c,clamp(-y*5.,0.,1.));float k=max(dot(normalize(p),sd),0.);col+=sc*(smoothstep(0.99955,0.9997,k)*1.6+pow(k,60.)*0.55+pow(k,8.)*0.25);gl_FragColor=vec4(col,1.);\n#include <colorspace_fragment>\n}' }));
     d.renderOrder = -1; return d;
   }
   const ground = (mat, r = 2300) => { const m = new THREE.Mesh(new THREE.CircleGeometry(r, 48), mat); m.rotation.x = -Math.PI / 2; return m; };
@@ -178,10 +181,9 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   // 25 Dec: the dinosaurs: long-necked sauropods and a tyrannosaur against a volcanic sunset, among cycads
   stages.dinos = () => {
     const r = rng(59), g = new THREE.Group(), dark = B('#1c0c06'), dark2 = B('#2a140a');
-    g.add(skyDome('#3a1830', '#ff9848', '#2a1408'), ground(B('#24120a')));
-    const sun = glow('#ffd08a', 170, 0.85); sun.position.set(30, 22, -420); const disc = mesh(new THREE.CircleGeometry(20, 32), B('#ffe0a0', { fog: false })); disc.position.set(30, 22, -430); g.add(sun, disc);
+    g.add(skyDome('#3a1830', '#ff9848', '#2a1408', 2400, { dir: [0.07, 0.05, -1], col: '#ffe0a0' }), ground(B('#24120a')));
     const volc = mesh(new THREE.ConeGeometry(90, 70, 24, 1, true), B('#2a1210')); volc.position.set(-130, 34, -360); const lava = glow('#ff5a1a', 90, 0.9); lava.position.set(-130, 70, -358); g.add(volc, lava);
-    const smoke = cloud(260, () => [-130 + gauss(r) * 14, 70 + r() * 120, -360 + gauss(r) * 10], { size: 14, opacity: 0.25 }); smoke.material.color.set('#5a3a30'); smoke.material.blending = THREE.NormalBlending; g.add(smoke);
+    const smoke = cloud(260, () => [-130 + gauss(r) * 14, 70 + r() * 120, -360 + gauss(r) * 10], { size: 14, opacity: 0.25 }); smoke.material.color.set('#3a2a24'); g.add(smoke);
     const herd = [sauropod(dark2, 1.4), sauropod(dark2, 1.0), sauropod(dark2, 0.7)]; herd[0].position.set(-26, 0, -70); herd[1].position.set(4, 0, -95); herd[2].position.set(24, 0, -110); herd[1].rotation.y = 0.15; herd[2].rotation.y = -0.2; herd[0].rotation.y = Math.PI - 0.3; g.add(...herd);
     const rex = theropod(dark, 1.15); rex.position.set(10, 0, -22); rex.rotation.y = Math.PI * 0.92; g.add(rex);
     for (const [x, z, s] of [[-18, -6, 1.6], [22, -8, 1.3], [-30, -30, 2], [34, -40, 2.2], [-6, -50, 1.4]]) { const c = cycad(dark, s); c.position.set(x, 0, z); g.add(c); }
@@ -191,15 +193,15 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   };
   // A jointed early human: shaped torso, tapered limbs, head with jaw, nose and curly hair, hands, feet and a hide wrap.
   // Joints are groups, so a pose is a handful of angles (negative x swings a limb forward; knees bend with positive x).
-  function human({ skin = '#4a2c1c', s = 1, female = false, pose = {}, seed = 1 } = {}) {
-    const q = rng(seed), SK = M(skin, { roughness: 0.62 }), HIDE = M(q() > 0.5 ? '#7a5434' : '#6a4a2e', { roughness: 1 }), HAIR = M('#120c08', { roughness: 1 });
+  function human({ skin = '#4a2c1c', s = 1, female = false, pose = {}, seed = 1, cloth = null } = {}) {
+    const q = rng(seed), SK = M(skin, { roughness: 0.62 }), HIDE = M(cloth || (q() > 0.5 ? '#7a5434' : '#6a4a2e'), { roughness: 1 }), HAIR = M('#120c08', { roughness: 1 });
     const limb = (len, r0, r1) => { const g = new THREE.CylinderGeometry(r1, r0, len, 10); g.translate(0, -len / 2, 0); const m = new THREE.Mesh(g, SK); m.add(new THREE.Mesh(new THREE.SphereGeometry(r0, 10, 8), SK)); return m; };
     const joint = (x, y, z) => { const j = new THREE.Group(); j.position.set(x, y, z); return j; };
     const root = new THREE.Group(), pelvis = joint(0, 0.93, 0); root.add(pelvis);
     const hipW = female ? 0.105 : 0.095, legs = [-1, 1].map(side => { const hip = joint(side * hipW, 0, 0), thigh = limb(0.44, 0.075, 0.055), knee = joint(0, -0.44, 0), shin = limb(0.42, 0.052, 0.036), ankle = joint(0, -0.42, 0), foot = mesh(new THREE.BoxGeometry(0.085, 0.05, 0.22), SK, 0, -0.035, 0.06); hip.add(thigh, knee); knee.add(shin, ankle); ankle.add(foot); pelvis.add(hip); return { hip, knee }; });
     const prof = (female ? [[0.12, -0.06], [0.175, 0], [0.16, 0.1], [0.125, 0.2], [0.15, 0.33], [0.165, 0.42], [0.17, 0.5], [0.09, 0.56]] : [[0.12, -0.06], [0.16, 0], [0.145, 0.1], [0.13, 0.2], [0.16, 0.33], [0.19, 0.44], [0.185, 0.5], [0.09, 0.56]]).map(([r, y]) => new THREE.Vector2(r, y));
     const spine = joint(0, 0, 0), torso = new THREE.Mesh(new THREE.LatheGeometry(prof, 16), SK); torso.scale.z = 0.62; spine.add(torso); pelvis.add(spine);
-    const wrap = mesh(new THREE.CylinderGeometry(0.165, female ? 0.2 : 0.185, 0.2, 14, 1, true), new THREE.MeshStandardMaterial({ color: HIDE.color, roughness: 1, side: THREE.DoubleSide }), 0, -0.06, 0); wrap.scale.z = 0.7; spine.add(wrap);
+    const wrap = mesh(new THREE.CylinderGeometry(0.165, female ? 0.2 : 0.19, cloth ? 0.3 : 0.2, 14, 1, true), new THREE.MeshStandardMaterial({ color: HIDE.color, roughness: 1, side: THREE.DoubleSide }), 0, cloth ? -0.1 : -0.06, 0); wrap.scale.z = 0.7; spine.add(wrap);
     if (female) { const top = mesh(new THREE.CylinderGeometry(0.165, 0.15, 0.12, 14, 1, true), new THREE.MeshStandardMaterial({ color: HIDE.color, roughness: 1, side: THREE.DoubleSide }), 0, 0.4, 0); top.scale.z = 0.72; spine.add(top); }
     const neck = mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.1, 10), SK, 0, 0.6, 0), headJ = joint(0, 0.66, 0); spine.add(neck, headJ);
     const head = mesh(new THREE.SphereGeometry(0.1, 16, 12), SK, 0, 0.06, 0); head.scale.set(0.82, 1.02, 0.95);
@@ -255,36 +257,102 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
       const f = 0.8 + 0.2 * Math.sin(t * 11) * Math.sin(t * 4.3); fire.material.opacity = f; fl.intensity = 10 + 6 * f;
       knapper.userData.arms[1].sh.rotation.x = -0.9 + Math.max(0, Math.sin(t * 5)) * -0.35; feeder.userData.arms[1].sh.rotation.x = -1.3 + Math.sin(t * 0.7) * 0.12; } };
   };
-  // 23:59:32: farming: fields of wheat, round mud-brick huts and a river at dawn
+  // ---- farm animals, pottery, fences, tools ----
+  // A four-legged animal: sheep (woolly), goat (horns swept back, beard) or cow (big, horns out). graze lowers the head.
+  function beast(kind, { seed = 1, col, graze = false } = {}) {
+    const q = rng(seed), S = { sheep: { b: [0.52, 0.34, 0.3], leg: 0.4, c: '#e6dccb', f: '#2a2420' }, goat: { b: [0.48, 0.27, 0.22], leg: 0.48, c: ['#7a5636', '#2c2420', '#d8cdb8'][Math.floor(q() * 3)], f: null }, cow: { b: [0.95, 0.48, 0.42], leg: 0.72, c: ['#6a4630', '#3a2a20', '#c8b49a'][Math.floor(q() * 3)], f: null } }[kind];
+    const coat = M(col || S.c, { roughness: 1 }), face = M(S.f || col || S.c, { roughness: 0.9 }), horn = M('#d8ccb0', { roughness: 0.6 }), g = new THREE.Group(), [bx, by, bz] = S.b, top = S.leg + by * 0.85;
+    const bg = new THREE.SphereGeometry(1, 20, 14); if (kind === 'sheep') { const p = bg.attributes.position; for (let k = 0; k < p.count; k++) { const n = 1 + (q() - 0.5) * 0.12; p.setXYZ(k, p.getX(k) * n, p.getY(k) * n, p.getZ(k) * n); } bg.computeVertexNormals(); }
+    const body = mesh(bg, coat, 0, top, 0); body.scale.set(bx, by, bz); g.add(body);
+    for (const [x, z] of [[0.62, 0.55], [0.62, -0.55], [-0.6, 0.55], [-0.6, -0.55]]) g.add(mesh(new THREE.CylinderGeometry(0.045 * (bx + 0.4), 0.035 * (bx + 0.4), S.leg + 0.05, 7), face, x * bx, S.leg / 2, z * bz));
+    const neck = new THREE.Group(); neck.position.set(bx * 0.8, top + by * 0.35, 0); neck.rotation.z = graze ? -1.6 : -0.5; g.add(neck);
+    const nl = bx * 0.55; neck.add(mesh(new THREE.CylinderGeometry(by * 0.32, by * 0.42, nl, 10).translate(0, nl / 2, 0), coat));
+    const head = new THREE.Group(); head.position.y = nl; head.rotation.z = graze ? 1.1 : 0.4; neck.add(head);
+    const hd = mesh(new THREE.SphereGeometry(1, 14, 10), face, bx * 0.18, 0, 0); hd.scale.set(bx * 0.34, by * 0.36, by * 0.3); head.add(hd);
+    for (const z of [-1, 1]) { const ear = mesh(new THREE.SphereGeometry(1, 8, 6), face, -bx * 0.02, by * 0.18, z * by * 0.32); ear.scale.set(by * 0.09, by * 0.05, by * 0.2); head.add(ear); }
+    if (kind === 'goat') { for (const z of [-1, 1]) head.add(tube([[0, by * 0.25, z * 0.04], [-0.08, by * 0.5, z * 0.06], [-0.2, by * 0.55, z * 0.07]], 0.02, horn)); head.add(mesh(new THREE.ConeGeometry(0.035, 0.12, 6), face, bx * 0.3, -by * 0.38, 0)); }
+    if (kind === 'cow') for (const z of [-1, 1]) head.add(tube([[0, by * 0.28, z * 0.1], [0, by * 0.4, z * 0.32], [0.08, by * 0.55, z * 0.42]], 0.035, horn));
+    g.add(mesh(new THREE.CylinderGeometry(0.02, 0.03, by * (kind === 'cow' ? 1.6 : 0.5), 6), coat, -bx * 1.0, top - by * (kind === 'cow' ? 0.5 : 0.1), 0)); if (kind === 'cow') g.children.at(-1).rotation.z = -0.15;
+    g.userData = { neck, graze }; return g;
+  }
+  const jar = (mat, s = 1, wide = 1) => mesh(new THREE.LatheGeometry([[0.01, 0], [0.16 * wide, 0.02], [0.26 * wide, 0.22], [0.24 * wide, 0.42], [0.12, 0.56], [0.1, 0.62], [0.13, 0.66]].map(([x, y]) => new THREE.Vector2(x * s, y * s)), 18), mat);
+  function fence(r0, n, mat, h = 0.95, from = 0, to = Math.PI * 2) { const list = []; for (let k = 0; k < n; k++) { const a = from + (to - from) * k / (n - 1); list.push([Math.cos(a) * r0, h / 2, Math.sin(a) * r0, 0, (Math.random() - 0.5) * 0.08, (Math.random() - 0.5) * 0.08, [1, h, 1]]); } return instanced(new THREE.CylinderGeometry(0.05, 0.06, 1, 5), mat, list); }
+  const sickle = mat => tube([[0, 0, 0], [0, -0.12, 0], [0.05, -0.2, 0.06], [0.14, -0.22, 0.12], [0.2, -0.16, 0.14]], 0.012, mat);
+
+  // 23:59:32: farming, about 12,000 years ago in the Fertile Crescent: wheat and barley fields, sheep and goats penned, round mud-brick houses
   stages.farming = () => {
-    const r = rng(67), g = new THREE.Group();
-    g.add(skyDome('#2c3e70', '#ffc890', '#5a4026'), ground(M('#5a4228', { roughness: 1 })), hemi('#ffe0b8', '#5a4026', 1.3));
-    const sun = glow('#ffd8a0', 90, 0.8); sun.position.set(-60, 8, -400); g.add(sun);
-    const river = mesh(new THREE.PlaneGeometry(14, 600), M('#4a78a8', { metalness: 0.4, roughness: 0.2 }), 34, 0.04, -120); river.rotation.x = -Math.PI / 2; river.rotation.z = 0.35; g.add(river);
-    const fields = [[-22, -8, 18, 12, '#e8c060'], [-2, -14, 16, 14, '#8ab040'], [-24, -30, 20, 14, '#d8b050'], [0, -36, 18, 16, '#e0c068']];
-    for (const [fx, fz, w, d, col] of fields) { const list = []; for (let row = 0; row < d / 0.7; row++) for (let k = 0; k < w / 0.25; k++) list.push([fx + k * 0.25 + (r() - 0.5) * 0.1, 0.5, fz - row * 0.7 + (r() - 0.5) * 0.12, r() * 3, (r() - 0.5) * 0.25, (r() - 0.5) * 0.25, 0.7 + r() * 0.5]); g.add(instanced(new THREE.ConeGeometry(0.06, 1.1, 4), M(col, { roughness: 0.8 }), list)); }
-    const mud = M('#a07048'), thatch = M('#c8a060');
-    for (const [x, z, s] of [[14, -20, 1], [19, -26, 1.2], [12, -30, 0.9], [22, -36, 1.1], [16, -42, 1], [26, -18, 0.8]]) { g.add(mesh(new THREE.CylinderGeometry(1.7 * s, 1.8 * s, 2 * s, 14), mud, x, s, z), mesh(new THREE.ConeGeometry(2.2 * s, 1.8 * s, 14), thatch, x, 2 * s + 0.9 * s, z)); }
-    for (const [x, z, s] of [[30, -8, 1.3], [40, -30, 1.6], [28, -50, 1.4], [44, -70, 1.8]]) { const p = palm(M('#2a3a1a'), s); p.position.set(x, 0, z); g.add(p); }
-    const farmer = person(M('#5a3a24'), 1.1); farmer.position.set(-6, 0, -4); farmer.rotation.set(0, 0.6, 0); farmer.children[2].rotation.x = 0.5; g.add(farmer);
-    const ox = new THREE.Group(), oxM = M('#4a3a2a'), body = mesh(new THREE.SphereGeometry(1, 12, 10), oxM, 0, 1.6, 0); body.scale.set(1.6, 0.8, 0.75); ox.add(body, mesh(new THREE.SphereGeometry(0.45, 10, 8), oxM, 1.8, 1.8, 0)); for (const [x, z] of [[0.9, 0.4], [0.9, -0.4], [-0.9, 0.4], [-0.9, -0.4]]) ox.add(mesh(new THREE.CylinderGeometry(0.15, 0.12, 1.1, 6), oxM, x, 0.55, z)); ox.position.set(-9, 0, -7); ox.rotation.y = 0.6; g.add(ox);
-    return { group: g, pose: { pos: V(-4, 7, 18), look: V(0, 1, -16) }, fog: ['#e8b888', 40, 420], update(t) { g.children.forEach(c => { if (c.isInstancedMesh) c.rotation.z = Math.sin(t * 0.8) * 0.004; }); } };
+    const r = rng(67), g = new THREE.Group(), mud = M('#a87a52'), thatch = M('#c8a868', { roughness: 1 }), wood = M('#6a4a2a'), clay = M('#a8603a', { roughness: 0.8 }), stoneM = M('#8a8274');
+    g.add(skyDome('#2c3e70', '#ffc890', '#5a4026', 2400, { dir: [-0.35, 0.05, -1], col: '#fff0c8' }), ground(M('#6a5030', { roughness: 1 })), hemi('#ffe0b8', '#5a4026', 1.3));
+    // fields: crop rows with furrows between them, edged by low dry-stone walls
+    const fields = [[-20, -10, 16, 10, '#e2c062', 0.85], [-2, -16, 14, 12, '#8ab040', 0.7], [-22, -26, 18, 12, '#d8b452', 1]];
+    for (const [fx, fz, w, d, col, ht] of fields) { const list = []; for (let row = 0; row < d / 0.6; row++) for (let k = 0; k < w / 0.18; k++) list.push([fx + k * 0.18 + (r() - 0.5) * 0.06, 0.45 * ht, fz - row * 0.6 + (r() - 0.5) * 0.1, r() * 3, (r() - 0.5) * 0.2, (r() - 0.5) * 0.2, [1, ht * (0.75 + r() * 0.4), 1]]); g.add(instanced(new THREE.ConeGeometry(0.05, 0.95, 4), M(col, { roughness: 0.8 }), list));
+      const furrow = mesh(new THREE.PlaneGeometry(w, d), M('#4a3420', { roughness: 1 }), fx + w / 2, 0.01, fz - d / 2 + 0.3); furrow.rotation.x = -Math.PI / 2; g.add(furrow);
+      const wall = []; for (let k = 0; k <= w; k += 0.5) wall.push([fx + k, 0.15, fz + 0.8, r() * 3, r(), r(), 0.28 + r() * 0.1]); g.add(instanced(new THREE.DodecahedronGeometry(0.5, 0), stoneM, wall)); }
+    // the village: round mud-brick houses with thatched roofs and dark doorways, storage jars, a hearth
+    const houses = [[4, -15, 1], [9, -19, 1.2], [3, -24, 0.9], [12, -27, 1.1], [7, -31, 1], [14, -15, 0.8]];
+    for (const [x, z, s] of houses) { const h = new THREE.Group(); h.add(mesh(new THREE.CylinderGeometry(1.7 * s, 1.8 * s, 1.9 * s, 18), mud, 0, 0.95 * s, 0), mesh(new THREE.ConeGeometry(2.25 * s, 1.5 * s, 18), thatch, 0, 1.9 * s + 0.72 * s, 0)); const door = mesh(new THREE.PlaneGeometry(0.7 * s, 1.15 * s), B('#140c06'), 0, 0.6 * s, 1.81 * s); h.add(door); h.position.set(x, 0, z); h.rotation.y = Math.atan2(-2 - x, 6 - z) ; g.add(h); }
+    for (const [x, z, s] of [[1.5, -12, 1.2], [2.4, -11.6, 0.9], [1.9, -11.1, 1], [6.5, -12.4, 1.1]]) { const j = jar(clay, s); j.position.set(x, 0, z); g.add(j); }
+    // the pen: a woven wattle fence with sheep and goats, a cow tethered outside
+    const pen = new THREE.Group(); pen.position.set(-5, 0, -4); pen.add(fence(3.2, 70, wood, 0.9, 0.35, Math.PI * 2 - 0.15)); for (let k = 0; k < 3; k++) { const rail = mesh(new THREE.TorusGeometry(3.2, 0.03, 4, 48, Math.PI * 2 - 0.5), wood, 0, 0.25 + k * 0.3, 0); rail.rotation.x = Math.PI / 2; rail.rotation.z = 0.35; pen.add(rail); } g.add(pen);
+    const herd = []; for (let k = 0; k < 9; k++) { const kind = k % 3 === 2 ? 'goat' : 'sheep', b = beast(kind, { seed: 200 + k, graze: k % 2 === 0 }), a = r() * 6.28, d = r() * 2.2; b.position.set(-5 + Math.cos(a) * d, 0, -4 + Math.sin(a) * d); b.rotation.y = r() * 6.28; b.userData.a = r() * 9; herd.push(b); g.add(b); }
+    for (const [x, z, ry, seed] of [[2, -7, 2.4, 31], [-12, -3, 0.6, 32]]) { const cow = beast('cow', { seed, graze: seed === 31 }); cow.position.set(x, 0, z); cow.rotation.y = ry; herd.push(cow); g.add(cow); }
+    // people: two harvesting with flint sickles, one carrying a basket of grain, one grinding grain on a quern, a child with a herding stick
+    const skin = ['#7a4e34', '#6a4430', '#8a5a3c'], cloth = ['#c8b48a', '#a8885a', '#d8c8a0'];
+    const reaper = (x, z, ry, seed) => { const h = human({ skin: skin[seed % 3], cloth: cloth[seed % 3], seed, pose: { lean: 0.7, hips: [-0.6, -0.2], knees: [0.7, 0.4], arms: [[-1.0, 0.2], [-1.4, 0.15]], elbows: [-0.4, -0.2], head: [0.3] } }); h.position.set(x, 0, z); h.rotation.y = ry; h.userData.arms[1].wr.add(sickle(M('#5a4a3a'))); g.add(h); return h; };
+    const reapers = [reaper(-14, -11, 0.4, 41), reaper(-9, -13, -0.3, 42)];
+    const carrier = human({ skin: skin[1], cloth: '#b84a2a', female: true, seed: 43, pose: { arms: [[-0.05, 0.5], [-3.0, 0.15]], elbows: [-0.05, -0.3] } }); carrier.position.set(3, 0, -10); carrier.rotation.y = 0.9; const basket = mesh(new THREE.CylinderGeometry(0.26, 0.2, 0.22, 14), M('#b8945a')); basket.position.y = 0.2; carrier.userData.headJ.add(basket); g.add(carrier);
+    const grinder = human({ skin: skin[2], cloth: '#d8c8a0', female: true, seed: 44, pose: { lean: 0.85, hips: [-1.6, -1.6], knees: [2.7, 2.7], arms: [[-1.2, 0.15], [-1.2, 0.15]], elbows: [-0.25, -0.25], head: [0.2], y: 0.36 } }); grinder.position.set(5, 0, -11); grinder.rotation.y = -2.4; g.add(grinder);
+    const quern = mesh(new THREE.BoxGeometry(0.9, 0.18, 0.5), stoneM, 5 - 0.55, 0.09, -11 + 0.45); quern.rotation.y = -2.4; g.add(quern, mesh(new THREE.SphereGeometry(0.1, 10, 8), stoneM, 5 - 0.5, 0.25, -11 + 0.45));
+    const kid = human({ skin: skin[0], cloth: cloth[1], seed: 45, s: 0.62, pose: { arms: [[-0.1, 0.2], [-0.7, 0.2]], elbows: [-0.2, -0.6] } }); kid.position.set(-1.2, 0, -2.2); kid.rotation.y = -1.9; kid.userData.arms[1].wr.add(mesh(new THREE.CylinderGeometry(0.012, 0.015, 1.1, 5).translate(0, -0.4, 0), wood)); g.add(kid);
+    for (const [x, z, s] of [[26, -6, 1.3], [30, -24, 1.6], [24, -40, 1.4], [-30, -36, 1.5]]) { const p = palm(M('#2a3a1a'), s); p.position.set(x, 0, z); g.add(p); }
+    const river = mesh(new THREE.PlaneGeometry(10, 500), M('#5a8ab0', { metalness: 0.3, roughness: 0.25 }), 34, 0.03, -120); river.rotation.x = -Math.PI / 2; river.rotation.z = 0.3; g.add(river);
+    const smoke = cloud(60, () => [9 + gauss(r) * 0.25 + r() * r() * 2, 3.2 + r() * 6, -19 + gauss(r) * 0.25], { size: 1.4, opacity: 0.1 }); smoke.material.color.set('#3a3632'); g.add(smoke);
+    return { group: g, fit: 1.25, pose: { pos: V(-3, 6.5, 13), look: V(-1.5, 1.2, -14) }, fog: ['#e8b888', 30, 380], update(t) {
+      for (const b of herd) if (b.userData.graze) b.userData.neck.rotation.z = -1.6 + Math.sin(t * 0.8 + (b.userData.a || 0)) * 0.12;
+      reapers.forEach((h, k) => { h.userData.arms[1].sh.rotation.x = -1.4 + Math.sin(t * 2.2 + k) * 0.35; });
+      grinder.userData.spine.rotation.x = 0.85 + Math.sin(t * 2) * 0.1; smoke.rotation.y = t * 0.05; } };
   };
-  // 23:59:48: writing and the first cities: pyramids, a ziggurat and a mud-brick city on a river
+
+  // 23:59:48: writing and the first cities, about 5,000 years ago: Egypt's pyramids (one still being built), an obelisk, a Sumerian ziggurat,
+  // an Indus brick city, workers hauling a stone block, a scribe, and the first writing: a cuneiform tablet, a papyrus, an Indus seal
   stages.writing = () => {
-    const r = rng(71), g = new THREE.Group(), sand = M('#d8b47a'), brick = M('#b07a4a'), stone = M('#e0c48a');
-    g.add(skyDome('#3a4a7a', '#ffb070', '#8a6a40'), ground(M('#c8a46a', { roughness: 1 })), hemi('#ffe4c0', '#8a6a40', 1.25));
-    const sun = glow('#ffd090', 110, 0.8); sun.position.set(80, 14, -420); g.add(sun);
-    for (const [x, z, s] of [[-40, -70, 1], [-22, -84, 0.85], [-8, -94, 0.5]]) { const p = mesh(new THREE.ConeGeometry(16 * s, 15 * s, 4), stone, x, 7.5 * s, z); p.rotation.y = Math.PI / 4; g.add(p); }
-    for (const [w, d, y] of [[22, 18, 2], [16, 12, 6], [10, 7, 10]]) g.add(mesh(new THREE.BoxGeometry(w, 4, d), brick, 22, y, -60));
-    g.add(mesh(new THREE.BoxGeometry(3, 12, 12), brick, 22, 3.5, -46)); g.children.at(-1).rotation.x = -0.6;
-    const homes = []; for (let a = 0; a < 9; a++) for (let b = 0; b < 7; b++) if (r() > 0.18) { const h = 1.6 + r() * 1.6; homes.push([4 + a * 3.4, h / 2, -12 - b * 3.4, 0, 0, 0, [1, h, 1]]); }
-    g.add(instanced(new THREE.BoxGeometry(2.6, 1, 2.6), M('#c48c5a'), homes));
-    const river = mesh(new THREE.PlaneGeometry(600, 12), M('#3a6a9a', { metalness: 0.4, roughness: 0.2 }), 0, 0.05, -2); river.rotation.x = -Math.PI / 2; g.add(river);
-    const boat = new THREE.Group(), hull = mesh(new THREE.CylinderGeometry(0.7, 0.7, 5, 10, 1, false, 0, Math.PI), M('#6a4a2a'), 0, 0.5, 0); hull.rotation.set(0, 0, Math.PI / 2); hull.rotation.x = Math.PI; const sail = mesh(new THREE.PlaneGeometry(2.4, 3.2), M('#f0e8d0', { side: THREE.DoubleSide }), 0, 2.4, 0); boat.add(hull, sail, mesh(new THREE.CylinderGeometry(0.05, 0.05, 4), M('#4a3a2a'), 0, 2.2, 0)); boat.position.set(-10, 0, -2); g.add(boat);
-    for (const [x, z, s] of [[-16, -8, 1.3], [-28, -9, 1.6], [-4, -8, 1.1], [34, -8, 1.4], [44, -10, 1.7]]) { const p = palm(M('#2a3a1a'), s); p.position.set(x, 0, z); g.add(p); }
-    const tablet = mesh(new THREE.BoxGeometry(1.4, 1.9, 0.25), M('#b8865a'), -5, 1.1, 6); tablet.rotation.set(-0.3, 0.4, 0); g.add(tablet); for (let k = 0; k < 6; k++) { const line = mesh(new THREE.BoxGeometry(1.1, 0.05, 0.02), M('#6a4a2a'), -5, 1.7 - k * 0.24, 6.14); line.rotation.copy(tablet.rotation); g.add(line); }
-    return { group: g, pose: { pos: V(-2, 12, 24), look: V(0, 4, -30) }, fog: ['#e8b888', 60, 480], update(t) { boat.position.x = -30 + ((t * 1.5) % 70); } };
+    const r = rng(71), g = new THREE.Group(), lime = M('#e4d0a2', { roughness: 0.85 }), sandstone = M('#c8a46a'), brick = M('#b07a4a'), gold = M('#f0c860', { metalness: 0.85, roughness: 0.3 }), wood = M('#6a4a2a'), linen = '#ece4d0';
+    g.add(skyDome('#3a4a7a', '#ffb070', '#8a6a40', 2400, { dir: [0.45, 0.06, -1], col: '#fff0c8' }), ground(M('#c8a46a', { roughness: 1 })), hemi('#ffe4c0', '#8a6a40', 1.25));
+    // Giza: true proportions (height about 0.64 of the base side), white casing and gilded capstones
+    const pyr = (side, x, z, cap = true) => { const h = side * 0.636, p = mesh(new THREE.ConeGeometry(side / Math.SQRT2, h, 4), lime, x, h / 2, z); p.rotation.y = Math.PI / 4; g.add(p); if (cap) { const c = mesh(new THREE.ConeGeometry(side * 0.06 / Math.SQRT2, side * 0.06 * 0.636, 4), gold, x, h - side * 0.019, z); c.rotation.y = Math.PI / 4; g.add(c); } };
+    pyr(46, -34, -110); pyr(43, -4, -128); pyr(22, 18, -140);
+    // a pyramid still going up: stepped core, a mud-brick ramp, blocks waiting
+    const ux = 13, uz = -50; for (let k = 0; k < 5; k++) { const s = 24 - k * 4.2; g.add(mesh(new THREE.BoxGeometry(s, 2.2, s), sandstone, ux, 1.1 + k * 2.2, uz)); }
+    const ramp = mesh(new THREE.BoxGeometry(4, 1, 34), M('#9a7448'), ux - 4, 3.4, uz + 26); ramp.rotation.x = 0.36; g.add(ramp);
+    g.add(instanced(new THREE.BoxGeometry(1.4, 0.9, 1.2), sandstone, Array.from({ length: 16 }, () => [ux - 14 + r() * 10, 0.45, uz + 18 + r() * 10, r() * 0.5])));
+    // workers in linen kilts hauling a block on a wooden sledge; one pours water to wet the sand, an overseer with a staff
+    const sled = new THREE.Group(); sled.add(mesh(new THREE.BoxGeometry(1.8, 1.2, 1.6), sandstone, 0, 0.82, 0)); for (const z of [-0.6, 0.6]) { const runner = mesh(new THREE.BoxGeometry(2.6, 0.18, 0.18), wood, 0, 0.12, z); g.add(runner); sled.add(runner); } sled.position.set(-1, 0, -13); sled.rotation.y = 0.5; g.add(sled);
+    const haulers = []; for (let k = 0; k < 8; k++) { const row = Math.floor(k / 2), side = k % 2 ? 1 : -1, h = human({ skin: ['#7a4a2e', '#8a5636', '#6a3e26'][k % 3], cloth: linen, seed: 60 + k, pose: { lean: 0.55, hips: [-0.5, 0.25], knees: [0.4, 0.1], arms: [[-1.5, 0.1], [-1.4, 0.1]], elbows: [-0.2, -0.2], head: [-0.2] } });
+      const ox = -1 + Math.cos(0.5) * (2.4 + row * 1.3) - Math.sin(0.5) * side * 0.55, oz = -13 - Math.sin(0.5) * (2.4 + row * 1.3) - Math.cos(0.5) * side * 0.55; h.position.set(ox, 0, oz); h.rotation.y = 0.5 + Math.PI / 2; h.userData.k = k; haulers.push(h); g.add(h); }
+    for (const z of [-0.45, 0.45]) { const rope = tube([[1.3, 0.6, z], [4, 1.0, z], [7.5, 1.1, z]], 0.025, M('#a89060')); sled.add(rope); }
+    const pourer = human({ skin: '#7a4a2e', cloth: linen, seed: 70, pose: { lean: 0.35, arms: [[-1.2, 0.2], [-1.0, 0.25]], elbows: [-0.6, -0.8], head: [0.4] } }); pourer.position.set(0.8, 0, -11.4); pourer.rotation.y = 0.5 + Math.PI / 2; pourer.userData.arms[0].wr.add(jar(M('#a8603a'), 0.45)); g.add(pourer);
+    const boss = human({ skin: '#6a3e26', cloth: '#f4ecd8', seed: 71, pose: { arms: [[-0.25, 0.15], [-0.05, 0.1]], elbows: [-1.3, -0.1], head: [0, -0.5] } }); boss.position.set(-3.8, 0, -9.6); boss.rotation.y = -0.6; boss.userData.arms[0].wr.add(mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.7, 5).translate(0, -0.1, 0), wood)); g.add(boss);
+    // an obelisk with a gilded tip
+    g.add(mesh(new THREE.CylinderGeometry(0.55 / Math.SQRT2 * 1.4, 1.0, 11, 4), M('#d0a878'), -20, 5.5, -44)); g.children.at(-1).rotation.y = Math.PI / 4; const tip = mesh(new THREE.ConeGeometry(0.55, 1, 4), gold, -20, 11.5, -44); tip.rotation.y = Math.PI / 4; g.add(tip);
+    // Sumer: a ziggurat with three converging stairways and a shrine on top
+    const zx = 34, zz = -112; for (const [w, d, y] of [[30, 24, 2.5], [21, 16, 7.5], [12, 9, 12]]) g.add(mesh(new THREE.BoxGeometry(w, 5, d), brick, zx, y, zz)); g.add(mesh(new THREE.BoxGeometry(6, 3.4, 5), M('#d8b080'), zx, 16.2, zz));
+    for (const [dx, ry] of [[0, 0], [-6, 0.35], [6, -0.35]]) { const st = mesh(new THREE.BoxGeometry(3.2, 1, 20), M('#9a6a40'), zx + dx, 5.6, zz + 17); st.rotation.set(-0.5, ry, 0); g.add(st); }
+    // the Indus: a grid of flat-roofed brick houses along straight streets
+    const homes = []; for (let a = 0; a < 7; a++) for (let b = 0; b < 6; b++) if (r() > 0.15) { const h = 1.8 + r() * 1.4; homes.push([22 + a * 3.6, h / 2, -66 - b * 3.6, 0, 0, 0, [1, h, 1]]); } g.add(instanced(new THREE.BoxGeometry(2.8, 1, 2.8), M('#b8784a'), homes));
+    // the Nile, with a sailing boat
+    const river = mesh(new THREE.PlaneGeometry(14, 600), M('#5a8ab0', { metalness: 0.35, roughness: 0.2 }), -30, 0.03, -100); river.rotation.x = -Math.PI / 2; river.rotation.z = -0.08; g.add(river);
+    const boat = new THREE.Group(), hull = mesh(new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), M('#6a4a2a', { side: THREE.DoubleSide }), 0, 0.5, 0); hull.scale.set(3, 0.7, 0.9); const sail = mesh(new THREE.PlaneGeometry(2.2, 3.4), M('#f4ecd8', { side: THREE.DoubleSide }), 0.2, 2.6, 0); boat.add(hull, sail, mesh(new THREE.CylinderGeometry(0.05, 0.05, 4.2), wood, 0, 2.4, 0)); boat.position.set(-30, 0, -40); boat.rotation.y = Math.PI / 2; g.add(boat);
+    for (const [x, z, s] of [[-22, -18, 1.4], [-38, -24, 1.7], [-24, -60, 1.6], [-40, -80, 1.8], [-20, -36, 1.2]]) { const p = palm(M('#2a3a1a'), s); p.position.set(x, 0, z); g.add(p); }
+    // the first writing, set out on a low table: a scribe with a papyrus, a cuneiform tablet, an Indus seal, ink pot and jars
+    const tx = -3.5, tz = -5.5, table = mesh(new THREE.BoxGeometry(2.2, 0.5, 1.1), M('#7a5634'), tx, 0.25, tz); g.add(table);
+    const scribe = human({ skin: '#7a4a2e', cloth: linen, seed: 72, pose: { lean: 0.35, hips: [-1.5, -1.5], knees: [2.6, 2.6], spread: 0.5, arms: [[-0.9, 0.2], [-0.9, 0.25]], elbows: [-0.9, -0.9], head: [0.45], y: 0.3 } }); scribe.position.set(tx - 1.7, 0, tz + 0.2); scribe.rotation.y = Math.PI / 2; g.add(scribe);
+    const scroll = new THREE.Group(); scroll.add(mesh(new THREE.BoxGeometry(0.9, 0.01, 0.4), M('#e8d8a8'))); for (const x of [-0.47, 0.47]) { const rl = mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.42, 10), M('#d8c48a'), x, 0.04, 0); rl.rotation.x = Math.PI / 2; scroll.add(rl); } for (let k = 0; k < 5; k++) scroll.add(mesh(new THREE.BoxGeometry(0.6, 0.012, 0.02), M('#3a2a1a'), 0, 0.011, -0.12 + k * 0.06)); scroll.position.set(tx - 0.5, 0.51, tz); g.add(scroll);
+    const tablet = mesh(new THREE.BoxGeometry(0.5, 0.1, 0.36), M('#b8865a'), tx + 0.45, 0.55, tz); g.add(tablet); for (let k = 0; k < 4; k++) for (let w = 0; w < 6; w++) { const wedge = mesh(new THREE.ConeGeometry(0.018, 0.05, 3), M('#6a4a2a'), tx + 0.27 + w * 0.07, 0.605, tz - 0.12 + k * 0.08); wedge.rotation.z = Math.PI / 2; g.add(wedge); }
+    const seal = mesh(new THREE.BoxGeometry(0.16, 0.06, 0.16), M('#e8dcc0'), tx + 0.85, 0.53, tz - 0.25); g.add(seal); g.add(mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.08, 10), M('#2a1a10'), tx + 0.8, 0.54, tz + 0.25));
+    for (const [x, z, s, w] of [[tx + 1.5, tz + 0.6, 1.3, 0.8], [tx + 1.9, tz - 0.2, 1.0, 1], [tx + 1.3, tz - 0.8, 1.6, 0.7]]) { const j = jar(M('#a8603a', { roughness: 0.8 }), s, w); j.position.set(x, 0, z); g.add(j); }
+    return { group: g, fit: 1.25, pose: { pos: V(-2, 7, 15), look: V(1, 5, -32) }, fog: ['#e8b888', 70, 600], update(t) {
+      boat.position.z = -40 + Math.sin(t * 0.05) * 30;
+      haulers.forEach(h => { const k = h.userData.k, sw = Math.sin(t * 2.4 + k * 0.8); h.userData.spine.rotation.x = 0.55 + sw * 0.06; h.children[0].children[0].rotation.x = -0.5 + sw * 0.15; }); } };
   };
   // 23:59:58: telescopes to spaceflight: a space station, Hubble and satellites orbiting a city-lit Earth
   stages.modern = () => {
@@ -299,7 +367,7 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   };
 
   const built = EVENTS.map((e, i) => { const s = stages[e.id]?.(); if (!s) return null; s.group.position.set(0, 0, -i * STAGE_GAP); scene.add(s.group); s.group.visible = i < 2; return s; });
-  const poseAt = (i, fit) => { const s = built[i], z = -i * STAGE_GAP, look = s.pose.look.clone().add(V(0, 0, z)), pos = s.pose.pos.clone().add(V(0, 0, z)); pos.sub(look).multiplyScalar(fit).add(look); return { pos, look }; };
+  const poseAt = (i, fitAuto) => { const s = built[i], fit = s.fit ?? fitAuto, z = -i * STAGE_GAP, look = s.pose.look.clone().add(V(0, 0, z)), pos = s.pose.pos.clone().add(V(0, 0, z)); pos.sub(look).multiplyScalar(fit).add(look); return { pos, look }; };
 
   // camera, flight and frame loop
   let cur = 0, tNow = 0, prevIdx = -1, from = null, to = null, flight = 1, w = 0, h = 0, raf = 0, last = 0, t0 = 0, px = 0, py = 0, fit = 1, fogK = 1, drift = 0;
