@@ -210,6 +210,20 @@ body.bridging #hint,body.bridging #sheet{visibility:hidden}
 #gtime .gread{margin:5px 2px 0;font-size:12px;line-height:1.35;color:#9fb0c9}
 #gtime .gread strong{color:#e8eef7;font-weight:600;margin-right:4px}
 body.bridging #gtime{visibility:hidden}
+/* Folded, the time bar is a small "Time" chip in the bottom-right corner, clear of the scene and of the readout;
+   a tap opens the full bar. The clock hand turns while time is playing. */
+#gtime .gchip{display:none}
+#gtime.folded{left:auto;right:calc(var(--safe-r) + 12px);width:auto;padding:0;background:none;border:0;backdrop-filter:none;-webkit-backdrop-filter:none}
+#gtime.folded .grow,#gtime.folded .gread{display:none}
+#gtime.folded .gchip{display:flex;align-items:center;gap:6px;height:34px;padding:0 13px 0 10px;border-radius:17px;border:1px solid rgba(170,195,235,.22);background:rgba(12,20,36,.7);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#c2dff3;font-size:13px}
+#gtime .gchip svg{width:16px;height:16px}
+#gtime .gchip.new{box-shadow:0 0 0 0 rgba(194,223,243,.5);animation:gchip-hint 2.4s ease-out 3}
+@keyframes gchip-hint{0%{box-shadow:0 0 0 0 rgba(194,223,243,.45)}70%,100%{box-shadow:0 0 0 10px rgba(194,223,243,0)}}
+#gtime .gchip .ghand{transform-origin:8px 8px}
+#gtime .gchip.playing .ghand{animation:ghand 2s linear infinite}
+@keyframes ghand{to{transform:rotate(360deg)}}
+#gtime .gfold{flex:none;width:28px;height:28px;min-height:28px;min-width:28px;padding:0;display:grid;place-items:center;border-radius:14px;border:1px solid rgba(170,195,235,.22);background:none;color:#c2dff3}
+#gtime .gfold svg{width:14px;height:14px}
 .legend .sw.cm{width:8px;height:8px;border-radius:50%;background:#f3c887}
 #star-companions .pair-go{display:block;margin-top:8px;min-height:36px;padding:6px 12px;font-size:13px;text-align:left}
 .head-actions .action.alt{background:none;border:1px solid rgba(194,223,243,.45);color:#c2dff3}
@@ -265,9 +279,11 @@ body.bridging #gtime{visibility:hidden}
    steps aside while it shows. */
 #gtime{opacity:0;transform:translate(-50%,10px);pointer-events:none;transition:opacity .4s ease,transform .4s ease}
 #gtime.resting{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+#gtime.folded{transform:translateY(10px)}
+#gtime.folded.resting{transform:none}
 .hud{transition:opacity .4s ease}
 body.time-resting .hud{opacity:0;pointer-events:none}
-@media (prefers-reduced-motion:reduce){#gtime,.hud{transition:none}}
+@media (prefers-reduced-motion:reduce){#gtime,.hud{transition:none}#gtime .gchip.new,#gtime .gchip.playing .ghand{animation:none}}
 /* Earth–Moon adventure (adventure.js): one panel at the bottom; the caption is the narration text. */
 #adventure{margin-right:auto}
 #adventure span{font-size:14px;line-height:1}

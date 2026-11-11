@@ -285,6 +285,10 @@ test('Milky Way clock: shown only in the Galaxy, plays and scrubs, names the mom
  assert.equal(a.$('gtime').hidden,true,'no galaxy clock in the Solar System');
  const toGalaxy=()=>a.document.querySelector('#ladder [data-level="galaxy"]').onclick();toGalaxy();if(a.lab.state.value.view!=='galaxy')toGalaxy();
  assert.equal(a.lab.state.value.view,'galaxy');assert.equal(a.$('gtime').hidden,false);
+ /* it arrives folded into a small chip, opens on a tap and folds away again */
+ const g=a.$('gtime');assert.ok(g.classList.contains('folded'));assert.equal(a.$('gopen').getAttribute('aria-expanded'),'false');assert.ok(a.$('gopen').classList.contains('new'),'the chip glows until first opened');
+ a.$('gopen').onclick();assert.ok(!g.classList.contains('folded'));assert.equal(a.$('gopen').getAttribute('aria-expanded'),'true');assert.ok(!a.$('gopen').classList.contains('new'));
+ a.$('gfold').onclick();assert.ok(g.classList.contains('folded'));a.$('gopen').onclick();
  assert.equal(a.$('gclock').textContent,'Today');assert.match(a.$('gnote').textContent,/Press play/);
  a.$('gplay').onclick();assert.ok(space.log.includes('galaxy:play'));
  space.gt=-66;a.$('gplay').onclick();assert.equal(a.$('gclock').textContent,'66 million years ago');assert.equal(a.$('gnote').textContent,'The dinosaurs die out');assert.equal(a.$('gnow').hidden,false);
@@ -292,6 +296,7 @@ test('Milky Way clock: shown only in the Galaxy, plays and scrubs, names the mom
  space.galaxyPick=galaxyData.LANDMARKS[0];a.hooks.overrideTap(5,5);assert.equal(a.$('gtime').hidden,true,'a card covers the clock');space.galaxyPick=null;a.hooks.overrideTap(5,5);assert.equal(a.$('gtime').hidden,false);
  space.galaxyZoom={d:ladderMod.GALAXY_NEAR*1.02,min:0.3,max:2500,busy:false};wheel(-120);assert.ok(space.log.includes('galaxy:rewind'),'zooming in from another time first returns to today');assert.equal(a.lab.state.value.view,'galaxy');
  space.gt=50;a.document.querySelector('#ladder [data-level="stars"]').onclick();assert.equal(a.lab.state.value.view,'stars');assert.equal(space.gt,0);assert.equal(a.$('gtime').getAttribute('aria-label'),'Time among the nearby stars');
+ assert.ok(g.classList.contains('folded'),'a new scale starts with the bar folded again');
 });
 test('nearby stars in motion: the clock names the nearest star, cards give speed and closest approach, passing stars jump to their encounter, and zooming out returns to today',async()=>{
  const a=await setup(),c=a.$('c'),wheel=dy=>c.dispatchEvent(Object.assign(new a.document.defaultView.Event('wheel'),{deltaY:dy}));
