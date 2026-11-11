@@ -53,13 +53,13 @@ test('button labels match what the narration says: the Moon stop shows "Visit Mo
   assert.equal(STOPS[0].next,'On to the Moon →');
 });
 
-test('Save for offline shows the real download size, written at deploy from precache.json (69 files ≈ 4.1 MB, with the Sources screen)', () => {
+test('Save for offline shows the real download size, written at deploy from precache.json (69 files ≈ 4.2 MB, with the Sources screen)', () => {
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'site-'));
   const copy=fs.readFileSync('.github/workflows/pages.yml','utf8').match(/cp -r (.+) _site\//)[1].split(/\s+/);
   for(const f of copy)fs.cpSync(f,path.join(dir,f),{recursive:true});
   stampSite(dir,'abc123def456');writePrecache(dir,'abc123def456',{strict:true});
   const list=JSON.parse(fs.readFileSync(path.join(dir,'precache.json'),'utf8')),label=sizeLabel(list.bytes);
-  assert.equal(list.files.length,69);assert.equal(label,'about 4.1 MB',`${list.bytes} bytes`);
+  assert.equal(list.files.length,69);assert.equal(label,'about 4.2 MB',`${list.bytes} bytes`);
   assert.ok(fs.readFileSync(path.join(dir,'lab.js'),'utf8').includes(`const OFFLINE_SIZE='${label}'`));
   assert.ok(fs.readFileSync(path.join(dir,'index.html'),'utf8').includes(`Keeps the whole app (${label})`));
   // The source files carry the same figure, so a local run or preview also shows it.
