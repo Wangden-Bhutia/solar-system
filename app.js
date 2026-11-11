@@ -193,6 +193,11 @@ for (const m of MOONS) {
 // (its planet or one of its sibling moons is selected), so the overview stays clean. Earth's Moon keeps
 // its existing behaviour.
 const inSystem = b => !b.host || (!!focused && (focused === b.host || focused.host === b.host));
+// In a close-up only the world in view and its family are named: the focused world, its moons, or for a moon its
+// planet and sibling moons. Worlds far behind it (Eris beside Mars, Makemake beside Ceres) only line up on screen,
+// so their names would be noise. The Sun's close-up keeps every name: the whole system is around it.
+const hostOf = b => b.host || (b === moonBody ? earthBody : null); // our Moon is drawn on Earth without a host link
+const inCloseUp = b => { if (!focused || focused === bodies[0] || b === focused) return true; const fh = hostOf(focused), bh = hostOf(b); return bh === focused || (!!fh && (b === fh || bh === fh)); };
 // Readable motion: true orbital speeds, except that moons faster than one orbit per 4 s on screen are
 // slowed on a gentle curve (so Io still outpaces Callisto, but nothing strobes).
 export const MOON_CAP = Math.PI * 2 / 4;
@@ -486,7 +491,7 @@ function frame(now) {
     // unless it is focused its disc is not drawn either, so far out the Sun is not buried under stacked planets.
     const merged = b !== bodies[0] && b !== focused && Math.hypot(x - sunX, y - sunY) < MERGE_PX;
     if (b !== bodies[0] && !b.satellite) b.mesh.visible = !(merged && Math.hypot(x - sunX, y - sunY) < PX.mergeLo);
-    if (!merged && p.z < 1 && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05 && !(b.satellite && !(b.host ? inSystem(b) : focused)) && !(hooks.labelsOff?.(b))) {
+    if (!merged && p.z < 1 && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05 && !(b.satellite && !(b.host ? inSystem(b) : focused)) && inCloseUp(b) && !(hooks.labelsOff?.(b))) {
       const c0 = b.label._c, was = c0 && c0.spot > 0 ? c0.spot : 0, held = !was && b.lblHid && labelFrame() - b.lblHid < HOLD_FRAMES;
       // The side it already shows on first (no hopping), then the other; a hidden name needs HYST_PX of room.
       const m = was ? 0 : HYST_PX, up = () => free(x0, y - 6 - h, x1, y - 6, m), down = () => free(x0, y + 6, x1, y + 6 + h, m);
