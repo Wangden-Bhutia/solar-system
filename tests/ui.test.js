@@ -161,7 +161,7 @@ test('scale lab: keeps the live Solar System, walks the planets out to scale and
 test('journeys: list → steps that move the camera; a question gates Next; labs open from a step and Back returns',async()=>{
  const a=await setup();a.$('journeys').onclick();
  assert.equal(a.$('explore').hidden,false,'Explore opens as its own panel');assert.equal(a.sheet,'closed','not inside the planet card');
- assert.equal(a.$('journey-list').querySelectorAll('button').length,8,'the tour, four Solar System journeys, the cosmic year, My sky and the adventure');
+ assert.equal(a.$('journey-list').querySelectorAll('button').length,7,'four Solar System journeys, the cosmic year, My sky and the adventure (the tour has its own chip)');
  a.$('journey-list').querySelector('[data-journey="scale"]').onclick();assert.equal(a.$('explore').hidden,true,'a choice closes Explore');
  assert.equal(a.$('journey-panel').hidden,false);assert.equal(a.document.querySelector('#sheet .tabs').hidden,true);
  assert.equal(a.$('title').textContent,'Our star');assert.equal(a.focuses.at(-1)[0],'Sun','glides to the Sun');assert.equal(a.$('journey-prev').disabled,true);
@@ -335,7 +335,7 @@ test('Explore: one hub for everything guided; the top bar is Tour, Explore and t
  a.$('journeys').onclick();assert.equal(a.document.querySelector('#explore .ex-kicker').textContent,'Explore');assert.equal(a.$('journeys').getAttribute('aria-expanded'),'true');
  const list=a.$('journey-list'),heads=[...list.querySelectorAll('.xsec')].map(h=>h.textContent);
  assert.deepEqual(heads,['Journeys','Time and the sky','For young explorers']);
- assert.deepEqual([...list.querySelectorAll('button')].map(b=>b.dataset.act),['tour','journey:scale','journey:seasons','journey:moon','journey:mars','cyear','mysky','adventure']);
+ assert.deepEqual([...list.querySelectorAll('button')].map(b=>b.dataset.act),['journey:scale','journey:seasons','journey:moon','journey:mars','cyear','mysky','adventure']);
  assert.equal(list.querySelector('.voyage-card'),null,'the voyage was folded into the tour');
  const g=globalThis,saved={document:g.document,requestAnimationFrame:g.requestAnimationFrame,cancelAnimationFrame:g.cancelAnimationFrame};g.document=a.document;g.requestAnimationFrame=undefined;g.cancelAnimationFrame=()=>{}; // the overlay modules use the page's document
  try{

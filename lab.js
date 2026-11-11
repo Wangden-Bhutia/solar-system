@@ -590,7 +590,7 @@ function saveFinale(){
  x.fillStyle='#b9c4dc';x.font=`${Math.round(fs*0.72)}px system-ui,sans-serif`;x.fillText(FINALE.caption,pad,h-lh*1.1,max);
  c.toBlob(b=>{if(!b)return;const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='a-mote-in-a-sunbeam.png';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);},'image/png');
 }
-// ---- Explore: one panel for everything guided, opened from the top bar at any scale. It is its own panel, not the
+// ---- Explore: one panel for everything guided except the tour (it has its own chip in the top bar), opened at any scale. It is its own panel, not the
 // planet card (that card belongs to the Solar System, and the zoom puts the view back at other scales). Journeys glide
 // home first; the tour and the adventure find Earth themselves; the cosmic year and My sky open over wherever you are.
 let exploreEl=null,explorePausedTour=false;
@@ -600,13 +600,11 @@ function buildExplore(){
  document.body.appendChild(exploreEl);
  const card=(act,title,blurb,cls='')=>`<button type="button" class="experiment-card${cls}" data-act="${act}"${act.startsWith('journey:')?` data-journey="${act.slice(8)}"`:''}><strong>${title}</strong><span>${blurb}</span></button>`;
  const list=exploreEl.querySelector('#journey-list');
- list.innerHTML=card('tour','▶ The tour: Earth to the edge of the universe',`${TOUR_STOPS.length} stops that glide on their own, out through every scale.`,' feature-card')
-  +'<p class="xsec">Journeys</p>'+JOURNEYS.map(x=>card('journey:'+x.id,x.title,`${x.blurb} · ${x.steps.length} stops`)).join('')
+ list.innerHTML='<p class="xsec">Journeys</p>'+JOURNEYS.map(x=>card('journey:'+x.id,x.title,`${x.blurb} · ${x.steps.length} stops`)).join('')
   +'<p class="xsec">Time and the sky</p>'+card('cyear','The cosmic year','13.8 billion years squeezed into one calendar year.')+card('mysky','My sky','What is up over you tonight, and where to look.')
   +'<p class="xsec">For young explorers</p>'+card('adventure','The Earth and Moon adventure','A short spoken story: find Earth, then fly to the Moon.');
  const startJourney=id=>{const start=()=>go({view:'journey',journey:id,step:0,experiment:null});if(levelOf(state.value.view)!=='solar')goLevel('solar',start);else start();};
  const acts={
-  tour:()=>{closeExplore(true);if(tourRef?.active)tourRef.resume();else $('tour-start').click();}, // a paused tour carries on; it is not restarted or ended
   cyear:()=>{closeExplore(true);openCosmicYear();},mysky:()=>{closeExplore(true);openMySky();},
   adventure:()=>{closeExplore(true);$('adventure').click();}};
  for(const b of list.querySelectorAll('button'))b.onclick=()=>{const a=b.dataset.act;if(a.startsWith('journey:')){closeExplore(true);startJourney(a.slice(8));}else acts[a]();};
