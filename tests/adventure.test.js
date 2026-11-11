@@ -108,7 +108,7 @@ test('controls: Skip moves on, ▶/❚❚ replays or stops the narration, ✕ ex
 test('another scale, a journey or Real scale: the story ends quietly or adapts', async () => {
   const a = await ready();
   a.click(a.$('adventure')); a.step(5); assert.equal(story(a).hidden, false);
-  a.click(a.$('journeys')); a.step(5); assert.equal(story(a).hidden, true, 'opening Journeys ends the story');
+  a.click(a.$('journeys')); a.step(5); assert.equal(story(a).hidden, true, 'opening Explore ends the story');
   a.click(a.$('adventure')); a.step(5); assert.equal(story(a).hidden, false);
   a.click(a.document.querySelector('#ladder [data-level="stars"]')); a.step(120);
   assert.equal(story(a).hidden, true, 'leaving the Solar System ends the story');

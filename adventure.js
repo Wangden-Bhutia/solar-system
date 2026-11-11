@@ -186,7 +186,7 @@ export function initAdventure(api, doc = document) {
     // From lab.js render(): another scale, a card or a journey ends the story quietly.
     sync(level, s) {
       if (phase === 'starting' || phase === 'off') return;
-      if (level !== 'solar' || (s && (s.voyage != null || s.sheet !== 'closed'))) end(true);
+      if (level !== 'solar' || (s && s.sheet !== 'closed')) end(true);
     },
   };
   return api2;

@@ -264,7 +264,7 @@ body.bridging #gtime{visibility:hidden}
 #gtime{opacity:0;transform:translate(-50%,10px);pointer-events:none;transition:opacity .4s ease,transform .4s ease}
 #gtime.resting{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 .hud{transition:opacity .4s ease}
-body.time-resting .hud{opacity:0}
+body.time-resting .hud{opacity:0;pointer-events:none}
 @media (prefers-reduced-motion:reduce){#gtime,.hud{transition:none}}
 /* Earth–Moon adventure (adventure.js): one panel at the bottom; the caption is the narration text. */
 #adventure{margin-right:auto}
@@ -359,7 +359,7 @@ body.sources-open #tour,body.sources-open #tour-hint{visibility:hidden}
 .finale-actions{display:flex;gap:10px;margin-top:12px}
 .finale-actions button{flex:1;min-height:44px;border-radius:22px;border:1px solid rgba(255,255,255,.25);background:transparent;color:inherit;font:inherit;font-size:14px}
 .finale-actions .primary{background:#f3c887;border-color:#f3c887;color:#1a1305}
-body.finale-on .hud{opacity:0}
+body.finale-on .hud{opacity:0;pointer-events:none}
 @media (prefers-reduced-motion:reduce){.finale,.finale p{transition:none;transition-delay:0s!important}}
 #labels{transition:opacity 1.2s ease}
 body.finale-on #labels{opacity:0}
@@ -470,8 +470,6 @@ body.sources-open #resume,body.sources-open .home-earth{visibility:hidden}
 #topbar .chip-primary:hover{background:#f7d49c}
 #topbar .chip-primary[aria-pressed="true"]{background:#f3c887;color:#1a1305}
 #topbar #adventure{display:none}
-/* Explore sheet: section headings between the cards */
-#journey-list .xsec{margin:16px 2px 6px;font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#f3c887}
 /* The readout: two lines (where you are, how wide the view is); tap it for the rest. Hidden in the adventure, whose caption says the same. */
 .hud{pointer-events:auto;cursor:pointer}
 .hud:not(.more)>div:nth-child(2),.hud:not(.more)>div:nth-child(3),.hud:not(.more)>.hud-note{display:none}
@@ -504,3 +502,15 @@ body.touring .hud>div:first-child::after{content:none}
 #story .story-skip{border-color:rgba(255,255,255,.22);background:rgba(10,14,26,.45)}
 #topbar{justify-content:flex-start}#topbar .top-right{margin-left:auto}
 #topbar .chip-primary svg,#topbar .chip-primary svg path{color:#1a1305;fill:#1a1305}
+/* Explore: its own panel over the scene, at any scale */
+.explore{position:fixed;z-index:40;left:calc(var(--safe-l) + 10px);right:calc(var(--safe-r) + 10px);bottom:calc(var(--safe-b,0px) + 10px);max-width:520px;max-height:min(78dvh,680px);margin:0 auto;overflow:auto;overscroll-behavior:contain;box-sizing:border-box;padding:16px 16px 10px;border-radius:20px;border:1px solid rgba(255,255,255,.1);background:rgba(10,14,26,.86);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:#e8e6da;font:14px/1.4 system-ui,sans-serif;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+.explore[hidden]{display:none}.explore:focus{outline:none}
+.ex-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:6px}
+.ex-kicker{margin:0;font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#f3c887}
+.ex-title{margin:4px 0 2px;font-size:22px;font-weight:600}.ex-fact{margin:0;font-size:13px;color:rgba(240,236,228,.72)}
+.ex-x{flex:none;width:36px;height:36px;border-radius:18px;display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.18);background:rgba(10,14,26,.42);cursor:pointer}
+.ex-x svg{width:16px;height:16px;stroke:#f4efe4;stroke-width:2;fill:none;stroke-linecap:round}
+.explore .experiment-card{box-sizing:border-box;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(27,44,69,.55);color:inherit;font:inherit;cursor:pointer;padding:13px 14px;margin:7px 0}
+.explore .experiment-card strong{font-size:15px}.explore .experiment-card:hover{background:rgba(38,60,92,.7)}
+.explore .xsec{margin:16px 2px 4px;font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#f3c887}
+body.explore-on .hud,body.explore-on #tour,body.explore-on .home-earth{visibility:hidden}
