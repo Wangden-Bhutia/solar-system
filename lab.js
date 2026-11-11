@@ -357,9 +357,13 @@ const nowMs=e=>globalThis.performance?.now?.()??e.timeStamp??Date.now();
 // centre off the Sun on every real pinch, so the off-centre gate below held the zoom at the Solar → Stars seam.
 const held=new Map(),allControls=()=>[controls,starsView.controls,galaxyView.controls,localView.controls,sceneOf(levelOf(state.value.view))?.controls].filter(Boolean);
 const lockRotate=on=>{if(on){for(const c of allControls())if(!held.has(c)){held.set(c,[c.enableRotate,c.enablePan]);c.enableRotate=false;c.enablePan=false;}}else{for(const [c,[r,p]] of held){c.enableRotate=r;c.enablePan=p;}held.clear();}};
-document.addEventListener('pointerdown',e=>{if(e.target!==$('c'))return;tourRef?.interrupt();pinch.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch.size===2){spread=spreadOf();lockRotate(true);}},true);
+// A pinch may start on a name label (they cover much of the screen when zoomed in): it zooms the scene too.
+const onPinchSurface=t=>t===$('c')||!!t?.closest?.('#labels');
+document.addEventListener('pointerdown',e=>{if(!onPinchSurface(e.target))return;tourRef?.interrupt();pinch.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch.size===2){spread=spreadOf();lockRotate(true);}},true);
 document.addEventListener('pointermove',e=>{const p=pinch.get(e.pointerId);if(!p)return;p.x=e.clientX;p.y=e.clientY;if(pinch.size!==2)return;const d=spreadOf();if(spread>0&&d>0)zoomInput(pinchZ(d/spread),'pinch',nowMs(e));spread=d;},true);
 for(const t of ['pointerup','pointercancel'])document.addEventListener(t,e=>{if(!pinch.delete(e.pointerId))return;if(pinch.size<2){if(spread>0)zoom.release(nowMs(e));spread=0;if(!pinch.size)lockRotate(false);}},true);
+// iOS Safari zooms the page on its own gesture events, whatever touch-action says.
+for(const t of ['gesturestart','gesturechange'])document.addEventListener(t,e=>e.preventDefault(),{passive:false});
 function pickGalaxy(g){dismissHint();go({view:'local',landmark:g.name,sheet:'peek'});}
 function pickLandmark(m){dismissHint();galaxyView.pause();go({view:'galaxy',landmark:m.name,sheet:'peek'});}
 function pickStar(e){dismissHint();starsView.pause();go({view:'stars',star:e.name,sheet:'peek'});}
