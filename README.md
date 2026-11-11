@@ -138,3 +138,7 @@ Solar System → nearby stars → Milky Way → Local Group → Laniakea → obs
 - **Diagnostics.** `?zoomlog` (and `?zoomlog=bright`) give an opt-in local frame log. Nothing is uploaded.
 
 Evidence, measurements and the open acceptance items for the continuous zoom: [docs/shots/powers-of-ten/EVIDENCE.md](docs/shots/powers-of-ten/EVIDENCE.md).
+
+## You are here
+- **A line at every scale.** The scale readout starts with where you are (Earth, the Sun, the Milky Way, the Local Group, Laniakea, the centre of the universe), with figures taken from the sourced facts. Text lives in `here.js`.
+- **A quiet finale.** After the last Voyage stop, a still card ("Here") appears over the whole universe: four short lines, no question, **Go home** and **Save this moment** (a picture with the first line and the app name as a caption). Zooming, or any other move, lets it go.

@@ -347,3 +347,19 @@ body:not([data-sheet="closed"]) .tour-hint{display:none}
 .src-more,.tour-all{background:none;border:0;padding:6px 0;min-height:32px;font-size:12.5px;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
 .tour-all{padding:0 0 0 4px;min-height:0;font-size:11.5px}
 body.sources-open #tour,body.sources-open #tour-hint{visibility:hidden}
+/* "You are here": one line at the top of the scale readout, and the quiet finale at the end of the Voyage */
+.hud{display:flex;flex-direction:column}
+.hud .hud-here{order:-1;color:#e9d9a6;font-size:11px;margin-bottom:3px;max-width:min(78vw,340px);line-height:1.35;transition:opacity .4s ease}
+.hud .hud-here:empty{display:none}
+.finale{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%,12px);width:min(92vw,440px);box-sizing:border-box;padding:18px 20px 16px;border-radius:18px;background:rgba(3,6,16,.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#e7e3d6;z-index:30;opacity:0;transition:opacity 1.6s ease,transform 1.6s ease}
+.finale.in{opacity:1;transform:translate(-50%,0)}
+.finale h2{margin:0 0 8px;font-size:15px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:#f3c887}
+.finale p{margin:0 0 9px;font-size:14px;line-height:1.5;opacity:0;transition:opacity 1.4s ease}
+.finale.in p{opacity:1}.finale.in p:nth-of-type(2){transition-delay:1.6s}.finale.in p:nth-of-type(3){transition-delay:3.4s}.finale.in p:nth-of-type(4){transition-delay:5.4s}
+.finale-actions{display:flex;gap:10px;margin-top:12px}
+.finale-actions button{flex:1;min-height:44px;border-radius:22px;border:1px solid rgba(255,255,255,.25);background:transparent;color:inherit;font:inherit;font-size:14px}
+.finale-actions .primary{background:#f3c887;border-color:#f3c887;color:#1a1305}
+body.finale-on .hud{opacity:0}
+@media (prefers-reduced-motion:reduce){.finale,.finale p{transition:none;transition-delay:0s!important}}
+#labels{transition:opacity 1.2s ease}
+body.finale-on #labels{opacity:0}
