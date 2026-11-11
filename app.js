@@ -383,6 +383,7 @@ function resize() {
   lastHome = HOME.pos.clone();
 }
 export function setHomeScope(scope) { chosenScope = scope; resize(); unfocus(true, 1.2); }
+export const chosenHomeScope = () => chosenScope; // null: automatic (inner planets on a portrait phone)
 addEventListener('resize', resize); resize(); camera.position.copy(HOME.pos);
 
 const ease = t => t < .5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;

@@ -1,6 +1,6 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import * as L from '../learn.js';
-import { PLANETS } from '../data.js';
+import { PLANETS, MOONS, DWARFS } from '../data.js';
 const near = (a, b, e) => assert.ok(Math.abs(a - b) < e, `${a} vs ${b}`);
 
 test('light time: 1 AU ≈ 8 min 19 s, Neptune ≈ 4 h 11 min; durations read naturally', () => {
@@ -58,7 +58,7 @@ test('every prediction has a valid answer and explanation; judge checks it', () 
 });
 
 test('journeys: every step points at real worlds, labs and predictions; questions gate the Next button', () => {
-  const worlds = new Set(['Sun', 'Moon', ...PLANETS.map(p => p.name)]), labs = new Set(['seasons', 'phases', 'eclipses', 'tides', 'scale']);
+  const worlds = new Set(['Sun', 'Moon', ...PLANETS.map(p => p.name), ...MOONS.map(m => m.name), ...DWARFS.map(d => d.name)]), /* every world the camera can fly to */ labs = new Set(['seasons', 'phases', 'eclipses', 'tides', 'scale']);
   assert.ok(L.JOURNEYS.length >= 4);
   for (const j of L.JOURNEYS) {
     assert.equal(L.journey(j.id), j); assert.ok(j.steps.length >= 3, j.id);
