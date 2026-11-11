@@ -6,7 +6,7 @@ import {parseHTML} from 'linkedom';
 import {REFS,claimGroups,illustrations,allClaims,usedRefs,LAB_REFS,JOURNEY_SRC} from '../sources.js';
 import {sourcesHTML,refLinks} from '../sources-page.js';
 import {SUN,PLANETS,MOON,MOONS,DWARFS} from '../data.js';import {STRIKING,MOON_COUNT} from '../insights.js';
-import {PREDICTIONS,JOURNEYS,VOYAGE} from '../learn.js';import {TOUR_STOPS,SOURCES,sourcesOf} from '../tour.js';import {STOPS} from '../adventure.js';import {LINES} from '../voice/lines.js';
+import {PREDICTIONS,JOURNEYS} from '../learn.js';import {TOUR_STOPS,SOURCES,sourcesOf} from '../tour.js';import {STOPS} from '../adventure.js';import {LINES} from '../voice/lines.js';
 import {STAR_FACTS} from '../stars-data.js';import {VISITORS} from '../star-motion.js';import {LANDMARKS} from '../galaxy-data.js';import {GALAXIES} from '../local-data.js';import {CLUSTERS,FAR_GALAXY} from '../cosmos-data.js';
 import {stampSite,writePrecache} from '../tools/stamp.mjs';
 import {bootApp} from './integration-harness.js';
@@ -30,7 +30,7 @@ test('every claim-bearing data entry is listed, with its text read from the data
  for(const d of DWARFS){has(`${d.name}: ${d.fact}`,'dwarfs');for(const [k,v] of d.facts)has(`${k}: ${v}`,d.name);}
  for(const id of Object.keys(LINES).filter(id=>/^f_|^lab_(earth|moon|seasons|phases|compare|day)$|^trip_(earth|moon|mars|saturn)/.test(id)))has(LINES[id],id);
  for(const p of Object.values(PREDICTIONS))has(p.explain,'questions');
- for(const j of [...JOURNEYS,VOYAGE])j.steps.forEach((st,i)=>{const k=`${j.id}.${i}`;assert.ok(k in JOURNEY_SRC,`${k} is mapped (to sources, or to null when it states no fact)`);if(JOURNEY_SRC[k])has(st.text,k);});
+ for(const j of JOURNEYS)j.steps.forEach((st,i)=>{const k=`${j.id}.${i}`;assert.ok(k in JOURNEY_SRC,`${k} is mapped (to sources, or to null when it states no fact)`);if(JOURNEY_SRC[k])has(st.text,k);});
  for(const s of TOUR_STOPS)has(s.text,s.id);
  for(const s of STOPS)for(const id of [s.prompt,s.fact])has(LINES[id],id);
  for(const [n,t] of Object.entries(STAR_FACTS))has(`${n}: ${t}`,'stars');for(const v of VISITORS)has(`${v.name}: ${v.fact}`,'visitors');

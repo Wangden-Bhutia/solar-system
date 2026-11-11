@@ -117,3 +117,12 @@ test('the phone’s Back button closes the Sources screen, then the card, and le
  a.click(a.$('sources-close'));assert.equal(h.length,n0+1);a.click(a.$('close'));a.step(2);assert.equal(h.length,n0);assert.equal(a.sheet,'closed');
  assert.equal(a.lab.layers.length,0);assert.deepEqual(a.errors,[]);
 });
+
+test('Explore hands over to a journey card without losing its Back entry, even when the browser steps back later',async()=>{
+ const a=await bootApp({fakeClock:true,stored:SEEN,asyncBack:true});a.step(30);const h=a.history,n0=h.length;
+ a.$('journeys').onclick();a.step(1);assert.equal(h.state?.solarLayer,'explore');
+ a.$('journey-list').querySelector('[data-journey="moon"]').onclick();a.step(3);
+ assert.notEqual(a.sheet,'closed','the journey card is open');assert.equal(h.state?.solarLayer,'sheet','the card has its own entry after the step back landed');
+ h.back();a.step(2);assert.equal(a.sheet,'closed','Back closes the card');assert.equal(h.length,n0,'history as it was');
+ assert.equal(a.errors.length,0);
+});

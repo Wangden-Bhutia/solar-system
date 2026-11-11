@@ -26,7 +26,7 @@ export function skyColor(sunAlt, alt) {
 export const starAlpha = sunAlt => Math.max(0.3, clamp((-sunAlt - 1) / 9, 0, 1));
 const fmtTime = d => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-export function createMySky({ onLeave } = {}) {
+export function createMySky({ onLeave, onOpen, onClose } = {}) {
   let root = null, cv, ctx, lowCv, info, whenEl, placeEl, noteEl, slider, sel, ro, chipsEl, aimBtn, target = null, ref = null, tonightList = [], aiming = false, aimVec = null, aimSeen = false, turning = 0, auto = true;
   let sky = null, place = PLACES[0], located = false, offsetH = 0, az0 = 180, alt0 = 26, fov = 75, jumped = false, selected = null, dirty = true, raf = 0, tick = 0, W = 0, H = 0, dpr = 1;
   const pts = new Map(); // pointer id → {x, y}
@@ -35,7 +35,7 @@ export function createMySky({ onLeave } = {}) {
   function build() {
     root = document.createElement('section'); root.id = 'mysky'; root.className = 'mysky'; root.hidden = true; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'My sky');
     root.innerHTML = `<canvas class="mysky-cv" aria-label="The sky above you. Drag to look around."></canvas>
- <div class="mysky-top"><button type="button" class="mysky-x" aria-label="Close My sky">✕</button><div class="mysky-title"><strong>My sky</strong><span class="mysky-place"></span><span class="mysky-when"></span></div></div>
+ <div class="mysky-top"><button type="button" class="mysky-x" aria-label="Close My sky"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="mysky-title"><strong>My sky</strong><span class="mysky-place"></span><span class="mysky-when"></span></div></div>
  <div class="mysky-chips" role="list" aria-label="Tonight"></div>
  <p class="mysky-note" aria-live="polite"></p>
  <div class="mysky-card" hidden></div>
@@ -201,9 +201,9 @@ export function createMySky({ onLeave } = {}) {
     info.innerHTML = `<strong>${title}</strong><span>${where}</span><span>${fact}</span>`; info.hidden = false;
   }
   function open() {
-    if (!root) build(); root.hidden = false; document.body.classList.add('mysky-on'); size(); selected = null; offsetH = 0; slider.value = 0; sel.value = 'gps'; located = false; jumped = false; target = null; recompute(true); buildTonight(); autoAim(); locate();
+    if (!root) build(); root.hidden = false; document.body.classList.add('mysky-on'); onOpen?.(); size(); selected = null; offsetH = 0; slider.value = 0; sel.value = 'gps'; located = false; jumped = false; target = null; recompute(true); buildTonight(); autoAim(); locate();
     tick = setInterval(() => { if (offsetH === 0) recompute(); }, 30000); root.querySelector('.mysky-x').focus?.({ preventScroll: true });
   }
-  function close() { if (!root || root.hidden) return; stopAim(); root.hidden = true; document.body.classList.remove('mysky-on'); clearInterval(tick); }
+  function close() { if (!root || root.hidden) return; stopAim(); root.hidden = true; document.body.classList.remove('mysky-on'); clearInterval(tick); onClose?.(); }
   return { open, close, get isOpen() { return !!root && !root.hidden; }, state: () => ({ place, located, az0, alt0, fov, offsetH, selected }), onOrient, startAim, stopAim, tonight: () => tonightList, goTo, lookAt(az, alt) { az0 = az; alt0 = alt; dirty = true; schedule(); }, draw };
 }

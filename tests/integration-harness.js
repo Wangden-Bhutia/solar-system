@@ -5,7 +5,7 @@ import fs from 'node:fs';import vm from 'node:vm';import path from 'node:path';i
 import * as THREE from '../vendor/three.module.min.js';
 // fakeClock: performance.now() inside the app advances only with step() (50 ms a frame), so scene glides that
 // time themselves by the wall clock run at frame speed. Off by default.
-export async function bootApp({layout=null,width=412,height=915,stored={},seed=1,fakeClock=false,reducedMotion=false,onRender=null}={}){
+export async function bootApp({layout=null,width=412,height=915,stored={},seed=1,fakeClock=false,reducedMotion=false,onRender=null,asyncBack=false}={}){
  let t=performance.now();const perf=fakeClock?{now:()=>t}:performance;
  const {window,document}=parseHTML(fs.readFileSync('index.html','utf8'));
  const selections=new WeakMap();Object.defineProperty(window.HTMLSelectElement.prototype,'value',{configurable:true,get(){return selections.get(this)??this.querySelector('option')?.textContent??'';},set(v){selections.set(this,v);}});
@@ -24,11 +24,12 @@ export async function bootApp({layout=null,width=412,height=915,stored={},seed=1
  class PointerEvent extends window.Event{constructor(type,init={}){super(type,init);const d={clientX:0,clientY:0,pointerId:1,pointerType:'mouse',isPrimary:true,button:0,buttons:0,ctrlKey:false,metaKey:false,shiftKey:false,altKey:false,...init};for(const k of Object.keys(d))if(k!=='bubbles'&&k!=='cancelable')Object.defineProperty(this,k,{value:d[k]});Object.defineProperty(this,'pageX',{value:d.clientX});Object.defineProperty(this,'pageY',{value:d.clientY});}}
  const storage={...stored};let queue=[],rafId=0;const errors=[];
  // Window-level listeners (resize, popstate, pagehide…) are recorded so a test can fire them (fire); a minimal
- // session history: pushState adds an entry, back() removes one and fires popstate (synchronously, as a test needs).
- const winListeners={},fire=(type,e={})=>{for(const f of [...(winListeners[type]||[])])f({type,...e});};
+ // session history: pushState adds an entry, back() removes one and fires popstate (synchronously, as a test needs;
+ // asyncBack: as a browser does, on the next step, so code that pushes while its own step back is pending is tested).
+ const pendingBacks=[],winListeners={},fire=(type,e={})=>{for(const f of [...(winListeners[type]||[])])f({type,...e});};
  const entries=[{state:null}],history={get length(){return entries.length;},get state(){return entries[entries.length-1].state;},
   pushState(st){entries.push({state:st});},replaceState(st){entries[entries.length-1]={state:st};},
-  back(){if(entries.length>1){entries.pop();fire('popstate',{state:history.state});}}};
+  back(){const go=()=>{if(entries.length>1){entries.pop();fire('popstate',{state:history.state});}};if(asyncBack)pendingBacks.push(go);else go();}};
  class Renderer{constructor(){this.domElement=canvas;}setPixelRatio(){}setSize(){}render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);onRender?.(scene,camera);}setScissorTest(){}setScissor(){}setViewport(){}setClearColor(){}clear(){}}
  const textures={photo:()=>false,canPhoto:()=>false,swatch:()=>new THREE.Texture(),tex:name=>['Moon','Earth','Mars','Mercury'].includes(name)?{map:new THREE.Texture(),bump:new THREE.Texture()}:new THREE.Texture(),rimShell:()=>new THREE.Object3D(),ringGeometry:()=>new THREE.RingGeometry(1,2),saturnRingTex:()=>new THREE.Texture(),uranusRingTex:()=>new THREE.Texture(),SATURN_RING:{inner:1.2,outer:2.3},URANUS_RING:{inner:1.5,outer:2}};
  // Every element can hand out a no-op 2D context (sprite glow, band textures).
@@ -56,7 +57,7 @@ export async function bootApp({layout=null,width=412,height=915,stored={},seed=1
  const app=cache.get('app.js').namespace,lab=window.__lab;
  if(lay?.hudRect){const hud=document.getElementById('hud');if(hud)hud.getBoundingClientRect=()=>lay.hudRect(hud)||rect(0,0,0,0);}
  // Every pending animation-frame callback runs once per step, as in a browser (the app loop, glides, the zoom).
- const step=(n=1)=>{for(let i=0;i<n;i++){t+=50;const q=queue;queue=[];for(const [,f] of q)f(t);}};
+ const step=(n=1)=>{for(let i=0;i<n;i++){while(pendingBacks.length)pendingBacks.shift()();t+=50;const q=queue;queue=[];for(const [,f] of q)f(t);}};
  const pe=(type,x,y,o={})=>new PointerEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,pointerId:o.id??1,pointerType:o.type??'touch',buttons:type==='pointerup'||type==='pointercancel'?0:1});
  const click=(target,x,y)=>{const e=new window.Event('click',{bubbles:true,cancelable:true});Object.assign(e,{clientX:x,clientY:y});target.dispatchEvent(e);};
  // A browser tap: pointerdown, optional moves, pointerup (OrbitControls has captured the pointer, so

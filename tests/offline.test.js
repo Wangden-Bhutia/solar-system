@@ -10,7 +10,7 @@ test('offline and install files exist and are deployed: service worker, manifest
   const sw = fs.readFileSync('sw.js', 'utf8'); assert.match(sw, /mode === 'navigate'/); assert.match(sw, /caches\.match\(req\)/);
 });
 
-test('every scale’s real scene can glide in and out (the ladder and the voyage rely on it, and test stand-ins could hide a gap)', () => {
+test('every scale’s real scene can glide in and out (the ladder and the tour rely on it, and test stand-ins could hide a gap)', () => {
   const api = { 'stars.js': ['zoomOut', 'zoomBackIn'], 'galaxy.js': ['zoomOut', 'zoomToSun'], 'local.js': ['zoomOut', 'zoomBackIn', 'overview'], 'cosmos.js': ['zoomOut', 'zoomBackIn', 'overview'] };
   for (const [file, names] of Object.entries(api)) { const src = fs.readFileSync(file, 'utf8'); for (const n of names) assert.match(src, new RegExp(`\\b${n}\\b\\s*[(,:]`), `${file} provides ${n}`); }
 });

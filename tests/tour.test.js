@@ -52,7 +52,7 @@ test('one tap plays every stop in order from Earth to the observable universe; e
  assert.equal(a.lab.state.value.view,'universe','reached the Universe scale');
  assert.match(hud(a)[3],/viewpoint outside the observable universe/,'the readout agrees with the last caption: this viewpoint is outside');
  assert.match(TOUR_STOPS.at(-1).illustration,/outside the observable universe/);
- until(a,()=>t.finished,400);assert.equal(a.$('tour-play').getAttribute('aria-label'),'Start the tour again');assert.equal(a.$('tour-next').disabled,true);
+ until(a,()=>!t.active,400);const fin=a.document.getElementById('finale');assert.ok(fin&&!fin.hidden,'the last stop leads into the quiet finale');assert.equal(a.$('tour').hidden,true,'the tour bar steps aside for it');
  assert.equal(a.errors.length,0);
 });
 
@@ -86,10 +86,11 @@ test('a touch on the scene mid-glide pauses the tour on the spot; Resume carries
  assert.equal(a.errors.length,0);
 });
 
-test('a card opening (Journeys) pauses the tour and hides its caption until it closes',async()=>{
+test('opening Explore pauses the tour and hides its caption until it closes',async()=>{
  const a=await ready(),t=a.lab.tour;a.$('tour-start').onclick();until(a,()=>t.arrived&&t.index===0);
- a.$('journeys').onclick();a.step(2);assert.equal(t.paused,true);assert.notEqual(a.sheet,'closed');
- for(let i=0;i<100;i++)a.step(1);assert.equal(t.index,0);assert.equal(a.errors.length,0);
+ a.$('journeys').onclick();a.step(2);assert.equal(t.paused,true);assert.equal(a.$('explore').hidden,false);
+ for(let i=0;i<100;i++)a.step(1);assert.equal(t.index,0);
+ a.$('journey-list').querySelector('[data-act="tour"]').onclick();assert.equal(t.active,true,'the tour card resumes a paused tour; it does not end it');assert.equal(t.paused,false);assert.equal(a.$('explore').hidden,true);assert.equal(a.errors.length,0);
 });
 
 test('reduced motion: each stop is a cut, never a glide',async()=>{
