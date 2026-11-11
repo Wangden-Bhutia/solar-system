@@ -90,7 +90,8 @@ test('opening Explore pauses the tour and hides its caption until it closes',asy
  const a=await ready(),t=a.lab.tour;a.$('tour-start').onclick();until(a,()=>t.arrived&&t.index===0);
  a.$('journeys').onclick();a.step(2);assert.equal(t.paused,true);assert.equal(a.$('explore').hidden,false);
  for(let i=0;i<100;i++)a.step(1);assert.equal(t.index,0);
- a.$('journey-list').querySelector('[data-act="tour"]').onclick();assert.equal(t.active,true,'the tour card resumes a paused tour; it does not end it');assert.equal(t.paused,false);assert.equal(a.$('explore').hidden,true);assert.equal(a.errors.length,0);
+ assert.equal(a.$('journey-list').querySelector('[data-act="tour"]'),null,'no second Tour button in Explore');
+ a.document.querySelector('#explore .ex-x').onclick();assert.equal(a.$('explore').hidden,true);assert.equal(t.paused,false,'closing Explore lets the tour carry on');assert.equal(a.errors.length,0);
 });
 
 test('reduced motion: each stop is a cut, never a glide',async()=>{

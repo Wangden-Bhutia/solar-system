@@ -208,9 +208,6 @@ body.bridging #gtime{visibility:hidden}
 .legend .sw.cm{width:8px;height:8px;border-radius:50%;background:#f3c887}
 #star-companions .pair-go{display:block;margin-top:8px;min-height:36px;padding:6px 12px;font-size:13px;text-align:left}
 .head-actions .action.alt{background:none;border:1px solid rgba(194,223,243,.45);color:#c2dff3}
-/* The tour leads the Explore list. */
-.experiment-card.feature-card{border-color:rgba(243,200,135,.55);background:linear-gradient(135deg,rgba(243,200,135,.14),rgba(27,44,69,.6))}
-.experiment-card.feature-card strong{color:#f3c887}
 
 /* Six scales: short names on narrow screens so the ladder fits a phone. */
 #ladder .short{display:none}
