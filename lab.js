@@ -83,7 +83,15 @@ const gtime=$('gtime'),gslider=$('gslider');
 let timeText='';
 const clockLevel=()=>{const v=state.value.view;return v==='galaxy'?'galaxy':v==='stars'?'stars':null;};
 const clockOf=l=>l==='galaxy'?galaxyView:l==='stars'?starsView:null;
-function paintTime(){const l=clockLevel(),c=clockOf(l);if(!c)return;const t=c.time(),p=c.playing(),g=l==='galaxy';
+// The bar starts folded into a small chip; opened, it stays open until folded again or until we leave that scale.
+let timeOpenAt=null,timeSeen=false;try{timeSeen=!!localStorage.getItem('solar.gtime.v1');}catch{}
+function paintFold(){const l=clockLevel();if(timeOpenAt&&timeOpenAt!==l)timeOpenAt=null;const open=!!timeOpenAt;
+ gtime.classList.toggle('folded',!open);$('gopen').setAttribute('aria-expanded',String(open));$('gopen').classList.toggle('new',!timeSeen&&!open);
+ $('gopen').classList.toggle('playing',!!clockOf(l)?.playing());}
+function setTimeOpen(on){timeOpenAt=on?clockLevel():null;if(on&&!timeSeen){timeSeen=true;try{localStorage.setItem('solar.gtime.v1','1');}catch{}}paintFold();$(on?'gplay':'gopen').focus?.();}
+$('gopen').onclick=()=>{dismissHint();setTimeOpen(true);};
+$('gfold').onclick=()=>setTimeOpen(false);
+function paintTime(){paintFold();const l=clockLevel(),c=clockOf(l);if(!c)return;const t=c.time(),p=c.playing(),g=l==='galaxy';
  let clock,note;
  if(g){clock=timeLabel(t);note=milestone(t)||(Math.abs(t)<0.5?'Press play to watch the Galaxy turn.':lapsLabel(t));}
  else{clock=yearsLabel(t);const n=c.nearest();note=n.entry?`${Math.abs(t)<50?'Nearest star now':'Nearest star'}: ${n.entry.name}, ${fmt(n.ly,1)} light-years`+(Math.abs(t)<50&&!p?' · press play to watch the stars drift':''):'';}
@@ -319,7 +327,9 @@ function updateTimeBar(){
  const now=globalThis.performance?.now?.()??Date.now(),still=!bridge&&!zoom.moving&&!gtime.hidden&&!document.body.classList.contains('touring');
  if(!still)restSince=0;else if(!restSince)restSince=now;
  const show=still&&now-restSince>450;
- if(gtime.classList.contains('resting')!==show){gtime.classList.toggle('resting',show);document.body.classList.toggle('time-resting',show);}
+ if(gtime.classList.contains('resting')!==show)gtime.classList.toggle('resting',show);
+ // the readout steps aside only for the full bar; the folded chip sits beside it
+ const full=show&&!gtime.classList.contains('folded');if(document.body.classList.contains('time-resting')!==full)document.body.classList.toggle('time-resting',full);
  // While faded out it is also out of reach of the keyboard and screen readers (not only of taps).
  if(gtime.hasAttribute('inert')===show){if(show)gtime.removeAttribute('inert');else gtime.setAttribute('inert','');}
 }
@@ -358,7 +368,8 @@ const nowMs=e=>globalThis.performance?.now?.()??e.timeStamp??Date.now();
 const held=new Map(),allControls=()=>[controls,starsView.controls,galaxyView.controls,localView.controls,sceneOf(levelOf(state.value.view))?.controls].filter(Boolean);
 const lockRotate=on=>{if(on){for(const c of allControls())if(!held.has(c)){held.set(c,[c.enableRotate,c.enablePan]);c.enableRotate=false;c.enablePan=false;}}else{for(const [c,[r,p]] of held){c.enableRotate=r;c.enablePan=p;}held.clear();}};
 // A pinch may start on a name label (they cover much of the screen when zoomed in): it zooms the scene too.
-const onPinchSurface=t=>t===$('c')||!!t?.closest?.('#labels');
+// So may one on the time bar, away from its slider and buttons.
+const onPinchSurface=t=>t===$('c')||!!t?.closest?.('#labels')||(!!t?.closest?.('#gtime')&&!t.closest('input,button'));
 document.addEventListener('pointerdown',e=>{if(!onPinchSurface(e.target))return;tourRef?.interrupt();pinch.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch.size===2){spread=spreadOf();lockRotate(true);}},true);
 document.addEventListener('pointermove',e=>{const p=pinch.get(e.pointerId);if(!p)return;p.x=e.clientX;p.y=e.clientY;if(pinch.size!==2)return;const d=spreadOf();if(spread>0&&d>0)zoomInput(pinchZ(d/spread),'pinch',nowMs(e));spread=d;},true);
 for(const t of ['pointerup','pointercancel'])document.addEventListener(t,e=>{if(!pinch.delete(e.pointerId))return;if(pinch.size<2){if(spread>0)zoom.release(nowMs(e));spread=0;if(!pinch.size)lockRotate(false);}},true);
