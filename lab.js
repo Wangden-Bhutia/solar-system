@@ -30,6 +30,7 @@ import { initAdventure } from './adventure.js';
 import { REFS, LAB_REFS } from './sources.js';
 import { mountSources, refLinks } from './sources-page.js';
 import * as solarApp from './app.js';
+import { hereLine, FINALE } from './here.js';
 import { PREDICTIONS, judge, JOURNEYS, VOYAGE, journey, canAdvance, eclipseGeometry, tideLabel, tideRange, scaleWalk, sizeLike, formatMetres, formatDuration, lightSeconds, sunlightTo, AU_KM, FOOTBALL_CM, MOON_INCLINATION } from './learn.js';
 let adventure=null; // the Earth–Moon guided story (adventure.js), set up below
 // Labs drawn in their own 3D scene; the scale lab keeps the live Solar System behind the sheet.
@@ -275,7 +276,8 @@ const currentZ=()=>{if(bridge||zoom.moving)return Zc;const l=levelOf(state.value
 // Text is written only when it changes; computed from the dominant scale's own camera (no allocation per frame).
 const hudEl=document.createElement('div');hudEl.id='hud';hudEl.className='hud';hudEl.setAttribute('aria-hidden','true');
 const hudA=document.createElement('div'),hudB=document.createElement('div'),hudC=document.createElement('div'),hudN=document.createElement('div');hudN.className='hud-note';
-hudEl.append(hudA,hudB,hudC,hudN);document.body.appendChild(hudEl);
+const hudH=document.createElement('div');hudH.className='hud-here';
+hudEl.append(hudA,hudB,hudC,hudN,hudH);document.body.appendChild(hudEl); // hudH is drawn first by CSS order, so the readout lines keep their order
 const SUN_AT={stars:0,galaxy:-R0,local:-R0*1e3/UNIT_LY.local,super:-R0*1e3/UNIT_LY.super,universe:-R0*1e3/UNIT_LY.universe};
 const hudSet=(el,t)=>{if(el.textContent!==t)el.textContent=t;};
 function updateHud(){
@@ -285,7 +287,7 @@ function updateHud(){
  if(l==='solar'){cam=camera;const sc=solarCamera?.()||{au:0,metric:1};sunLy=sc.au*AU_LY;model=!isRealScale?.()&&sc.metric<1;offSun=controls.target.lengthSq()>1e-6;}
  else{const sc=sceneOf(l);cam=sc.camera;const p=cam.position,sx=SUN_AT[l];sunLy=Math.hypot(p.x-sx,p.y,p.z)*UNIT_LY[l];const t=sc.controls?.target;offSun=!!t&&Math.hypot(t.x-sx,t.y,t.z)*UNIT_LY[l]>0.01*Math.exp(z);}
  const h=hudText({widthLy:viewWidth(Math.exp(z),cam.fov,aspect),sunLy,model,offSun});
- hudSet(hudA,h.lines[0]);hudSet(hudB,h.lines[1]);hudSet(hudC,h.lines[2]);hudSet(hudN,h.note);
+ hudSet(hudH,hereLine(l));hudSet(hudA,h.lines[0]);hudSet(hudB,h.lines[1]);hudSet(hudC,h.lines[2]);hudSet(hudN,h.note);
 }
 // The time bar eases in only once the zoom has come to rest at a scale with a clock (and eases out as soon as a
 // zoom starts), so nothing pops up in the middle of a zoom; the scale readout gives way to it while it shows.
@@ -298,7 +300,7 @@ function updateTimeBar(){
  // While faded out it is also out of reach of the keyboard and screen readers (not only of taps).
  if(gtime.hasAttribute('inert')===show){if(show)gtime.removeAttribute('inert');else gtime.setAttribute('inert','');}
 }
-hooks.afterFrame=()=>{updateHud();updateTimeBar();tourUi?.frame();hooks.afterFrameLog?.();};
+hooks.afterFrame=()=>{if(saveNext)saveFinale();if(finaleEl&&!finaleEl.hidden&&(zoom.moving||animating||bridge))hideFinale();updateHud();updateTimeBar();tourUi?.frame();hooks.afterFrameLog?.();};
 // Inside a seam the "you are here" anchor stands at the Sun's label: the Sun's own label gives way (one label, not two).
 hooks.labelsOff=b=>!!bridge&&b.data.name==='Sun';
 // Labels never sit under the top controls: the band down to the scale ladder's bottom edge (read on layout only).
@@ -568,6 +570,31 @@ function arrive(i){
  voyageBusy=false;render();
 }
 function endVoyage(){state.update({voyage:null,sheet:'closed',star:null,landmark:null});render();}
+// ---- The quiet finale: after the last stop, still words over the whole universe. Any zoom or tap on the scene lets it go.
+let finaleEl=null,saveNext=false;
+function showFinale(){
+ if(!finaleEl){
+  finaleEl=document.createElement('section');finaleEl.id='finale';finaleEl.className='finale';finaleEl.setAttribute('aria-label','The end of the voyage');finaleEl.hidden=true;
+  finaleEl.innerHTML=`<h2>${FINALE.title}</h2>${FINALE.lines.map(t=>`<p>${t}</p>`).join('')}<div class="finale-actions"><button type="button" id="finale-home" class="primary">${FINALE.home}</button><button type="button" id="finale-save">${FINALE.save}</button></div>`;
+  document.body.appendChild(finaleEl);
+  finaleEl.querySelector('#finale-home').onclick=()=>{hideFinale();goLevel('solar');};
+  finaleEl.querySelector('#finale-save').onclick=()=>{saveNext=true;};
+ }
+ finaleEl.hidden=false;document.body.classList.add('finale-on');
+ globalThis.requestAnimationFrame?.(()=>finaleEl.classList.add('in'));if(!globalThis.requestAnimationFrame)finaleEl.classList.add('in');
+ finaleEl.querySelector('#finale-home').focus?.({preventScroll:true});
+}
+function hideFinale(){if(!finaleEl||finaleEl.hidden)return;finaleEl.classList.remove('in');finaleEl.hidden=true;document.body.classList.remove('finale-on');}
+// Saved from the frame just drawn (the canvas is only readable straight after a render), with the caption on a dark strip.
+function saveFinale(){
+ saveNext=false;const src=renderer.domElement,w=src.width,h=src.height,c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
+ x.drawImage(src,0,0);const pad=Math.round(w*0.05),fs=Math.max(14,Math.round(w*0.034)),lh=Math.round(fs*1.35),max=w-2*pad;
+ x.font=`${fs}px system-ui,sans-serif`;const rows=[];let cur='';for(const word of FINALE.lines[0].split(' ')){const t=cur?cur+' '+word:word;if(x.measureText(t).width>max&&cur){rows.push(cur);cur=word;}else cur=t;}rows.push(cur);
+ const strip=pad*0.6+rows.length*lh+lh*1.4;x.fillStyle='rgba(2,4,12,.74)';x.fillRect(0,h-strip,w,strip);
+ x.fillStyle='#f1ead8';x.textBaseline='top';rows.forEach((r,i)=>x.fillText(r,pad,h-strip+pad*0.4+i*lh));
+ x.fillStyle='#b9c4dc';x.font=`${Math.round(fs*0.72)}px system-ui,sans-serif`;x.fillText(FINALE.caption,pad,h-lh*1.1,max);
+ c.toBlob(b=>{if(!b)return;const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='a-mote-in-a-sunbeam.png';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);},'image/png');
+}
 function paintVoyage(){
  const s=state.value,i=s.voyage,st=VOYAGE.steps[i],last=i===VOYAGE.steps.length-1;narration=null;$('action').hidden=true;
  $('journey-list').hidden=true;$('journey-step').hidden=false;
@@ -604,7 +631,7 @@ function paintJourney(){
  if(body)aimCamera({...s,world:st.world,feature:'overview'},body);else aimCamera({...s,feature:'orbit'});
 }
 $('journey-prev').onclick=()=>{stopAudio();if(state.value.voyage!=null){if(state.value.voyage>0&&!voyageBusy)travel(state.value.voyage-1);return;}state.update({step:Math.max(0,state.value.step-1)});render();};
-$('journey-next').onclick=()=>{stopAudio();if(state.value.voyage!=null){const s=state.value,st=VOYAGE.steps[s.voyage];if(voyageBusy||!canAdvance(st,s.answers))return;if(s.voyage>=VOYAGE.steps.length-1)endVoyage();else travel(s.voyage+1);return;}const s=state.value,j=journey(s.journey);if(!j||!canAdvance(j.steps[s.step],s.answers))return;
+$('journey-next').onclick=()=>{stopAudio();if(state.value.voyage!=null){const s=state.value,st=VOYAGE.steps[s.voyage];if(voyageBusy||!canAdvance(st,s.answers))return;if(s.voyage>=VOYAGE.steps.length-1){endVoyage();showFinale();}else travel(s.voyage+1);return;}const s=state.value,j=journey(s.journey);if(!j||!canAdvance(j.steps[s.step],s.answers))return;
  if(s.step>=j.steps.length-1)state.update({journey:null,step:0});else state.update({step:s.step+1});render();};
 function seasonLabel(a){
  const angle=wrap(a);
