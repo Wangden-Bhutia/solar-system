@@ -412,5 +412,7 @@ body.mysky-on .hud,body.mysky-on .finale{display:none}
 body.cyear-on .hud,body.cyear-on .finale{display:none}
 @media (prefers-reduced-motion:reduce){.cy-marker{transition:none}}
 .cy-bg{position:absolute;inset:0;width:100%;height:100%;z-index:0}
-.cyear>:not(.cy-bg){position:relative;z-index:1}
 .cy-main{text-shadow:0 1px 10px rgba(0,0,0,.7)}
+.cyear>.cy-3d{position:absolute;inset:0;width:100%;height:100%;z-index:0}.cyear>.cy-3d[hidden]{display:none}
+.cyear::before{content:'';position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(2,5,14,.15) 0%,rgba(2,5,14,0) 18%,rgba(2,5,14,.38) 42%,rgba(2,5,14,.5) 70%,rgba(2,5,14,.78) 100%)}
+.cyear>:not(.cy-bg):not(.cy-3d){position:relative;z-index:2}
