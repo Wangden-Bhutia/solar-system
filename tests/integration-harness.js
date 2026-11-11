@@ -23,6 +23,12 @@ export async function bootApp({layout=null,width=412,height=915,stored={},seed=1
  // linkedom has no PointerEvent: a minimal one with the standard init dictionary.
  class PointerEvent extends window.Event{constructor(type,init={}){super(type,init);const d={clientX:0,clientY:0,pointerId:1,pointerType:'mouse',isPrimary:true,button:0,buttons:0,ctrlKey:false,metaKey:false,shiftKey:false,altKey:false,...init};for(const k of Object.keys(d))if(k!=='bubbles'&&k!=='cancelable')Object.defineProperty(this,k,{value:d[k]});Object.defineProperty(this,'pageX',{value:d.clientX});Object.defineProperty(this,'pageY',{value:d.clientY});}}
  const storage={...stored};let queue=[],rafId=0;const errors=[];
+ // Window-level listeners (resize, popstate, pagehide…) are recorded so a test can fire them (fire); a minimal
+ // session history: pushState adds an entry, back() removes one and fires popstate (synchronously, as a test needs).
+ const winListeners={},fire=(type,e={})=>{for(const f of [...(winListeners[type]||[])])f({type,...e});};
+ const entries=[{state:null}],history={get length(){return entries.length;},get state(){return entries[entries.length-1].state;},
+  pushState(st){entries.push({state:st});},replaceState(st){entries[entries.length-1]={state:st};},
+  back(){if(entries.length>1){entries.pop();fire('popstate',{state:history.state});}}};
  class Renderer{constructor(){this.domElement=canvas;}setPixelRatio(){}setSize(){}render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);onRender?.(scene,camera);}setScissorTest(){}setScissor(){}setViewport(){}setClearColor(){}clear(){}}
  const textures={photo:()=>false,canPhoto:()=>false,swatch:()=>new THREE.Texture(),tex:name=>['Moon','Earth','Mars','Mercury'].includes(name)?{map:new THREE.Texture(),bump:new THREE.Texture()}:new THREE.Texture(),rimShell:()=>new THREE.Object3D(),ringGeometry:()=>new THREE.RingGeometry(1,2),saturnRingTex:()=>new THREE.Texture(),uranusRingTex:()=>new THREE.Texture(),SATURN_RING:{inner:1.2,outer:2.3},URANUS_RING:{inner:1.5,outer:2}};
  // Every element can hand out a no-op 2D context (sprite glow, band textures).
@@ -30,7 +36,7 @@ export async function bootApp({layout=null,width=412,height=915,stored={},seed=1
  window.HTMLCanvasElement.prototype.getContext=()=>ctx2d;
  const g={document,window,navigator:{userAgent:'node'},innerWidth:width,innerHeight:height,devicePixelRatio:2.625,performance:perf,console,setTimeout,clearTimeout,
   localStorage:{getItem:k=>storage[k]??null,setItem:(k,v)=>{storage[k]=String(v);}},
-  requestAnimationFrame:fn=>{queue.push([++rafId,fn]);return rafId;},cancelAnimationFrame:id=>{queue=queue.filter(([i])=>i!==id);},addEventListener:()=>{},removeEventListener:()=>{},matchMedia:q=>({matches:reducedMotion&&/reduced-motion/.test(q),addEventListener(){}}),
+  requestAnimationFrame:fn=>{queue.push([++rafId,fn]);return rafId;},cancelAnimationFrame:id=>{queue=queue.filter(([i])=>i!==id);},addEventListener:(t,f)=>{(winListeners[t]||=[]).push(f);},removeEventListener:(t,f)=>{winListeners[t]=(winListeners[t]||[]).filter(x=>x!==f);},history,matchMedia:q=>({matches:reducedMotion&&/reduced-motion/.test(q),addEventListener(){}}),
   Event:window.Event,HTMLElement:window.HTMLElement,PointerEvent};
  // Planets start at random orbital angles; seed them so a failure can be replayed.
  let r=seed>>>0;const random=()=>{r=(r+0x6D2B79F5)>>>0;let t=r;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};
@@ -57,5 +63,5 @@ export async function bootApp({layout=null,width=412,height=915,stored={},seed=1
  // all go to the canvas), then click. Same listeners the app registers; nothing is called directly.
  const tapAt=(x,y,o={})=>{const target=o.target||canvas;target.dispatchEvent(pe('pointerdown',x,y,o));const dx=o.move||0;if(dx)target.dispatchEvent(pe('pointermove',x+dx,y,o));target.dispatchEvent(pe(o.cancel?'pointercancel':'pointerup',x+dx,y,o));if(!o.cancel)click(target,x+dx,y);};
  const screenOf=name=>{const b=app.bodies.find(b=>b.data.name===name);const p=b.mesh.getWorldPosition(new THREE.Vector3()).project(app.camera);return [(p.x+1)/2*width,(1-p.y)/2*height,p.z];};
- return {window,document,canvas,app,lab,step,tapAt,pe,click,PointerEvent,screenOf,storage,errors,$:id=>document.getElementById(id),get sheet(){return sheet.dataset.state;}};
+ return {window,document,canvas,app,lab,step,tapAt,pe,click,PointerEvent,screenOf,storage,errors,history,fire,$:id=>document.getElementById(id),get sheet(){return sheet.dataset.state;}};
 }

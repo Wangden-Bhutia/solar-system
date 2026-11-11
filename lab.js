@@ -29,6 +29,7 @@ import { createVoicePlayer } from './voice-player.js';
 import { initAdventure } from './adventure.js';
 import { REFS, LAB_REFS } from './sources.js';
 import { mountSources, refLinks } from './sources-page.js';
+import { SPOT_KEY, SAVE_EVERY_MS, AWAY_Z, makeSpot, parseSpot, isAway, spotLabel } from './resume.js';
 import * as solarApp from './app.js';
 import { hereLine, FINALE } from './here.js';
 import { createMySky } from './my-sky.js';
@@ -41,6 +42,15 @@ const LAB_TITLES={seasons:'Why do seasons happen?',phases:'Explore the phases',e
 let labScene=null;
 const $=id=>document.getElementById(id), state=createLabState(), experiments=new Proxy({},{get:(_,k)=>(labScene||=createExperiments(renderer))[k]}); // the labs' 3D scene is built the first time a lab opens
 const sheet=$('sheet');
+// ---- The phone's Back button (history.pushState): it closes the Sources screen, then an open card, before it
+// leaves the app. Each layer adds one history entry when it opens; closing it any other way (✕, Esc, a swipe)
+// takes that entry back off, so the browser's history is as it was. Nothing else is put in the history.
+const hist=globalThis.history,layers=[];let skipPops=0,homeBtn=null,resumeEl=null;
+function pushLayer(name){if(!hist?.pushState||layers.includes(name))return;try{hist.pushState({solarLayer:name},'');layers.push(name);}catch{}}
+function dropLayer(name){const i=layers.lastIndexOf(name);if(i<0)return;if(i<layers.length-1){layers.splice(i,1);return;}layers.pop();skipPops++;try{hist.back();}catch{skipPops--;}}
+globalThis.addEventListener?.('popstate',()=>{if(skipPops>0){skipPops--;return;}const top=layers.pop();
+ if(top==='sources')sourcesUi?.close();else if(top==='sheet'&&state.value.sheet!=='closed')$('close').onclick();});
+let sheetLayerOpen=false;
 // ---- Beyond the Solar System: the nearby stars and their planets ----
 const SPACE=new Set(['stars','system','pair','galaxy','local','super','universe']);
 const ORBITS=new Set(['system','pair']); // close-up views inside the star map: planets, or two stars orbiting each other
@@ -302,7 +312,8 @@ function updateTimeBar(){
  // While faded out it is also out of reach of the keyboard and screen readers (not only of taps).
  if(gtime.hasAttribute('inert')===show){if(show)gtime.removeAttribute('inert');else gtime.setAttribute('inert','');}
 }
-hooks.afterFrame=()=>{if(saveNext)saveFinale();if(finaleEl&&!finaleEl.hidden&&(zoom.moving||animating||bridge))hideFinale();updateHud();updateTimeBar();tourUi?.frame();hooks.afterFrameLog?.();};
+hooks.afterFrame=()=>{if(saveNext)saveFinale();if(finaleEl&&!finaleEl.hidden&&(zoom.moving||animating||bridge))hideFinale();updateHud();updateTimeBar();tourUi?.frame();spotFrame?.();hooks.afterFrameLog?.();};
+let spotFrame=null; // set below: saving the spot, the Continue prompt and Back to Earth
 // Inside a seam the "you are here" anchor stands at the Sun's label: the Sun's own label gives way (one label, not two).
 hooks.labelsOff=b=>!!bridge&&b.data.name==='Sun';
 // Labels never sit under the top controls: the band down to the scale ladder's bottom edge (read on layout only).
@@ -310,8 +321,8 @@ const safeTop=()=>{const r=$('ladder')?.getBoundingClientRect?.();LABEL_SAFE.top
 // Rects no label may cover, read each frame from the real elements (before this frame writes any label): the open
 // sheet, the time bar and the scale readout. The top controls are SAFE.top (above).
 const exRect=el=>{const r=el?.getBoundingClientRect?.();return r&&r.width>0&&r.height>0?[r.left,r.top,r.right,r.bottom]:null;};
-const exList=[null,null,null,null,null,null]; // [3]: the adventure's story panel (adventure.js); [4], [5]: the tour's card and hint (tour.js)
-function readExclusions(){const sh=$('sheet');exList[0]=sh&&sh.dataset.state!=='closed'?exRect(sh):null;exList[1]=!gtime.hidden&&!document.body.classList.contains('bridging')?exRect(gtime):null;exList[2]=!hudEl.hidden&&!document.body.classList.contains('time-resting')?exRect(hudEl):null;const st=document.getElementById('story');exList[3]=st&&!st.hidden?exRect(st):null;exList[4]=tourUi&&!tourUi.card.hidden?exRect(tourUi.card):null;exList[5]=tourUi&&!tourUi.hint.hidden?exRect(tourUi.hint):null;setExclusions(exList,globalThis.innerWidth||Infinity,globalThis.innerHeight||Infinity);}
+const exList=[null,null,null,null,null,null,null,null]; // [3]: the adventure's story panel (adventure.js); [4], [5]: the tour's card and hint (tour.js); [6], [7]: Back to Earth and the Continue prompt
+function readExclusions(){const sh=$('sheet');exList[0]=sh&&sh.dataset.state!=='closed'?exRect(sh):null;exList[1]=!gtime.hidden&&!document.body.classList.contains('bridging')?exRect(gtime):null;exList[2]=!hudEl.hidden&&!document.body.classList.contains('time-resting')?exRect(hudEl):null;const st=document.getElementById('story');exList[3]=st&&!st.hidden?exRect(st):null;exList[4]=tourUi&&!tourUi.card.hidden?exRect(tourUi.card):null;exList[5]=tourUi&&!tourUi.hint.hidden?exRect(tourUi.hint):null;exList[6]=homeBtn&&!homeBtn.hidden?exRect(homeBtn):null;exList[7]=resumeEl&&!resumeEl.hidden?exRect(resumeEl):null;setExclusions(exList,globalThis.innerWidth||Infinity,globalThis.innerHeight||Infinity);}
 hooks.beforeFrame=dt=>{readExclusions();tourFrame(dt);zoomTick(dt);zlog?.frame(dt,currentZ(),bridge,levelOf(state.value.view));};
 // dz: a change of Z from a gesture (zoom.js gains). Zooming out of a selected world lets go of it.
 function zoomInput(dz,kind,now){
@@ -892,7 +903,7 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system'||starsV
  for(const b of $('ladder').querySelectorAll('button'))b.setAttribute('aria-pressed',String(b.dataset.level===level));
  if(race&&!(experiment&&s.experiment==='scale')){globalThis.cancelAnimationFrame?.(race.id);race=null;}
  sheet.dataset.state=s.sheet;document.body.dataset.sheet=s.sheet;
- const open=s.sheet!=='closed';sheet.inert=!open;sheet.setAttribute('aria-hidden',String(!open));
+ const open=s.sheet!=='closed';if(open!==sheetLayerOpen){sheetLayerOpen=open;if(open)pushLayer('sheet');else dropLayer('sheet');}sheet.inert=!open;sheet.setAttribute('aria-hidden',String(!open));
  if(!open&&sheet.contains(document.activeElement))$('back').focus();
  $('grip').setAttribute('aria-expanded',String(s.sheet==='half'||s.sheet==='full'));
  $('grip').setAttribute('aria-label',s.sheet==='full'?'Show less':'Show more');
@@ -966,7 +977,7 @@ function tourTravel(stop,done){
 // Stop a move where it is: the glide (its frames are dropped), a wait for the Solar System's camera flight, and
 // the zoom controller takes over at the current Z (so a gesture right after carries on from here).
 function tourHalt(){tourGen++;tourWait=null;if(animating){animGen++;animating=false;}zoom.set(Zc);}
-tourRef=createTour({travel:tourTravel,halt:tourHalt,onStart:()=>{if(adventure&&adventure.phase!=='off')adventure.end(true);}, // one guided story at a time
+tourRef=createTour({travel:tourTravel,halt:tourHalt,onStart:()=>{dropResume?.();if(adventure&&adventure.phase!=='off')adventure.end(true);}, // one guided story at a time
  readout:()=>hudEl.hidden?null:[hudB.textContent,hudA.textContent],onChange:()=>tourUi?.paint()});
 tourUi=mountTour(document,tourRef,{storage:globalThis.localStorage,afterNode:$('journeys')});
 // ---- Sources (sources-page.js): a full-screen list over the scene; closing it returns to the same place ----
@@ -974,8 +985,8 @@ tourUi=mountTour(document,tourRef,{storage:globalThis.localStorage,afterNode:$('
 // A playing tour waits while it is open and carries on when it closes.
 let sourcesPausedTour=false;
 const sourcesUi=mountSources(document,{
- onOpen:()=>{if(tourRef?.active&&!tourRef.paused&&!tourRef.finished){tourRef.pause();sourcesPausedTour=true;}},
- onClose:()=>{if(sourcesPausedTour&&tourRef?.active&&tourRef.paused)tourRef.resume();sourcesPausedTour=false;}});
+ onOpen:()=>{pushLayer('sources');if(tourRef?.active&&!tourRef.paused&&!tourRef.finished){tourRef.pause();sourcesPausedTour=true;}},
+ onClose:()=>{dropLayer('sources');if(sourcesPausedTour&&tourRef?.active&&tourRef.paused)tourRef.resume();sourcesPausedTour=false;}});
 const mySky=createMySky({onLeave:()=>goLevel('stars')});
 $('open-mysky').onclick=()=>{$('settings').open=false;if(state.value.voyage!=null)endVoyage();hideFinale();mySky.open();};
 let cYearPausedTour=false;
@@ -985,6 +996,101 @@ const cYear=createCosmicYear({onGo:l=>goLevel(l),
 $('open-cyear').onclick=()=>{$('settings').open=false;if(state.value.voyage!=null)endVoyage();hideFinale();mySky.close();cYear.open();};
 $('open-sources').onclick=()=>{$('settings').open=false;sourcesUi.open(null,$('settings').querySelector('summary'));};
 document.addEventListener('click',e=>{const b=e.target.closest?.('[data-sources]');if(!b)return;e.preventDefault();sourcesUi.open(b.dataset.sources,b);});
+// ---- Continue where you left off (resume.js) ----
+// While exploring freely (not in the tour, the adventure, a voyage or a lab; not mid-glide, mid-seam or mid-flight),
+// the spot is saved at most every 1.5 s, and when the page is hidden: the zoom (Z), the scale, the viewing direction
+// and what is selected. On the next visit, if that spot is meaningfully away from the start, a slim prompt offers
+// to glide back there with the same continuous zoom. First visits keep the tour's hint instead (it wins), and the
+// prompt goes away by itself as soon as the user does anything else. Nothing is saved while it is offered.
+const spotStore=globalThis.localStorage,clock=()=>globalThis.performance?.now?.()??Date.now();
+const homeZ=()=>arrivalZ('solar');
+let resumeOffer=null,lastSaveAt=-Infinity,lastSpot='';
+function currentSpot(){
+ const s=state.value;if(!['explore','stars','galaxy','local','super','universe'].includes(s.view))return null;
+ if(tourRef?.active||(adventure&&adventure.phase!=='off')||s.voyage!=null||bridge||animating||zoom.moving||pendingTrip)return null;
+ const l=levelOf(s.view),z=zoomState();if(!z||z.busy)return null;
+ const Z=zOfLevel(l,z.d),lay=layoutAt(Z);if(!Number.isFinite(Z)||lay.pair||lay.level!==l)return null;
+ const open=s.sheet!=='closed',d=viewDirOf(l);
+ return makeSpot({view:s.view,Z,dir:{x:d.x,y:d.y,z:d.z},world:l==='solar'&&open?s.world:null,star:open&&s.view==='stars'?s.star:null,landmark:open&&l!=='solar'&&s.view!=='stars'?s.landmark:null});
+}
+function saveSpot(force){
+ if(resumeOffer)return;const now=clock();if(!force&&now-lastSaveAt<SAVE_EVERY_MS)return;lastSaveAt=now;
+ const sp=currentSpot();if(!sp)return;const key=JSON.stringify({...sp,t:0});if(key===lastSpot)return;lastSpot=key;
+ try{spotStore?.setItem(SPOT_KEY,JSON.stringify(sp));}catch{/* private mode or full: nothing is remembered */}
+}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)saveSpot(true);});
+globalThis.addEventListener?.('pagehide',()=>saveSpot(true));
+function readSpot(){let raw=null;try{raw=spotStore?.getItem(SPOT_KEY);}catch{return null;}
+ return parseSpot(raw,{now:Date.now(),levelAt:layoutAt,zMin:solarZ(controls.minDistance||0.6,real())-1e-6,zMax:()=>zOfLevel('universe',sceneOf('universe').zoomState().max)+1e-6,
+  names:{worlds:new Set(bodies.map(b=>b.data.name)),stars:new Set(starsView.entries.map(e=>e.name)),
+   landmarks:l=>new Set((l==='galaxy'?galaxyView.landmarks:l==='local'?localView.galaxies:l==='super'||l==='universe'?sceneOf(l).items():[]).map(x=>x.name))}});}
+resumeEl=document.createElement('div');resumeEl.id='resume';resumeEl.className='tour-hint resume-hint';resumeEl.setAttribute('role','note');resumeEl.hidden=true;
+resumeEl.innerHTML='<button id="resume-go" type="button"></button><button id="resume-x" type="button" aria-label="Dismiss: start from here">✕</button>';
+document.body.append(resumeEl);
+function dropResume(){if(!resumeOffer)return;resumeOffer=null;resumeEl.hidden=true;}
+function offerResume(){
+ if(!tourUi.hint.hidden)return; // a first visit: the tour's hint wins
+ const sp=readSpot();if(!sp||!isAway(sp,homeZ()))return;
+ resumeOffer=sp;const where=spotLabel(sp,homeZ());$('resume-go').textContent=`Continue where you left off: ${where} ›`;$('resume-go').setAttribute('aria-label',`Continue where you left off: ${where}`);resumeEl.hidden=false;
+}
+$('resume-go').onclick=()=>{const sp=resumeOffer;dropResume();if(sp)resumeTo(sp);};
+$('resume-x').onclick=dropResume;
+// Turn the camera to a saved direction around the scene's centre (after the glide), in about a second.
+function turnTo(l,to,done){
+ const v=viewDirOf(l),a={x:v.x,y:v.y,z:v.z},dot=Math.max(-1,Math.min(1,a.x*to.x+a.y*to.y+a.z*to.z)),ang=Math.acos(dot);
+ const put=d=>{if(l==='solar'){const r=solarDistance(),t=controls.target;camera.position.set(t.x+d.x*r,t.y+d.y*r,t.z+d.z*r);controls.update?.();}else{const sc=sceneOf(l);sc.setView(d,sc.zoomState().d,sc.controls?.target?.clone?.());}};
+ if(ang<0.01){done?.();return;}
+ if(!smoothFrames()||ang>3.1){put(to);done?.();return;}
+ const dur=Math.min(1.2,0.45+0.35*ang),sa=Math.sin(ang),gen=++animGen;let k=0,last=performance.now();animating=true;
+ const tick=now=>{if(gen!==animGen)return;k=Math.min(1,k+Math.min(.05,Math.max(0,(now-last)/1000))/dur);last=now;const e=k<.5?2*k*k:1-(-2*k+2)**2/2,p=Math.sin((1-e)*ang)/sa,q=Math.sin(e*ang)/sa;
+  put({x:a.x*p+to.x*q,y:a.y*p+to.y*q,z:a.z*p+to.z*q});if(k>=1){animating=false;done?.();}else globalThis.requestAnimationFrame(tick);};
+ globalThis.requestAnimationFrame(tick);
+}
+// Continue: from the start (the Solar System), one glide of Z to the saved zoom, through every seam on the way;
+// then the camera turns to the saved direction and the saved selection's card peeks up. A saved world is reached
+// the way a tap reaches it (its card opens and the camera flies to it from the whole-system view).
+function resumeTo(sp){
+ dismissHint();stopAudio();$('settings').open=false;
+ if(levelOf(state.value.view)!=='solar'||bridge||animating){goLevel('solar',()=>resumeTo(sp));return;}
+ zoom.stop();if(state.value.sheet!=='closed'){state.update({sheet:'closed'});render();}
+ if(solarFocused?.())unfocus(false);if(solarOffCentred())solarDrift?.(1e9);
+ const arrive=()=>{if(levelOf(state.value.view)!==sp.level)return;
+  if(sp.world){go({view:'explore',world:sp.world,feature:'overview',experiment:null,sheet:'peek'});return;}
+  turnTo(sp.level,sp.dir,()=>{if(sp.star)go({view:'stars',star:sp.star,sheet:'peek'});else if(sp.landmark)go({view:sp.view,landmark:sp.landmark,sheet:'peek'});});};
+ Zc=zOfLevel('solar');animateTo(sp.world?homeZ():sp.Z,arrive);
+}
+// ---- Back to Earth: one tap glides home with the same continuous zoom (through every seam on the way), then the
+// camera flies in to Earth, as at the tour's first stop. Shown only while exploring freely and meaningfully away
+// from Earth (another scale, the Solar System from more than twice the home distance, or another world in close-up),
+// with no card open. Hidden during the tour and the Earth–Moon adventure: each has its own ✕, and both start from Earth.
+homeBtn=document.createElement('button');homeBtn.id='home-earth';homeBtn.type='button';homeBtn.className='chip home-earth';homeBtn.hidden=true;
+homeBtn.setAttribute('aria-label','Back to Earth');homeBtn.innerHTML='<span aria-hidden="true">⌂</span>Earth';document.body.append(homeBtn);
+function awayFromEarth(){
+ if(bridge)return true;const l=levelOf(state.value.view);if(l!=='solar')return true;
+ const z=currentZ();if(Number.isFinite(z)&&z>homeZ()+AWAY_Z)return true;
+ const f=solarFocused?.();return !!f&&f.data.name!=='Earth';
+}
+function backToEarth(){
+ dropResume();dismissHint();stopAudio();$('settings').open=false;
+ if(tourRef?.active)tourRef.exit();if(adventure&&adventure.phase!=='off')adventure.end(true); // (the button is hidden in both; a keyboard or test call still ends them cleanly)
+ const earth=bodies.find(b=>b.data.name==='Earth');
+ const land=()=>{if(levelOf(state.value.view)!=='solar')return;state.update({view:'explore',world:'Earth',feature:'overview',experiment:null,journey:null,voyage:null,star:null,landmark:null,sheet:'closed'});cameraKey='overview';render();focus(earth,{silent:true,outside:true});};
+ if(levelOf(state.value.view)!=='solar'||bridge){goLevel('solar',land);return;}
+ if(ORBITS.has(state.value.view))starsView.closeSystem();
+ zoom.stop();if(state.value.sheet!=='closed'){state.update({sheet:'closed'});render();}
+ const z=currentZ(),hz=homeZ();
+ if(Number.isFinite(z)&&z>hz+0.05){if(solarFocused?.())unfocus(false);if(solarOffCentred())solarDrift?.(1e9);Zc=zOfLevel('solar');animateTo(hz,land);}else land();
+}
+homeBtn.onclick=backToEarth;
+spotFrame=()=>{
+ const s=state.value;
+ if(resumeOffer&&(tourRef?.active||(adventure&&adventure.phase!=='off')||s.sheet!=='closed'||s.view!=='explore'||zoom.moving||bridge||animating||sourcesUi.isOpen))dropResume(); // the user went on from the start: no longer offered
+ const show=!animating&&!tourRef?.active&&(!adventure||adventure.phase==='off')&&s.voyage==null&&s.sheet==='closed'&&!sourcesUi.isOpen&&awayFromEarth();
+ if(homeBtn.hidden===show)homeBtn.hidden=!show;
+ const up=!tourUi.hint.hidden||!resumeEl.hidden;if(document.body.classList.contains('hint-up')!==up)document.body.classList.toggle('hint-up',up);
+ saveSpot(false);
+};
+offerResume();
 // ---- Install and offline ----
 // "Install app" uses the browser's own install prompt where it offers one (Android, desktop Chrome/Edge); on
 // iPhone and iPad the note explains Share → Add to Home Screen. Installing, or "Save for offline", stores the
@@ -1012,4 +1118,4 @@ paintOffline();
 if(sw&&standalone()&&typeof setTimeout==='function')setTimeout(saveOffline,4000);
 // Offline: cache what has been loaded, so the app opens again without a connection (sw.js).
 if(globalThis.isSecureContext&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(reg=>setTimeout(()=>reg.active?.postMessage({cache:[location.href.split('#')[0],...performance.getEntriesByType('resource').map(e=>e.name)]}),3000)).catch(()=>{});
-window.__lab={sources:sourcesUi,state,go,experiments,player,setSheet,starsView,galaxyView,localView,zoom,placeZ,get Z(){return Zc;},get bridge(){return bridge;},get animating(){return animating;},get Zcam(){return currentZ();},get anchor(){return anchorNow;},get pendingTrip(){return pendingTrip?.target??null;},sceneOf:l=>(l==='super'||l==='universe')&&!built(l)?null:sceneOf(l),tour:tourRef,tourUi,tourZ};
+window.__lab={sources:sourcesUi,backToEarth,resumeTo,get resumeOffer(){return resumeOffer;},currentSpot,saveSpot,homeZ,get layers(){return [...layers];},state,go,experiments,player,setSheet,starsView,galaxyView,localView,zoom,placeZ,get Z(){return Zc;},get bridge(){return bridge;},get animating(){return animating;},get Zcam(){return currentZ();},get anchor(){return anchorNow;},get pendingTrip(){return pendingTrip?.target??null;},sceneOf:l=>(l==='super'||l==='universe')&&!built(l)?null:sceneOf(l),tour:tourRef,tourUi,tourZ};
