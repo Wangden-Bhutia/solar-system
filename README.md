@@ -96,7 +96,7 @@ A guided story on top of free exploring: tap **🚀 Adventure** (top bar, next t
 ## Learn by guessing first
 - **Journeys** (in Explore): four short guided tours: *How big is the Solar System?*, *Why do we have seasons?*, *The Moon and us*, *Next door: Mars*. Each stop glides the camera to a world; questions must be answered (or skipped) before moving on, and labs open from the step with Back returning to it. The controls (‹ ›, and the stop count) stay pinned to the bottom of the card. Each journey ends with **What you found**, then **Next ›** to the next journey (after the last one, the tour) or **Explore**; finished journeys show ✓ Done in Explore (stored in this browser only).
 - **Predict, then reveal**: every lab asks a question first and shows the result once you commit.
-- **New labs** under Try it: *Why aren't there eclipses every month?* (Moon position + tilted-orbit crossing point), *What makes the tides?* (spring and neap), *How big is space?* (football-sized Sun walk, light race).
+- **New labs** under Try it: *Why aren't there eclipses every month?* (Moon position + tilted-orbit crossing point), *What makes the tides?* (spring and neap), *How big is the Solar System?* (football-sized Sun walk, light race).
 - World cards show how long sunlight takes to reach each planet.
 - Maths, constants and limits: [docs/lab-science.md](docs/lab-science.md#learning-layer-learnjs-november-2026).
 
