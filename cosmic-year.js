@@ -9,10 +9,10 @@ import { EVENTS, YEAR_SECONDS, AGE_YEARS, yearSeconds, eventDate, calendarAt, sp
 const D = 86400, SCALES = [[YEAR_SECONDS, 'The whole year'], [120 * D, 'The last 4 months'], [31 * D, 'The last month'], [4 * D, 'The last 4 days'], [D, 'The last day'], [3600, 'The last hour'], [60, 'The last minute'], [15, 'The last 15 seconds']];
 export function scaleFor(ago) { const d = YEAR_SECONDS - yearSeconds(ago); let pick = SCALES[0]; for (const sc of SCALES) if (sc[0] >= d * 1.15) pick = sc; return pick; }
 
-export function createCosmicYear({ onGo } = {}) {
-  let root, bar, marker, kick, ttl, when, txt, srcs, goBtn, prev, next, ageRow, ageIn, ageOut, dots, playBtn, mainEl, markSec = null, play = null, playRaf = 0, bg, world, worldTry, scaleEl, gapEl, loEl, spansEl, S = YEAR_SECONDS, St = YEAR_SECONDS, tween = 0, i = 0;
+export function createCosmicYear({ onGo, onOpen, onClose } = {}) {
+  let root, bar, marker, kick, ttl, when, txt, srcs, goBtn, prev, next, ageRow, ageIn, ageOut, dots, playBtn, mainEl, markSec = null, play = null, playRaf = 0, bg, world, worldTry, worldFailed = false, opener = null, scaleEl, gapEl, loEl, spansEl, S = YEAR_SECONDS, St = YEAR_SECONDS, tween = 0, i = 0;
   function build() {
-    root = document.createElement('section'); root.id = 'cyear'; root.className = 'cyear'; root.hidden = true; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'The cosmic year');
+    root = document.createElement('section'); root.id = 'cyear'; root.className = 'cyear'; root.hidden = true; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', 'The cosmic year');
     root.innerHTML = `<canvas class="cy-bg" aria-hidden="true"></canvas><canvas class="cy-3d" aria-hidden="true" hidden></canvas><div class="cy-top"><button type="button" class="cy-x" aria-label="Close the cosmic year">✕</button><div><strong>The cosmic year</strong><span>13.8 billion years as one calendar year. 1 January is the Big Bang; midnight on 31 December is now.</span></div></div>
  <div class="cy-main"><p class="cy-kick"></p><h2 class="cy-title"></h2><p class="cy-when"></p><p class="cy-text"></p>
  <label class="cy-age" hidden>How old are you? <input type="number" inputmode="numeric" min="0" max="120" value="80" aria-label="Your age in years"> <span class="cy-ageout"></span></label>
@@ -68,7 +68,7 @@ export function createCosmicYear({ onGo } = {}) {
   function depart(now) {
     const a = EVENTS[i], b = EVENTS[i + 1], from = yearSeconds(a.ago), to = yearSeconds(b.ago);
     if (reducedMotion()) { show(i + 1); play = { phase: 'dwell', t0: now, dur: dwell() }; return; }
-    mainEl.classList.add('travel'); const [target, name] = scaleFor(b.ago); scaleEl.textContent = name; zoomTo(target); world?.go(i + 1); bg.set(b.id);
+    mainEl.classList.add('travel'); const [target, name] = scaleFor(b.ago); scaleEl.textContent = name; zoomTo(target); if (world && !worldOff()) world.go(i + 1); else bg.set(b.id);
     play = { phase: 'travel', t0: now, from, to, dur: 2700 + Math.min(2300, Math.log10(to - from + 1) * 330) };
   }
   function show(k) {
@@ -80,16 +80,24 @@ export function createCosmicYear({ onGo } = {}) {
     gapEl.textContent = i === 0 ? '' : `${spanOnCalendar(EVENTS[i - 1].ago - e.ago)} later`;
     for (const t of bar.querySelectorAll('.cy-tick')) t.classList.toggle('on', Number(t.dataset.k) === i);
     paintSpans(e); zoomTo(target);
-    bg.set(e.id); world?.go(i); prev.disabled = i === 0; next.disabled = i === EVENTS.length - 1; dots.textContent = `${i + 1} of ${EVENTS.length}`;
+    if (world && !worldOff()) world.go(i); else bg.set(e.id); prev.disabled = i === 0; next.disabled = i === EVENTS.length - 1; dots.textContent = `${i + 1} of ${EVENTS.length}`;
   }
   // The 3D world loads on first open (three.js is large). Until it is ready, and if WebGL fails, the 2D backdrop stays.
+  const worldOff = () => root.querySelector('.cy-3d').hidden;
+  function useWorld() { const c = root.querySelector('.cy-3d'); c.hidden = false; bg.stop(); root.querySelector('.cy-bg').hidden = true; world.start(); world.go(i, true); }
+  function useFlat() { root.querySelector('.cy-3d').hidden = true; root.querySelector('.cy-bg').hidden = false; world?.stop(); bg.set(EVENTS[i].id); if (!root.hidden) bg.start(); }
   async function load() {
-    if (world) { const c = root.querySelector('.cy-3d'); c.hidden = false; world.start(); world.go(i, true); bg.stop(); return; }
+    if (worldFailed) return;
+    if (world) { useWorld(); return; }
     if (worldTry) return; worldTry = true;
-    try { const c = root.querySelector('.cy-3d'); c.hidden = false; const w = await createWorld(c, { reduced: () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches }); if (root.hidden) { c.hidden = true; world = w; return; } world = w; w.start(); w.go(i, true); bg.stop(); }
-    catch (err) { root.querySelector('.cy-3d').hidden = true; worldTry = false; world = null; }
+    const c = root.querySelector('.cy-3d');
+    try {
+      const w = await createWorld(c, { reduced: reducedMotion });
+      world = w; c.addEventListener('webglcontextlost', e => { e.preventDefault(); worldFailed = true; useFlat(); world = null; }, { once: true });
+      if (!root.hidden) useWorld();
+    } catch (err) { worldFailed = true; useFlat(); }
   }
-  function open() { if (!root) build(); stopPlay(); S = St = YEAR_SECONDS; root.hidden = false; document.body.classList.add('cyear-on'); show(0); bg.start(); load(); root.querySelector('.cy-next').focus?.({ preventScroll: true }); }
-  function close() { if (!root || root.hidden) return; stopPlay(); root.hidden = true; bg.stop(); world?.stop(); document.body.classList.remove('cyear-on'); }
+  function open() { if (!root) build(); opener = document.activeElement; stopPlay(); S = St = YEAR_SECONDS; root.hidden = false; document.body.classList.add('cyear-on'); onOpen?.(); show(0); if (!world) bg.start(); load(); root.querySelector('.cy-next').focus?.({ preventScroll: true }); }
+  function close() { if (!root || root.hidden) return; stopPlay(); root.hidden = true; bg.stop(); world?.stop(); document.body.classList.remove('cyear-on'); onClose?.(); const back = opener?.isConnected && opener.offsetParent ? opener : document.querySelector('#settings summary'); back?.focus?.({ preventScroll: true }); opener = null; }
   return { open, close, show, get isOpen() { return !!root && !root.hidden; }, get index() { return i; } };
 }

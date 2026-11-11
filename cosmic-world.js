@@ -1,5 +1,5 @@
 // The cosmic year in 3D: one WebGL scene, one stage per era laid out along a line, and a camera that flies from stage to stage.
-// Loaded lazily (three.js is 700 KB), so the 2D backdrop in cosmic-backdrop.js shows first and stays as the fallback.
+// Built on first open (three.js itself is already loaded by the app). The 2D backdrop in cosmic-backdrop.js shows until it is ready, and stays as the fallback.
 import { EVENTS } from './cosmic-calendar.js';
 
 const STAGE_GAP = 1400;
@@ -68,14 +68,14 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     return { group: g, pose: { pos: V(0, 0, 230), look: V(0, 0, 0) }, fog: ['#031a1c', 300, 900], update(t) { for (const c of cells) { c.position.y += Math.sin(t * c.userData.b + c.userData.a) * 0.06; c.position.x += Math.cos(t * c.userData.b * 0.7 + c.userData.a) * 0.05; c.rotation.y = t * 0.2; } } }; };
   stages.animals = () => { const r = rng(21), g = new THREE.Group(), fish = []; for (let i = 0; i < 36; i++) { const f = new THREE.Group(), L = 8 + r() * 14, m = new THREE.MeshStandardMaterial({ color: C(i % 4 ? '#8fd0ff' : '#ffb27a'), roughness: 0.6, emissive: C('#0a2a44') }), body = new THREE.Mesh(new THREE.SphereGeometry(L, 16, 12), m), tail = new THREE.Mesh(new THREE.ConeGeometry(L * 0.5, L * 0.9, 10), m); body.scale.set(1, 0.38, 0.28); tail.rotation.z = Math.PI / 2; tail.position.x = -L * 1.25; f.add(body, tail); f.userData = { rad: 60 + r() * 220, sp: 0.15 + r() * 0.3, ph: r() * 6.28, y: (r() - 0.5) * 200, z: -r() * 240 }; fish.push(f); g.add(f); }
     const plankton = cloud(900, () => [(r() - 0.5) * 700, (r() - 0.5) * 420, (r() - 0.5) * 500 - 100], { size: 1.6, opacity: 0.6 }); g.add(plankton); for (let i = 0; i < 5; i++) { const s = new THREE.Mesh(new THREE.PlaneGeometry(40 + r() * 40, 700), new THREE.MeshBasicMaterial({ color: C('#9ad0ff'), transparent: true, opacity: 0.07, blending: add, depthWrite: false, side: THREE.DoubleSide })); s.position.set((r() - 0.5) * 500, 120, -140 - r() * 150); s.rotation.z = 0.25; g.add(s); }
-    return { group: g, pose: { pos: V(0, 0, 260), look: V(0, 0, -60) }, fog: ['#03122e', 250, 800], update(t) { for (const f of fish) { const d = f.userData, a = t * d.sp + d.ph; f.position.set(Math.cos(a) * d.rad, d.y + Math.sin(a * 2) * 6, d.z + Math.sin(a) * 60); f.rotation.y = -a - Math.PI / 2 + Math.PI; f.rotation.y = Math.atan2(-Math.cos(a) * 60, -Math.sin(a) * d.rad) + 0; } } }; };
+    return { group: g, pose: { pos: V(0, 0, 260), look: V(0, 0, -60) }, fog: ['#03122e', 250, 800], update(t) { for (const f of fish) { const d = f.userData, a = t * d.sp + d.ph; f.position.set(Math.cos(a) * d.rad, d.y + Math.sin(a * 2) * 6, d.z + Math.sin(a) * 60); f.rotation.y = Math.atan2(-Math.cos(a) * 60, -Math.sin(a) * d.rad); /* face the way it swims */ } } }; };
   stages.plants = planet({ tint: '#a8e890', glowColor: '#7affa0', clouds: 0.55 }, { pos: V(30, 50, 340), look: V(0, 0, 0) }, ['#06180a', 1000, 2600]);
   stages.dinos = planet({ tint: '#ffe0b0', glowColor: '#ffb060', clouds: 0.45 }, { pos: V(-50, 20, 330), look: V(0, 0, 0) }, ['#2a1006', 1000, 2600], g => { const s = glow('#ffcf8a', 420, 0.8); s.position.set(300, 90, -260); g.add(s); });
   stages.impact = planet({ tint: '#d8c8b8', glowColor: '#ff7a30', clouds: 0.35 }, { pos: V(0, 20, 330), look: V(0, 0, 0) }, ['#050408', 1000, 2600], g => { const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(9, 1), new THREE.MeshStandardMaterial({ color: C('#6a5a4a'), roughness: 1, emissive: C('#ff5a10'), emissiveIntensity: 0.6 })), tail = glow('#ffd28a', 70, 1), flash = glow('#fff0d0', 10, 0); g.add(rock, tail, flash); const tgt = ll(18, -90, 101);
     return { update(t, e) { const p = (t % 7) / 7, k = Math.min(1, p / 0.7), pos = V(300, 220, 100).lerp(tgt, ease(k) * 0.9 + k * 0.1); rock.position.copy(pos); tail.position.copy(pos); rock.visible = k < 1; tail.visible = k < 1; const hit = Math.max(0, (p - 0.7) / 0.3); flash.position.copy(tgt); flash.scale.setScalar(10 + 240 * hit); flash.material.opacity = hit > 0 ? 1 - hit : 0; e.userData.body.material.emissive.set(hit > 0 ? '#ff4a10' : '#000000'); e.userData.body.material.emissiveIntensity = hit > 0 ? 0.6 * (1 - hit) : 0; } }; });
-  stages.humans = () => { const r = rng(23), g = new THREE.Group(), stars = cloud(900, (i, c) => { const d = sphereDir(r); c.setHSL(0.6, 0.3, 0.7 + r() * 0.3); return [d[0] * 1500, Math.abs(d[1]) * 1500, d[2] * 1500]; }, { size: 5, fog: false }), ground = new THREE.Mesh(new THREE.CircleGeometry(900, 48), new THREE.MeshStandardMaterial({ color: C('#0a0c12'), roughness: 1 })), fire = glow('#ff9a3a', 120, 0.8), flame = cloud(240, () => [0, 0, 0], { size: 3.4, fog: false }); ground.rotation.x = -Math.PI / 2; ground.position.y = -10; fire.position.y = 8; g.add(stars, ground, fire, flame);
+  stages.humans = () => { const r = rng(23), g = new THREE.Group(), stars = cloud(900, (i, c) => { const d = sphereDir(r); c.setHSL(0.6, 0.3, 0.7 + r() * 0.3); return [d[0] * 1500, Math.abs(d[1]) * 1500, d[2] * 1500]; }, { size: 5, fog: false }), ground = new THREE.Mesh(new THREE.CircleGeometry(900, 48), new THREE.MeshStandardMaterial({ color: C('#0a0c12'), roughness: 1 })), fire = glow('#ff9a3a', 170, 0.85), flame = cloud(240, () => [0, 0, 0], { size: 3.4, fog: false }); ground.rotation.x = -Math.PI / 2; ground.position.y = -10; fire.position.y = 8; g.add(stars, ground, fire, flame);
     const base = Array.from({ length: 240 }, () => ({ a: r() * 6.28, d: r() * 9, s: 0.4 + r() * 0.9, p: r() })); const fl = new THREE.PointLight(0xff9a40, 60000, 500, 2); fl.position.set(0, 14, 0); g.add(fl);
-    return { group: g, pose: { pos: V(0, 24, 150), look: V(0, 36, 0) }, fog: ['#02030a', 600, 2200], update(t) { const a = flame.geometry.attributes.position, c = flame.geometry.attributes.color; base.forEach((b, i) => { const k = (t * 0.6 * b.s + b.p) % 1; a.setXYZ(i, Math.cos(b.a + t) * b.d * 0.6 * (1 - k) + Math.sin(t * 3 + i) * 1.2 * k, k * 34, Math.sin(b.a + t) * b.d * 0.6 * (1 - k)); c.setXYZ(i, 1, 0.75 - k * 0.5, 0.25 - k * 0.2); }); a.needsUpdate = c.needsUpdate = true; fire.material.opacity = 0.7 + 0.25 * Math.sin(t * 11) * Math.sin(t * 4.3); fl.intensity = 50000 + 20000 * Math.sin(t * 13) * Math.sin(t * 5.1); } }; };
+    return { group: g, pose: { pos: V(0, 24, 150), look: V(0, 36, 0) }, fog: ['#02030a', 600, 2200], update(t) { const a = flame.geometry.attributes.position, c = flame.geometry.attributes.color; base.forEach((b, i) => { const k = (t * 0.6 * b.s + b.p) % 1; a.setXYZ(i, Math.cos(b.a + t) * b.d * 0.9 * (1 - k * 0.7) + Math.sin(t * 3 + i) * 1.5 * k, k * 16, Math.sin(b.a + t) * b.d * 0.9 * (1 - k * 0.7)); c.setXYZ(i, 1, 0.75 - k * 0.5, 0.25 - k * 0.2); }); a.needsUpdate = c.needsUpdate = true; fire.material.opacity = 0.7 + 0.25 * Math.sin(t * 11) * Math.sin(t * 4.3); fl.intensity = 50000 + 20000 * Math.sin(t * 13) * Math.sin(t * 5.1); } }; };
   stages.farming = planet({ tint: '#f0e8d0', glowColor: '#ffc880', clouds: 0.4, lights: 60 }, { pos: V(0, 30, 300), look: V(0, 0, 0) }, ['#1b2a55', 1000, 2600]);
   stages.writing = planet({ tint: '#d8d4cc', glowColor: '#ffc070', clouds: 0.35, lights: 500 }, { pos: V(20, 30, 290), look: V(0, 0, 0) }, ['#120a04', 1000, 2600]);
   stages.modern = planet({ tint: '#9aa4c0', glowColor: '#7aa0ff', clouds: 0.35, lights: 4200 }, { pos: V(0, 20, 280), look: V(0, 0, 0) }, ['#02030a', 1000, 2600]);
@@ -85,29 +85,30 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   const poseAt = (i, fit) => { const s = built[i], z = -i * STAGE_GAP, look = s.pose.look.clone().add(V(0, 0, z)), pos = s.pose.pos.clone().add(V(0, 0, z)); pos.sub(look).multiplyScalar(fit).add(look); return { pos, look }; };
 
   // camera, flight and frame loop
-  let cur = 0, from = null, to = null, flight = 1, w = 0, h = 0, raf = 0, last = 0, t0 = 0, px = 0, py = 0, fit = 1, fogK = 1, drift = 0;
+  let cur = 0, prevIdx = -1, from = null, to = null, flight = 1, w = 0, h = 0, raf = 0, last = 0, t0 = 0, px = 0, py = 0, fit = 1, fogK = 1, drift = 0;
   const camPos = V(0, 0, 0), camLook = V(0, 0, 0), fogFrom = { c: C('#02040c'), n: 200, f: 1600 }, fogTo = { c: C('#02040c'), n: 200, f: 1600 }, tmpC = new THREE.Color();
-  function size() { w = canvas.clientWidth || 412; h = canvas.clientHeight || 915; renderer.setSize(w, h, false); cam.aspect = w / h; fit = w / h < 1 ? Math.min(2.1, 0.92 / Math.max(0.42, w / h)) : 1; cam.setViewOffset(w, h, 0, -h * 0.1, w, h); cam.updateProjectionMatrix(); }
+  function size() { w = canvas.clientWidth || 412; h = canvas.clientHeight || 915; renderer.setSize(w, h, false); cam.aspect = w / h; fit = w / h < 1 ? Math.min(2.1, 0.92 / Math.max(0.42, w / h)) : 1; cam.setViewOffset(w, h, 0, h * 0.16, w, h); /* lift the subject into the empty space above the card */ cam.updateProjectionMatrix(); }
   function setTarget(i, instant) {
     const a = built[i]; if (!a) return; const p = poseAt(i, fit); from = { pos: camPos.clone(), look: camLook.clone(), fog: { c: fogFrom.c.clone(), n: fogFrom.n, f: fogFrom.f } }; to = p; fogTo.c.set(a.fog[0]); fogTo.n = a.fog[1]; fogTo.f = a.fog[2];
-    const prev = cur; cur = i; flight = instant ? 1 : 0; if (instant) { camPos.copy(p.pos); camLook.copy(p.look); fogFrom.c.copy(fogTo.c); fogFrom.n = fogTo.n; fogFrom.f = fogTo.f; }
-    built.forEach((s, k) => { if (s) s.group.visible = k === i || k === prev || Math.abs(k - i) <= (instant ? 0 : 0); }); if (!instant) built[prev] && (built[prev].group.visible = true);
+    const prev = cur; cur = i; prevIdx = instant || prev === i ? -1 : prev; flight = instant ? 1 : 0; if (instant) { camPos.copy(p.pos); camLook.copy(p.look); fogFrom.c.copy(fogTo.c); fogFrom.n = fogTo.n; fogFrom.f = fogTo.f; }
+    built.forEach((s, k) => { if (s) s.group.visible = k === i || k === prevIdx; });
   }
   function render(now) {
     const t = reduced() ? 0 : Math.max(0, now - t0) / 1000, dt = Math.min(0.6, (now - last) / 1000 || 0.016); last = now;
-    if (flight < 1) { flight = Math.min(1, flight + dt / 2.4); const k = ease(flight); camPos.lerpVectors(from.pos, to.pos, k); camLook.lerpVectors(from.look, to.look, k); fogFrom.c.lerp(fogTo.c, 0.06 + 0.1 * k); fogFrom.n += (fogTo.n - fogFrom.n) * 0.08; fogFrom.f += (fogTo.f - fogFrom.f) * 0.08; if (flight >= 1) built.forEach((s, k2) => { if (s) s.group.visible = k2 === cur; }); }
+    if (flight < 1) { flight = Math.min(1, flight + dt / 2.4); const k = ease(flight); camPos.lerpVectors(from.pos, to.pos, k); camLook.lerpVectors(from.look, to.look, k); fogFrom.c.lerp(fogTo.c, 0.06 + 0.1 * k); fogFrom.n += (fogTo.n - fogFrom.n) * 0.08; fogFrom.f += (fogTo.f - fogFrom.f) * 0.08; if (flight >= 1) { built.forEach((s, k2) => { if (s) s.group.visible = k2 === cur; }); prevIdx = -1; } }
     else { fogFrom.c.lerp(fogTo.c, 0.1); }
     scene.fog.color.copy(fogFrom.c); scene.fog.near = fogFrom.n; scene.fog.far = fogFrom.f; scene.background.copy(fogFrom.c);
     const wob = reduced() ? 0 : 1; cam.position.set(camPos.x + (Math.sin(t * 0.13) * 14 + px * 26) * wob, camPos.y + (Math.cos(t * 0.1) * 8 - py * 16) * wob, camPos.z - drift * wob); cam.lookAt(camLook);
-    const s = built[cur]; s?.update?.(t); if (flight < 1 && built[from ? Math.max(0, cur - 1) : 0]) built[Math.max(0, cur - 1)]?.update?.(t);
+    built[cur]?.update?.(t); if (prevIdx >= 0) built[prevIdx]?.update?.(t);
     renderer.render(scene, cam);
   }
+  function refit() { size(); if (flight >= 1) setTarget(cur, true); if (!raf) render(performance.now()); }
   function frame(now) { raf = requestAnimationFrame(frame); render(now); }
   const move = e => { px = (e.clientX / (innerWidth || 1) - 0.5) * 2; py = (e.clientY / (innerHeight || 1) - 0.5) * 2; };
   return {
     go(i, instant) { size(); setTarget(i, instant || reduced()); if (reduced()) render(performance.now()); },
-    start() { size(); t0 = performance.now(); last = t0; addEventListener('pointermove', move); addEventListener('resize', size); if (reduced() || typeof requestAnimationFrame !== 'function') { render(t0); return; } cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); },
-    stop() { if (raf) cancelAnimationFrame(raf); raf = 0; removeEventListener('pointermove', move); removeEventListener('resize', size); },
+    start() { size(); t0 = performance.now(); last = t0; addEventListener('pointermove', move); addEventListener('resize', refit); if (reduced() || typeof requestAnimationFrame !== 'function') { render(t0); return; } cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); },
+    stop() { if (raf) cancelAnimationFrame(raf); raf = 0; removeEventListener('pointermove', move); removeEventListener('resize', refit); },
     get index() { return cur; },
   };
 }

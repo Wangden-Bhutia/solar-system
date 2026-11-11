@@ -211,7 +211,7 @@ for (const b of bodies) {
 // Simulation state
 let playing = true, speedExp = 0, trailsOn = true, focused = null;
 let lastSize = [0, 0];
-export const hooks = { onFocus: null, intercept: null, focusMul: 0, renderOverride: null, hold: false, homeScope: 'all' };
+export const hooks = { onFocus: null, intercept: null, focusMul: 0, renderOverride: null, covered: false, hold: false, homeScope: 'all' };
 const BASE_DAYS_PER_SEC = 365.26 / 20; // 1 Earth year per 20 s at 1x
 // Overview only: the Sun is drawn at half its default size (1/10 of true size instead of 1/5) so
 // the inner planets are not hidden behind it, and orbits run at 1/5 speed so they are easy to tap.
@@ -416,6 +416,7 @@ let placed = 0;
 const free = (x0, y0, x1, y1, m = 0) => { for (let i = 0; i < placed * 4; i += 4) if (x0 - m < placedBoxes[i + 2] && x1 + m > placedBoxes[i] && y0 - m < placedBoxes[i + 3] && y1 + m > placedBoxes[i + 1]) return false; return frameFree(x0, y0, x1, y1, m); };
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
+  if (hooks.covered) { requestAnimationFrame(frame); return; } // a full-screen overlay (the cosmic year) hides the scene: don't render it
   beginLabelFrame(); // one label placement per frame across every scale (labels.js)
   hooks.beforeFrame?.(dt); // the zoom controller moves the camera (or a seam) first
   if (hooks.renderOverride) { hooks.renderOverride(); hooks.afterFrame?.(); requestAnimationFrame(frame); return; }
