@@ -16,6 +16,7 @@ import { CLUSTERS, FAR_GALAXY, COSMOS_FACTS } from './cosmos-data.js';
 import { STAR_FACTS } from './stars-data.js';
 import { VISITORS } from './star-motion.js';
 import { MILESTONES } from './galaxy-motion.js';
+import { EVENTS as COSMIC_EVENTS, eventDate } from './cosmic-calendar.js';
 
 export const CHECKED_ON = '10 November 2026';
 const nssdc = b => `https://nssdc.gsfc.nasa.gov/planetary/factsheet/${b}fact.html`;
@@ -263,6 +264,13 @@ function scale() {
     C('Light travel times and light-years: light travels 299,792,458 m/s exactly; a light-year is the distance it covers in a Julian year (365.25 days), about 63,241 au.', ['siC', 'iauAu']),
     C('Beyond about 46.5 billion light-years the readout says the viewpoint is outside the observable universe.', ['davis2004', 'planck2018']) ] }];
 }
+// The cosmic year: each step's date (computed from its age) and claim, with the sources that used to sit on its card.
+function cosmicYear() {
+  const key = r => { const k = `cy:${r.url}`; if (!REFS[k]) REFS[k] = { label: r.label, url: r.url, secondary: /wikipedia/i.test(r.url) }; return k; };
+  return [{ id: 'cosmicyear-steps', title: 'The 18 steps', claims: [
+    C('Dates are worked out from each event’s age, with the universe 13.787 billion years old; ages differ between sources, so dates can shift by a day or two. Carl Sagan first told the story this way, in 1977, with 15 billion years.', [key({ label: 'Wikipedia: Cosmic calendar', url: wikiUrl('Cosmic calendar') })]),
+    ...COSMIC_EVENTS.map(e => C(`${eventDate(e).label}: ${e.title}. ${e.text}${e.note ? ` (${e.note})` : ''}`, e.src.map(key))) ] }];
+}
 export function claimGroups() {
   return [
     { id: 'worlds', title: 'World cards', sections: worlds() },
@@ -272,6 +280,7 @@ export function claimGroups() {
     { id: 'adventure', title: 'Earth–Moon adventure', sections: adventure() },
     { id: 'beyond', title: 'Stars, galaxies and the universe', sections: beyond() },
     { id: 'scale', title: 'Scale readout', sections: scale() },
+    { id: 'cosmicyear', title: 'The cosmic year', sections: cosmicYear() },
   ];
 }
 

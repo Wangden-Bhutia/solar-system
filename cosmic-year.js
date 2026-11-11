@@ -10,18 +10,17 @@ const D = 86400, SCALES = [[YEAR_SECONDS, 'The whole year'], [120 * D, 'The last
 export function scaleFor(ago) { const d = YEAR_SECONDS - yearSeconds(ago); let pick = SCALES[0]; for (const sc of SCALES) if (sc[0] >= d * 1.15) pick = sc; return pick; }
 
 export function createCosmicYear({ onGo, onOpen, onClose } = {}) {
-  let root, bar, marker, kick, ttl, when, txt, srcs, goBtn, prev, next, ageRow, ageIn, ageOut, dots, playBtn, mainEl, markSec = null, play = null, playRaf = 0, bg, world, worldTry, worldFailed = false, opener = null, scaleEl, gapEl, loEl, spansEl, S = YEAR_SECONDS, St = YEAR_SECONDS, tween = 0, i = 0;
+  let root, bar, marker, kick, ttl, when, txt, goBtn, prev, next, ageRow, ageIn, ageOut, dots, playBtn, mainEl, markSec = null, play = null, playRaf = 0, bg, world, worldTry, worldFailed = false, opener = null, scaleEl, gapEl, loEl, spansEl, S = YEAR_SECONDS, St = YEAR_SECONDS, tween = 0, i = 0;
   function build() {
-    root = document.createElement('section'); root.id = 'cyear'; root.className = 'cyear'; root.hidden = true; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', 'The cosmic year');
-    root.innerHTML = `<canvas class="cy-bg" aria-hidden="true"></canvas><canvas class="cy-3d" aria-hidden="true" hidden></canvas><div class="cy-top"><button type="button" class="cy-x" aria-label="Close the cosmic year">✕</button><div><strong>The cosmic year</strong><span>13.8 billion years as one calendar year. 1 January is the Big Bang; midnight on 31 December is now.</span></div></div>
+    root = document.createElement('section'); root.id = 'cyear'; root.className = 'cyear'; root.hidden = true; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.tabIndex = -1; root.setAttribute('aria-label', 'The cosmic year');
+    root.innerHTML = `<canvas class="cy-bg" aria-hidden="true"></canvas><canvas class="cy-3d" aria-hidden="true" hidden></canvas><div class="cy-top"><button type="button" class="cy-x" aria-label="Close the cosmic year"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="cy-head"><strong>The cosmic year</strong><span>13.8 billion years as one year: 1 January is the Big Bang, midnight on 31 December is now.</span></div></div>
  <div class="cy-main"><p class="cy-kick"></p><h2 class="cy-title"></h2><p class="cy-when"></p><p class="cy-text"></p>
  <label class="cy-age" hidden>How old are you? <input type="number" inputmode="numeric" min="0" max="120" value="80" aria-label="Your age in years"> <span class="cy-ageout"></span></label>
- <p class="cy-src"></p><button type="button" class="cy-go" hidden>Show it in space ↗</button></div>
+ <button type="button" class="cy-go" hidden>Show it in space ↗</button></div>
  <div class="cy-barwrap" aria-hidden="true"><div class="cy-lens"><b class="cy-scale"></b><em class="cy-gap"></em></div><div class="cy-bar"><i class="cy-spans"></i><i class="cy-marker"></i></div><div class="cy-axis"><span class="cy-lo"></span><span class="cy-hi">midnight, 31 Dec: now</span></div></div>
- <div class="cy-nav"><button type="button" class="cy-prev">‹ Earlier</button><span class="cy-mid"><button type="button" class="cy-play" aria-label="Play the year">▶ Play</button><span class="cy-dots" aria-live="polite"></span></span><button type="button" class="cy-next primary">Later ›</button></div>
- <p class="cy-note">Dates are worked out from each event’s age, and ages differ between sources. Carl Sagan first told the story this way, in 1977, with 15 billion years.</p>`;
+ <div class="cy-nav"><span class="cy-dots" aria-live="polite"></span><div class="cy-ctl"><button type="button" class="cy-prev" aria-label="Earlier"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="cy-play" aria-label="Play the year" data-state="play"><svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg><svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg><svg class="i-replay" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 1 0 2.2-5.1M5 4.5v4h4"/></svg></button><button type="button" class="cy-next" aria-label="Later"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div><span class="cy-spacer"></span></div>`;
     document.body.appendChild(root); bg = createBackdrop(root.querySelector('.cy-bg'), { reduced: () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches });
-    const q = s => root.querySelector(s); bar = q('.cy-bar'); marker = q('.cy-marker'); kick = q('.cy-kick'); ttl = q('.cy-title'); when = q('.cy-when'); txt = q('.cy-text'); srcs = q('.cy-src'); goBtn = q('.cy-go'); prev = q('.cy-prev'); next = q('.cy-next'); ageRow = q('.cy-age'); ageIn = ageRow.querySelector('input'); ageOut = q('.cy-ageout'); dots = q('.cy-dots'); playBtn = q('.cy-play'); mainEl = q('.cy-main');
+    const q = s => root.querySelector(s); bar = q('.cy-bar'); marker = q('.cy-marker'); kick = q('.cy-kick'); ttl = q('.cy-title'); when = q('.cy-when'); txt = q('.cy-text'); goBtn = q('.cy-go'); prev = q('.cy-prev'); next = q('.cy-next'); ageRow = q('.cy-age'); ageIn = ageRow.querySelector('input'); ageOut = q('.cy-ageout'); dots = q('.cy-dots'); playBtn = q('.cy-play'); mainEl = q('.cy-main');
     scaleEl = q('.cy-scale'); gapEl = q('.cy-gap'); loEl = q('.cy-lo'); spansEl = q('.cy-spans');
     for (const [k, e] of EVENTS.entries()) { const t = document.createElement('i'); t.className = 'cy-tick'; t.dataset.k = k; bar.insertBefore(t, marker); }
     q('.cy-x').onclick = close; prev.onclick = () => nav(i - 1); next.onclick = () => nav(i + 1); playBtn.onclick = () => play ? stopPlay() : startPlay();
@@ -57,8 +56,8 @@ export function createCosmicYear({ onGo, onOpen, onClose } = {}) {
   const reducedMotion = () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches, ease = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
   const dwell = () => Math.min(8000, 3800 + EVENTS[i].text.length * 28);
   function nav(k) { stopPlay(); show(k); }
-  function startPlay() { if (i >= EVENTS.length - 1) show(0); play = { phase: 'dwell', t0: performance.now(), dur: Math.min(dwell(), 4200) }; playBtn.textContent = '❚❚ Pause'; playBtn.setAttribute('aria-label', 'Pause'); cancelAnimationFrame(playRaf); playRaf = requestAnimationFrame(tick); }
-  function stopPlay(done) { const was = play; play = null; cancelAnimationFrame(playRaf); markSec = null; mainEl?.classList.remove('travel'); if (!playBtn) return; playBtn.textContent = done ? '↺ Replay' : '▶ Play'; playBtn.setAttribute('aria-label', done ? 'Play again' : 'Play the year'); if (was) { layout(); kick.textContent = eventDate(EVENTS[i]).label; } }
+  function startPlay() { if (i >= EVENTS.length - 1) show(0); play = { phase: 'dwell', t0: performance.now(), dur: Math.min(dwell(), 4200) }; playBtn.dataset.state = 'pause'; playBtn.setAttribute('aria-label', 'Pause'); cancelAnimationFrame(playRaf); playRaf = requestAnimationFrame(tick); }
+  function stopPlay(done) { const was = play; play = null; cancelAnimationFrame(playRaf); markSec = null; mainEl?.classList.remove('travel'); if (!playBtn) return; playBtn.dataset.state = done ? 'replay' : 'play'; playBtn.setAttribute('aria-label', done ? 'Play again' : 'Play the year'); if (was) { layout(); kick.textContent = eventDate(EVENTS[i]).label; } }
   function tick(now) {
     if (!play) return; const k = (now - play.t0) / play.dur;
     if (play.phase === 'dwell') { if (k >= 1) { if (i >= EVENTS.length - 1) { stopPlay(true); return; } depart(now); } }
@@ -74,13 +73,12 @@ export function createCosmicYear({ onGo, onOpen, onClose } = {}) {
   function show(k) {
     i = Math.max(0, Math.min(EVENTS.length - 1, k)); const e = EVENTS[i], d = eventDate(e);
     kick.textContent = d.label; ttl.textContent = e.title; when.textContent = (e.note && e.ago > 1e9 - 1 && e.id === 'cmb' ? e.note : agoText(e.ago)) + (e.note && e.id !== 'cmb' ? ' · ' + e.note : ''); txt.textContent = e.text;
-    srcs.innerHTML = 'Sources: ' + e.src.map(s => `<a href="${s.url}" target="_blank" rel="noopener">${s.label.replace('Wikipedia: ', '')}</a>`).join(', ');
     goBtn.hidden = !e.level; ageRow.hidden = e.id !== 'now'; if (e.id === 'now') paintAge();
     const [target, name] = scaleFor(e.ago); scaleEl.textContent = name;
     gapEl.textContent = i === 0 ? '' : `${spanOnCalendar(EVENTS[i - 1].ago - e.ago)} later`;
     for (const t of bar.querySelectorAll('.cy-tick')) t.classList.toggle('on', Number(t.dataset.k) === i);
     paintSpans(e); zoomTo(target);
-    if (world && !worldOff()) world.go(i); else bg.set(e.id); prev.disabled = i === 0; next.disabled = i === EVENTS.length - 1; dots.textContent = `${i + 1} of ${EVENTS.length}`;
+    if (world && !worldOff()) world.go(i); else bg.set(e.id); prev.disabled = i === 0; next.disabled = i === EVENTS.length - 1; dots.innerHTML = `<b>${i + 1}</b> / ${EVENTS.length}`; dots.setAttribute('aria-label', `Step ${i + 1} of ${EVENTS.length}`);
   }
   // The 3D world loads on first open (three.js is large). Until it is ready, and if WebGL fails, the 2D backdrop stays.
   const worldOff = () => root.querySelector('.cy-3d').hidden;
@@ -97,7 +95,7 @@ export function createCosmicYear({ onGo, onOpen, onClose } = {}) {
       if (!root.hidden) useWorld();
     } catch (err) { worldFailed = true; useFlat(); }
   }
-  function open() { if (!root) build(); opener = document.activeElement; stopPlay(); S = St = YEAR_SECONDS; root.hidden = false; document.body.classList.add('cyear-on'); onOpen?.(); show(0); if (!world) bg.start(); load(); root.querySelector('.cy-next').focus?.({ preventScroll: true }); }
+  function open() { if (!root) build(); opener = document.activeElement; stopPlay(); S = St = YEAR_SECONDS; root.hidden = false; document.body.classList.add('cyear-on'); onOpen?.(); show(0); if (!world) bg.start(); load(); root.focus?.({ preventScroll: true }); }
   function close() { if (!root || root.hidden) return; stopPlay(); root.hidden = true; bg.stop(); world?.stop(); document.body.classList.remove('cyear-on'); onClose?.(); const back = opener?.isConnected && opener.offsetParent ? opener : document.querySelector('#settings summary'); back?.focus?.({ preventScroll: true }); opener = null; }
   return { open, close, show, get isOpen() { return !!root && !root.hidden; }, get index() { return i; } };
 }
