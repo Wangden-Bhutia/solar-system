@@ -183,7 +183,10 @@ export function createStars({ renderer, canvas, labelsEl, onPick, onTime, onPair
       // Non-attenuated sprites: on-screen size ≈ scale × (1 / tan(fov/2)) × visible height / 2, so this keeps
       // each glow at about 2.2 × its nominal pixel size whatever the screen or sheet height.
       const k = glowScale(1, camera.fov, vh);
-      for (const d of dots) d.sprite.scale.setScalar(Math.max(d.sprite.userData.px, d === nearDot ? 9 : 0) * k * (d.e === selected ? 1.6 : 1));
+      // Zoomed out, the ~40 nearby systems crowd into a few pixels and their additive glows add up to a white pile: shrink and dim them
+      // as their spacing on screen falls below a glow's width (about 5 ly apart, on average). The nearest star and the selected one stay.
+      const pxPerLy = vh / (2 * Math.tan(camera.fov * Math.PI / 360)) / Math.max(1e-6, camera.position.length()), crowd = Math.max(0.3, Math.min(1, 5 * pxPerLy / 16));
+      for (const d of dots) { const keep = d === nearDot || d.e === selected, c = keep ? 1 : crowd; d.sprite.scale.setScalar(Math.max(d.sprite.userData.px, d === nearDot ? 9 : 0) * k * (d.e === selected ? 1.6 : 1) * c); d.sprite.material.opacity = keep ? 1 : 0.35 + 0.65 * c; }
       placeSky(sky, camera); setHygField(hyg, camera.position.length()); lod.update(camera.position, ORIGIN, vh, camera.fov, seam, camera); lastVh = vh;
       if (labelsLive) placeLabels(camera, bounds, starItems);
       const clear = renderer.autoClear; renderer.autoClear = !overlay; renderer.render(scene, camera); renderer.autoClear = clear;
