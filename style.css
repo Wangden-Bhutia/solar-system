@@ -452,3 +452,15 @@ body.cyear-on .hud,body.cyear-on .finale{display:none}
 .cyear .cy-ctl button:focus-visible{outline:2px solid #f3c887;outline-offset:3px}
 .cyear:focus{outline:none}
 .cyear .cy-bar{height:16px;border-radius:8px}.cyear .cy-bar .cy-tick{top:2px;height:12px}.cyear .cy-bar .cy-marker{top:-6px;height:28px;width:12px;margin-left:-6px;border-radius:6px}.cyear .cy-spans b{border-radius:8px}
+/* Back to Earth (lab.js): a slim chip at the top right, under the scale ladder; it steps down below the tour's hint or
+   the Continue prompt while either shows. Hidden while a card, the tour, the adventure or the Sources screen is open. */
+.home-earth{position:fixed;z-index:12;top:calc(var(--safe-t) + 96px);right:calc(var(--safe-r) + 12px);gap:5px}
+.home-earth[hidden]{display:none}
+.home-earth span{font-size:14px;line-height:1}
+body.hint-up .home-earth{top:calc(var(--safe-t) + 156px)}
+.experiment-mode .home-earth{display:none}
+/* Continue where you left off: the tour hint's slot and look (they never show together) */
+#resume-go{flex:1;text-align:left;padding:8px 6px 8px 14px;color:var(--accent)}
+#resume-x{flex:0 0 44px;color:var(--muted)}
+.resume-hint{border-color:rgba(194,223,243,.35)}
+body.sources-open #resume,body.sources-open .home-earth{visibility:hidden}
