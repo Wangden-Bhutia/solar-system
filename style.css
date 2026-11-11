@@ -488,15 +488,21 @@ body.sources-open #resume,body.sources-open .home-earth{visibility:hidden}
 #topbar .chip-primary:hover{background:#f7d49c}
 #topbar .chip-primary[aria-pressed="true"]{background:#f3c887;color:#1a1305}
 #topbar #adventure{display:none}
-/* The readout: two lines (where you are, how wide the view is); tap it for the rest. Hidden in the adventure, whose caption says the same. */
+/* The readout: three short lines (where you are, how wide the view is, how old its light is); tap it for the rest. Hidden in the adventure, whose caption says the same. */
 .hud{pointer-events:auto;cursor:pointer}
-.hud:not(.more)>div:nth-child(2),.hud:not(.more)>div:nth-child(3),.hud:not(.more)>.hud-note{display:none}
-.hud:not(.more)>div:first-child::after{content:'  ⋯';opacity:.55;letter-spacing:.05em}
+.hud .hud-main{color:#a9b6cc}
+.hud .hud-more{display:none;margin-top:5px;padding-top:5px;border-top:1px solid rgba(201,212,234,.16);max-width:min(78vw,340px)}
+.hud.more .hud-more{display:block}
+.hud .hud-more>div:empty{display:none}
+.hud .hud-here-more{color:#e9d9a6;margin-bottom:2px}
+.hud .hud-look{margin-top:2px}
+/* the open-for-more cue: a small caret after "You are here", turned up while open */
+.hud .hud-here::after{content:'';display:inline-block;width:5px;height:5px;margin:0 0 2px 7px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(45deg);opacity:.7;vertical-align:middle;transition:transform .2s ease}
+.hud.more .hud-here::after{transform:rotate(-135deg);margin-bottom:-1px}
 body.story .hud{display:none}
 /* In the tour the readout is the tour's distance line (its caption does not repeat it): the view, the distance and the note, nothing else */
-body.touring .hud>.hud-here,body.touring .hud>div:nth-child(3){display:none}
-body.touring .hud>div:nth-child(2),body.touring .hud>.hud-note{display:block}
-body.touring .hud>div:first-child::after{content:none}
+body.touring .hud>.hud-here,body.touring .hud .hud-here-more,body.touring .hud .hud-cross,body.touring .hud .hud-look{display:none}
+body.touring .hud .hud-more{display:block;margin:0;padding:0;border:0}
 /* My sky, in the same quiet chrome as the cosmic year: a frosted close button, a small gold label, frosted panels */
 .mysky .mysky-x{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.18);background:rgba(10,14,26,.42);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .mysky .mysky-x svg{width:16px;height:16px;stroke:#f4efe4;stroke-width:2;fill:none;stroke-linecap:round}
@@ -566,7 +572,7 @@ body.explore-on .hud,body.explore-on #tour,body.explore-on .home-earth{visibilit
 .journey-found{scroll-margin-bottom:96px}
 
 /* Far is long ago: the readout's look-back line, a tap opens that moment in the cosmic year */
-.hud .hud-time{display:block;margin:4px 0 0;padding:0;min-height:0;border:0;background:none;text-align:left;font:inherit;color:#e9d9a6;max-width:min(78vw,340px);cursor:pointer;pointer-events:auto}
+.hud .hud-main{max-width:min(78vw,340px)}
+.hud .hud-time{display:block;margin:1px 0 0;padding:0;min-height:0;border:0;background:none;text-align:left;font:inherit;color:#f3c887;cursor:pointer;pointer-events:auto;text-decoration:underline;text-underline-offset:2px;text-decoration-color:rgba(243,200,135,.45)}
 .hud .hud-time[hidden]{display:none}
-.hud .hud-time span{display:block;margin-top:1px;color:#f3c887;text-decoration:underline;text-underline-offset:2px;text-decoration-color:rgba(243,200,135,.5)}
 body.touring .hud .hud-time,body.story .hud .hud-time{display:none}

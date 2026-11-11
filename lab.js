@@ -31,7 +31,7 @@ import { REFS, LAB_REFS } from './sources.js';
 import { mountSources, refLinks } from './sources-page.js';
 import { SPOT_KEY, SAVE_EVERY_MS, AWAY_Z, makeSpot, parseSpot, isAway, spotLabel } from './resume.js';
 import * as solarApp from './app.js';
-import { hereLine, FINALE } from './here.js';
+import { hereLine, hereMore, FINALE } from './here.js';
 import { createMySky } from './my-sky.js';
 import { createCosmicYear } from './cosmic-year.js';
 import { lightLeft } from './timeline.js';
@@ -300,12 +300,16 @@ const currentZ=()=>{if(bridge||zoom.moving)return Zc;const l=levelOf(state.value
 // ---- The scale readout (hud.js): width of view, distance from the Sun, light-crossing time ----
 // Text is written only when it changes; computed from the dominant scale's own camera (no allocation per frame).
 const hudEl=document.createElement('div');hudEl.id='hud';hudEl.className='hud';hudEl.setAttribute('aria-hidden','true');
-const hudA=document.createElement('div'),hudB=document.createElement('div'),hudC=document.createElement('div'),hudN=document.createElement('div');hudN.className='hud-note';
-const hudH=document.createElement('div');hudH.className='hud-here';
-// Far is long ago: how old the light at the edge of the view is, set against the cosmic year; a tap opens that moment there.
-const hudT=document.createElement('button');hudT.type='button';hudT.className='hud-time';hudT.hidden=true;
+// Three short lines by default: where you are (gold), how wide the view is, and how old its light is (a link into the
+// cosmic year). A tap anywhere else opens the rest: the second "here" sentence, the distance from the Sun,
+// the light-crossing time, the full look-back sentence and any caveat.
+const mk=(tag,cls)=>{const e=document.createElement(tag);if(cls)e.className=cls;return e;};
+const hudH=mk('div','hud-here'),hudRow=mk('div','hud-main'),hudA=mk('span','hud-view'),hudMore=mk('div','hud-more');
+const hudM=mk('div','hud-here-more'),hudB=mk('div','hud-sun'),hudC=mk('div','hud-cross'),hudL=mk('div','hud-look'),hudN=mk('div','hud-note');
+const hudT=mk('button','hud-time');hudT.type='button';hudT.hidden=true;
 hudT.onclick=e=>{e.stopPropagation();openCosmicYear(hudT.dataset.event);};
-hudEl.append(hudA,hudB,hudC,hudN,hudH,hudT);document.body.appendChild(hudEl);hudEl.onclick=e=>{e.stopPropagation();hudEl.classList.toggle('more');}; // two lines by default; a tap shows the distance, the light-time and the scale note // hudH is drawn first by CSS order, so the readout lines keep their order
+hudRow.append(hudA,hudT);hudMore.append(hudM,hudB,hudC,hudL,hudN);hudEl.append(hudH,hudRow,hudMore);document.body.appendChild(hudEl);
+hudEl.onclick=e=>{e.stopPropagation();hudEl.classList.toggle('more');};
 const SUN_AT={stars:0,galaxy:-R0,local:-R0*1e3/UNIT_LY.local,super:-R0*1e3/UNIT_LY.super,universe:-R0*1e3/UNIT_LY.universe};
 const hudSet=(el,t)=>{if(el.textContent!==t)el.textContent=t;};
 function updateHud(){
@@ -315,10 +319,10 @@ function updateHud(){
  if(l==='solar'){cam=camera;const sc=solarCamera?.()||{au:0,metric:1};sunLy=sc.au*AU_LY;model=!isRealScale?.()&&sc.metric<1;offSun=controls.target.lengthSq()>1e-6;}
  else{const sc=sceneOf(l);cam=sc.camera;const p=cam.position,sx=SUN_AT[l];sunLy=Math.hypot(p.x-sx,p.y,p.z)*UNIT_LY[l];const t=sc.controls?.target;offSun=!!t&&Math.hypot(t.x-sx,t.y,t.z)*UNIT_LY[l]>0.01*Math.exp(z);}
  const h=hudText({widthLy:viewWidth(Math.exp(z),cam.fov,aspect),sunLy,model,offSun});
- hudSet(hudH,hereLine(l));hudSet(hudA,h.lines[0]);hudSet(hudB,h.lines[1]);hudSet(hudC,h.lines[2]);hudSet(hudN,h.note);
+ hudSet(hudH,hereLine(l));hudSet(hudM,hereMore(l));hudSet(hudA,h.lines[0]);hudSet(hudB,h.lines[1]);hudSet(hudC,h.lines[2]);hudSet(hudN,h.note);
  const t=l==='solar'?null:lightLeft(Math.min(viewWidth(Math.exp(z),cam.fov,aspect)/2,OBSERVABLE_LY));
- if(!t){if(!hudT.hidden)hudT.hidden=true;}
- else{if(hudT.hidden)hudT.hidden=false;const html=`${t.text} <span>${t.cosmic} in the cosmic year ›</span>`;if(hudT.dataset.html!==html){hudT.dataset.html=html;hudT.innerHTML=html;hudT.dataset.event=t.eventId;hudT.setAttribute('aria-label',`${t.text} Open ${t.cosmic} in the cosmic year`);}}
+ if(!t){if(!hudT.hidden)hudT.hidden=true;hudSet(hudL,'');}
+ else{if(hudT.hidden)hudT.hidden=false;const short=`${t.short} ›`;if(hudT.textContent!==short){hudT.textContent=short;hudT.dataset.event=t.eventId;hudT.setAttribute('aria-label',`${t.text} Open ${t.cosmic} in the cosmic year`);}hudSet(hudL,`${t.text} In the cosmic year: ${t.cosmic}.`);}
 }
 // The time bar eases in only once the zoom has come to rest at a scale with a clock (and eases out as soon as a
 // zoom starts), so nothing pops up in the middle of a zoom; the scale readout gives way to it while it shows.

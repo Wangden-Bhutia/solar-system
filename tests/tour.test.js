@@ -9,7 +9,7 @@ import {formatLy} from '../hud.js';
 const levelOfView=v=>v==='explore'?'solar':v;
 const ready=async(o={})=>{const a=await bootApp({fakeClock:true,...o});a.step(40);a.lab.tour.dwellS=0.5;return a;};
 const until=(a,f,max=2000)=>{for(let i=0;i<max;i++){if(f())return i;a.step(1);}assert.fail('timed out');};
-const hud=a=>[...a.$('hud').children].map(e=>e.textContent);
+const hud=a=>['.hud-view','.hud-sun','.hud-cross','.hud-note'].map(c=>a.$('hud').querySelector(c).textContent); // [width, distance from the Sun, light-crossing time, note]
 
 test('every stop: sourced numbers, known https sources listed in docs/sources.md, outside the seams, in order outwards',()=>{
  const doc=fs.readFileSync('docs/sources.md','utf8');assert.ok(TOUR_STOPS.length>=12,'about one stop per power of ten');

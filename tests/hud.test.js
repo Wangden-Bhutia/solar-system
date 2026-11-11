@@ -21,7 +21,7 @@ test('the readout follows the zoom continuously in the real app, and only rewrit
   const a = await bootApp({ fakeClock: true }); a.step(40); const hud = a.document.getElementById('hud');
   assert.ok(hud && !hud.hidden); assert.equal(hud.getAttribute('aria-hidden'), 'true'); assert.match(hud.textContent, /AU across/);
   const wheel = dy => { const e = new a.window.Event('wheel', { cancelable: true }); Object.assign(e, { deltaY: dy, deltaMode: 0 }); a.canvas.dispatchEvent(e); };
-  const seen = new Set(); for (let i = 0; i < 900 && a.lab.state.value.view !== 'galaxy'; i++) { wheel(120); a.step(1); seen.add(hud.firstChild.textContent.replace(/[\d.,≈ ]+/g, '#')); }
+  const seen = new Set(); for (let i = 0; i < 900 && a.lab.state.value.view !== 'galaxy'; i++) { wheel(120); a.step(1); seen.add(hud.querySelector('.hud-view').textContent.replace(/[\d.,≈ ]+/g, '#')); }
   for (let i = 0; i < 30; i++) a.step(1);
   assert.equal(a.lab.state.value.view, 'galaxy'); assert.match(hud.textContent, /thousand light-years across/); assert.match(hud.textContent, /years/);
   for (const u of ['AU', 'light-years']) assert.ok([...seen].some(s => s.includes(u)), `rolled through ${u}: ${[...seen].join(' | ')}`);

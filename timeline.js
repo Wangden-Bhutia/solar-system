@@ -2,7 +2,7 @@
 // a moment from the cosmic year to set that against, and the date it falls on in the cosmic year.
 // Pure: lab.js shows it in the scale readout; tests/timeline.test.js checks it.
 import { distanceNow, lookback } from './cosmos-data.js';
-import { EVENTS, yearSeconds, calendarAt, agoText } from './cosmic-calendar.js';
+import { EVENTS, yearSeconds, calendarAt } from './cosmic-calendar.js';
 
 // Below this, a light-year of distance is a year of travel to better than 0.1% (the universe's expansion is too
 // small to matter). Beyond it, the travel time comes from the Planck 2018 model in cosmos-data.js, because space has
@@ -56,5 +56,11 @@ export function lightLeft(ly, year = new Date().getFullYear()) {
     event = useYounger ? younger : older;
     when = useYounger ? BEFORE[event.id] : AFTER[event.id];
   }
-  return { ago, text: `Light from the edge of view left ${agoText(ago)}, ${when}.`, cosmic: calendarAt(yearSeconds(ago)).label, eventId: event.id };
+  // two significant figures (three for billions, so the edge reads 13.8): the edge of the view moves with every zoom
+  // frame, and more digits would claim a precision the view does not have, and flicker
+  const shown = ago >= 1e9 ? `${+(ago / 1e9).toPrecision(3)} billion years` : ago >= 1e6 ? `${+(ago / 1e6).toPrecision(2)} million years`
+    : ago >= 100 ? `${(+ago.toPrecision(2)).toLocaleString('en-US')} years` : `${Math.round(ago)} ${Math.round(ago) === 1 ? 'year' : 'years'}`;
+  const about = ago >= 100 ? 'about ' : '';
+  return { ago, short: `Its light is ${about}${shown} old`, text: `Light from the far side of this view left ${about}${shown} ago, ${when}.`,
+    cosmic: calendarAt(yearSeconds(ago)).label, eventId: event.id };
 }
