@@ -48,8 +48,26 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
 
   // The 18 stages. Each returns { group, pose: { pos, look }, fog: [colour, near, far], update(t) }.
   const R = rng(5), stages = {};
-  stages.bang = () => { const g = new THREE.Group(), pts = cloud(3200, (i, c) => { const d = sphereDir(R), k = 0.25 + R() * 0.75; c.setHSL(0.06 + R() * 0.05, 0.9, 0.5 + R() * 0.35); return [d[0] * k * 330, d[1] * k * 330, d[2] * k * 330]; }, { size: 3.2, fog: false }), core = glow('#fff3d0', 420, 1); g.add(pts, core);
-    return { group: g, pose: { pos: V(0, 0, 330), look: V(0, 0, 0) }, fog: ['#07050a', 900, 2400], update(t) { const p = (t % 9) / 9; pts.scale.setScalar(0.07 + 0.93 * Math.sqrt(p)); pts.material.opacity = 1 - p * 0.6; pts.rotation.y = t * 0.05; core.scale.setScalar(420 * (1 - p * 0.75)); core.material.opacity = 1 - p * 0.85; } }; };
+  // The Big Bang: a blinding flash, then a fireball and debris flying outward fast and slowing, cooling white to orange to red.
+  // Each stage's clock starts when the camera arrives; until then the Big Bang waits as one bright point. It plays once, fades to dark, then repeats.
+  stages.bang = () => {
+    const r = rng(31), g = new THREE.Group(), RAD = 430;
+    const debris = cloud(4600, (i, c) => { const d = sphereDir(r), v = Math.pow(r(), 0.45); c.setHSL(0.08 + r() * 0.06, 0.5 + r() * 0.5, 0.62 + r() * 0.38); return [d[0] * v * RAD, d[1] * v * RAD, d[2] * v * RAD]; }, { size: 3.6, fog: false });
+    const front = cloud(1100, (i, c) => { const d = sphereDir(r), v = 0.94 + r() * 0.06; c.setRGB(1, 1, 1); return [d[0] * v * RAD, d[1] * v * RAD, d[2] * v * RAD]; }, { size: 5.5, fog: false });
+    const shell = new THREE.Mesh(new THREE.SphereGeometry(RAD, 48, 32), new THREE.ShaderMaterial({ transparent: true, blending: add, depthWrite: false, uniforms: { c: { value: C('#ffb060') }, a: { value: 1 } }, vertexShader: 'varying vec3 n,v;void main(){n=normalize(normalMatrix*normal);vec4 p=modelViewMatrix*vec4(position,1.);v=normalize(-p.xyz);gl_Position=projectionMatrix*p;}', fragmentShader: 'uniform vec3 c;uniform float a;varying vec3 n,v;void main(){float f=pow(1.-abs(dot(n,v)),2.2);gl_FragColor=vec4(c,f*a);}' }));
+    const fire = glow('#ffc070', 1, 1), flash = glow('#ffffff', 1, 1); g.add(fire, debris, front, shell, flash);
+    const white = C('#ffffff'), hot = C('#ffe0a0'), warm = C('#ff7a30'), deep = C('#b03050'), tint = new THREE.Color();
+    return { group: g, pose: { pos: V(0, 0, 330), look: V(0, 0, 0) }, fog: ['#07050a', 900, 2400], update(t) {
+      const T = 12, p = (t % T) / 6.5, on = p <= 1, q = Math.min(1, p), e = 1 - Math.pow(1 - q, 3);
+      const fade = q < 0.55 ? 1 : 1 - (q - 0.55) / 0.45;
+      if (q < 0.12) tint.copy(white).lerp(hot, q / 0.12); else if (q < 0.5) tint.copy(hot).lerp(warm, (q - 0.12) / 0.38); else tint.copy(warm).lerp(deep, (q - 0.5) / 0.5);
+      debris.scale.setScalar(0.01 + e); debris.material.color.copy(tint); debris.material.opacity = on ? fade : 0; debris.rotation.y = t * 0.03;
+      front.scale.setScalar(0.01 + e * 1.03); front.material.opacity = on ? Math.max(0, 1 - q * 1.3) : 0;
+      shell.scale.setScalar(0.01 + e * 1.05); shell.material.uniforms.a.value = on ? 0.6 * Math.max(0, 1 - q * 1.15) : 0; shell.material.uniforms.c.value.copy(tint);
+      fire.scale.setScalar(40 + 760 * e); fire.material.color.copy(tint); fire.material.opacity = on ? 0.9 * Math.max(0, 1 - q * 1.1) : 0;
+      const f = q / 0.07; flash.scale.setScalar(q < 0.07 ? 60 + 2200 * f : 2260 + 600 * (q - 0.07)); flash.material.opacity = on ? (q < 0.07 ? 1 : Math.max(0, 1 - (q - 0.07) / 0.22)) : 0;
+    } };
+  };
   stages.cmb = () => { const c = document.createElement('canvas'); c.width = 1024; c.height = 512; const x = c.getContext('2d'), r = rng(9); x.fillStyle = '#3a1206'; x.fillRect(0, 0, 1024, 512); for (let i = 0; i < 700; i++) { const px = r() * 1024, py = r() * 512, rad = 8 + r() * 46, hot = r() > 0.5, g = x.createRadialGradient(px, py, 0, px, py, rad); g.addColorStop(0, hot ? 'rgba(255,140,50,.5)' : 'rgba(80,50,170,.5)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(px - rad, py - rad, rad * 2, rad * 2); } const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
     const sph = new THREE.Mesh(new THREE.SphereGeometry(600, 48, 32), new THREE.MeshBasicMaterial({ map: t, side: THREE.BackSide, fog: false })); const g = new THREE.Group(); g.add(sph);
     return { group: g, pose: { pos: V(0, 0, 0), look: V(0, 0, -100) }, fog: ['#140604', 3000, 6000], update(t2) { sph.rotation.y = t2 * 0.012; } }; };
@@ -85,21 +103,21 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   const poseAt = (i, fit) => { const s = built[i], z = -i * STAGE_GAP, look = s.pose.look.clone().add(V(0, 0, z)), pos = s.pose.pos.clone().add(V(0, 0, z)); pos.sub(look).multiplyScalar(fit).add(look); return { pos, look }; };
 
   // camera, flight and frame loop
-  let cur = 0, prevIdx = -1, from = null, to = null, flight = 1, w = 0, h = 0, raf = 0, last = 0, t0 = 0, px = 0, py = 0, fit = 1, fogK = 1, drift = 0;
+  let cur = 0, tNow = 0, prevIdx = -1, from = null, to = null, flight = 1, w = 0, h = 0, raf = 0, last = 0, t0 = 0, px = 0, py = 0, fit = 1, fogK = 1, drift = 0;
   const camPos = V(0, 0, 0), camLook = V(0, 0, 0), fogFrom = { c: C('#02040c'), n: 200, f: 1600 }, fogTo = { c: C('#02040c'), n: 200, f: 1600 }, tmpC = new THREE.Color();
   function size() { w = canvas.clientWidth || 412; h = canvas.clientHeight || 915; renderer.setSize(w, h, false); cam.aspect = w / h; fit = w / h < 1 ? Math.min(2.1, 0.92 / Math.max(0.42, w / h)) : 1; cam.setViewOffset(w, h, 0, h * 0.16, w, h); /* lift the subject into the empty space above the card */ cam.updateProjectionMatrix(); }
   function setTarget(i, instant) {
     const a = built[i]; if (!a) return; const p = poseAt(i, fit); from = { pos: camPos.clone(), look: camLook.clone(), fog: { c: fogFrom.c.clone(), n: fogFrom.n, f: fogFrom.f } }; to = p; fogTo.c.set(a.fog[0]); fogTo.n = a.fog[1]; fogTo.f = a.fog[2];
-    const prev = cur; cur = i; prevIdx = instant || prev === i ? -1 : prev; flight = instant ? 1 : 0; if (instant) { camPos.copy(p.pos); camLook.copy(p.look); fogFrom.c.copy(fogTo.c); fogFrom.n = fogTo.n; fogFrom.f = fogTo.f; }
+    a.since = instant ? tNow : Infinity; const prev = cur; cur = i; prevIdx = instant || prev === i ? -1 : prev; flight = instant ? 1 : 0; if (instant) { camPos.copy(p.pos); camLook.copy(p.look); fogFrom.c.copy(fogTo.c); fogFrom.n = fogTo.n; fogFrom.f = fogTo.f; }
     built.forEach((s, k) => { if (s) s.group.visible = k === i || k === prevIdx; });
   }
   function render(now) {
     const t = reduced() ? 0 : Math.max(0, now - t0) / 1000, dt = Math.min(0.6, (now - last) / 1000 || 0.016); last = now;
-    if (flight < 1) { flight = Math.min(1, flight + dt / 2.4); const k = ease(flight); camPos.lerpVectors(from.pos, to.pos, k); camLook.lerpVectors(from.look, to.look, k); fogFrom.c.lerp(fogTo.c, 0.06 + 0.1 * k); fogFrom.n += (fogTo.n - fogFrom.n) * 0.08; fogFrom.f += (fogTo.f - fogFrom.f) * 0.08; if (flight >= 1) { built.forEach((s, k2) => { if (s) s.group.visible = k2 === cur; }); prevIdx = -1; } }
+    if (flight < 1) { flight = Math.min(1, flight + dt / 2.4); const k = ease(flight); camPos.lerpVectors(from.pos, to.pos, k); camLook.lerpVectors(from.look, to.look, k); fogFrom.c.lerp(fogTo.c, 0.06 + 0.1 * k); fogFrom.n += (fogTo.n - fogFrom.n) * 0.08; fogFrom.f += (fogTo.f - fogFrom.f) * 0.08; if (flight >= 1) { built.forEach((s, k2) => { if (s) s.group.visible = k2 === cur; }); prevIdx = -1; if (built[cur]) built[cur].since = t; } }
     else { fogFrom.c.lerp(fogTo.c, 0.1); }
     scene.fog.color.copy(fogFrom.c); scene.fog.near = fogFrom.n; scene.fog.far = fogFrom.f; scene.background.copy(fogFrom.c);
     const wob = reduced() ? 0 : 1; cam.position.set(camPos.x + (Math.sin(t * 0.13) * 14 + px * 26) * wob, camPos.y + (Math.cos(t * 0.1) * 8 - py * 16) * wob, camPos.z - drift * wob); cam.lookAt(camLook);
-    built[cur]?.update?.(t); if (prevIdx >= 0) built[prevIdx]?.update?.(t);
+    tNow = t; const local = st => st && st.update?.(Math.max(0, t - (st.since || 0))); local(built[cur]); if (prevIdx >= 0) local(built[prevIdx]);
     renderer.render(scene, cam);
   }
   function refit() { size(); if (flight >= 1) setTarget(cur, true); if (!raf) render(performance.now()); }
@@ -107,7 +125,7 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   const move = e => { px = (e.clientX / (innerWidth || 1) - 0.5) * 2; py = (e.clientY / (innerHeight || 1) - 0.5) * 2; };
   return {
     go(i, instant) { size(); setTarget(i, instant || reduced()); if (reduced()) render(performance.now()); },
-    start() { size(); t0 = performance.now(); last = t0; addEventListener('pointermove', move); addEventListener('resize', refit); if (reduced() || typeof requestAnimationFrame !== 'function') { render(t0); return; } cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); },
+    start() { size(); t0 = performance.now(); last = t0; tNow = 0; addEventListener('pointermove', move); addEventListener('resize', refit); if (reduced() || typeof requestAnimationFrame !== 'function') { render(t0); return; } cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); },
     stop() { if (raf) cancelAnimationFrame(raf); raf = 0; removeEventListener('pointermove', move); removeEventListener('resize', refit); },
     get index() { return cur; },
   };
