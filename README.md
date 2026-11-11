@@ -82,7 +82,7 @@ Node 24 tests use linkedom (DOM emulation) and Node VM modules. They test scienc
 **Before merge:** actual phone visual screenshots and browser console/network inspection, plus actual Android Chrome Listen/mute/background/fallback QA are required. No browser was driven through Shell during implementation. The PR remains draft pending parent visual review. Pages deploys only from main, and no merge or deployment is authorized here.
 
 ## Explore, the tour and the top bar
-The top bar has three things: **▶ Tour** (gold), **✦ Explore** and the menu. The tour glides from Earth to the edge of the observable universe in 13 stops and ends with the quiet finale. **Explore** holds everything guided apart from the tour: the four Solar System journeys (How big is space?, Seasons, The Moon and us, Mars), **The cosmic year** and **My sky**, and, for young explorers, the Earth and Moon adventure. The menu holds settings only. The Voyage outward, which covered the same ground as the tour one zoom at a time, was folded into the tour.
+The top bar has three things: **▶ Tour** (gold), **✦ Explore** and the menu. The tour glides from Earth to the edge of the observable universe in 13 stops and ends with the quiet finale. **Explore** holds everything guided apart from the tour: the four Solar System journeys (How big is the Solar System?, Seasons, The Moon and us, Mars), **The cosmic year** and **My sky**, and, for young explorers, the Earth and Moon adventure. The menu holds settings only. The Voyage outward, which covered the same ground as the tour one zoom at a time, was folded into the tour.
 
 ## Earth–Moon adventure
 A guided story on top of free exploring: tap **🚀 Adventure** (top bar, next to Journeys). Four stops in the Solar System: **Earth → the Moon → Mars → Saturn**. At each stop a short narration asks the child to find a world; tapping it (or **Show me …** / **Visit Moon**) glides there and plays one fact. A wrong world gets “A different world! Let’s look together.” and the camera stays put. **Next** goes on, **Skip ›** moves on without finding, **▶ / ❚❚** plays or stops the narration (Pause restarts the clip from its start), **✕** ends the story at any time. At the end: **Replay** or **Explore freely**.
@@ -94,9 +94,9 @@ A guided story on top of free exploring: tap **🚀 Adventure** (top bar, next t
 - Code: `adventure.js` (story state, panel, own voice player); `lab.js` only creates it and tells it when the view changes.
 
 ## Learn by guessing first
-- **✦ Journeys** (top bar): four short guided tours — *How big is space?*, *Why do we have seasons?*, *The Moon and us*, *Next door: Mars*. Each stop glides the camera to a world; questions must be answered (or skipped) before moving on, and labs open from the step with Back returning to it.
+- **Journeys** (in Explore): four short guided tours: *How big is the Solar System?*, *Why do we have seasons?*, *The Moon and us*, *Next door: Mars*. Each stop glides the camera to a world; questions must be answered (or skipped) before moving on, and labs open from the step with Back returning to it. The controls (‹ ›, and the stop count) stay pinned to the bottom of the card. Each journey ends with **What you found**, then **Next ›** to the next journey (after the last one, the tour) or **Explore**; finished journeys show ✓ Done in Explore (stored in this browser only).
 - **Predict, then reveal**: every lab asks a question first and shows the result once you commit.
-- **New labs** under Try it: *Why aren't there eclipses every month?* (Moon position + tilted-orbit crossing point), *What makes the tides?* (spring and neap), *How big is space?* (football-sized Sun walk, light race).
+- **New labs** under Try it: *Why aren't there eclipses every month?* (Moon position + tilted-orbit crossing point), *What makes the tides?* (spring and neap), *How big is the Solar System?* (football-sized Sun walk, light race).
 - World cards show how long sunlight takes to reach each planet.
 - Maths, constants and limits: [docs/lab-science.md](docs/lab-science.md#learning-layer-learnjs-november-2026).
 

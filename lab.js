@@ -38,7 +38,7 @@ import { PREDICTIONS, judge, JOURNEYS, journey, canAdvance, eclipseGeometry, tid
 let adventure=null; // the Earth–Moon guided story (adventure.js), set up below
 // Labs drawn in their own 3D scene; the scale lab keeps the live Solar System behind the sheet.
 const SCENE_LABS=new Set(['seasons','phases','eclipses','tides']);
-const LAB_TITLES={seasons:'Why do seasons happen?',phases:'Explore the phases',eclipses:'Why aren’t eclipses monthly?',tides:'What makes the tides?',scale:'How big is space?'};
+const LAB_TITLES={seasons:'Why do seasons happen?',phases:'Explore the phases',eclipses:'Why aren’t eclipses monthly?',tides:'What makes the tides?',scale:'How big is the Solar System?'};
 let labScene=null;
 const $=id=>document.getElementById(id), state=createLabState(), experiments=new Proxy({},{get:(_,k)=>(labScene||=createExperiments(renderer))[k]}); // the labs' 3D scene is built the first time a lab opens
 const sheet=$('sheet');
@@ -598,7 +598,7 @@ function buildExplore(){
  exploreEl=document.createElement('section');exploreEl.id='explore';exploreEl.className='explore';exploreEl.hidden=true;exploreEl.setAttribute('role','dialog');exploreEl.setAttribute('aria-label','Explore');exploreEl.tabIndex=-1;
  exploreEl.innerHTML='<div class="ex-head"><div><p class="ex-kicker">Explore</p><h2 class="ex-title">Where to go</h2><p class="ex-fact">Guided trips, the sky over you tonight, and the whole story of time.</p></div><button type="button" class="ex-x" aria-label="Close Explore"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="journey-list" class="ex-list"></div>';
  document.body.appendChild(exploreEl);
- const card=(act,title,blurb,cls='')=>`<button type="button" class="experiment-card${cls}" data-act="${act}"${act.startsWith('journey:')?` data-journey="${act.slice(8)}"`:''}><strong>${title}</strong><span>${blurb}</span></button>`;
+ const card=(act,title,blurb,cls='')=>`<button type="button" class="experiment-card${cls}" data-act="${act}"${act.startsWith('journey:')?` data-journey="${act.slice(8)}"`:''}><strong>${title}</strong><span>${blurb}</span>${act.startsWith('journey:')?'<em class="ex-done" hidden>✓ Done</em>':''}</button>`;
  const list=exploreEl.querySelector('#journey-list');
  list.innerHTML='<p class="xsec">Journeys</p>'+JOURNEYS.map(x=>card('journey:'+x.id,x.title,`${x.blurb} · ${x.steps.length} stops`)).join('')
   +'<p class="xsec">Time and the sky</p>'+card('cyear','The cosmic year','13.8 billion years squeezed into one calendar year.')+card('mysky','My sky','What is up over you tonight, and where to look.')
@@ -616,6 +616,7 @@ function openExplore(){
  if(state.value.sheet!=='closed')setSheet({sheet:'closed'});
  if(adventure?.phase&&adventure.phase!=='off')adventure.end?.(true); // the story and Explore share the bottom of the screen: choosing where to go ends it
  if(tourRef?.active&&!tourRef.paused&&!tourRef.finished){tourRef.pause();explorePausedTour=true;}
+ const done=new Set(doneJourneys());for(const b of exploreEl.querySelectorAll('[data-journey]')){const d=done.has(b.dataset.journey);b.classList.toggle('is-done',d);b.querySelector('.ex-done').hidden=!d;}
  exploreEl.hidden=false;document.body.classList.add('explore-on');pushLayer('explore');exploreEl.focus?.({preventScroll:true});$('journeys').setAttribute('aria-expanded','true');
 }
 // leaving=true: a choice was made, so a paused tour is left to that choice instead of resuming here
@@ -623,27 +624,51 @@ function closeExplore(leaving){
  if(!exploreEl||exploreEl.hidden)return;exploreEl.hidden=true;document.body.classList.remove('explore-on');dropLayer('explore');$('journeys').setAttribute('aria-expanded','false');
  if(explorePausedTour&&!leaving&&tourRef?.active&&tourRef.paused)tourRef.resume();explorePausedTour=false;
 }
+// Journeys finished in this browser (a ✓ in Explore). Local only, like the tour's first-visit hint.
+const DONE_KEY='solar.journeys.v1';
+const doneJourneys=()=>{try{const v=JSON.parse(globalThis.localStorage?.getItem(DONE_KEY)||'[]');return Array.isArray(v)?v:[];}catch{return [];}};
+function markDone(id){try{const d=new Set(doneJourneys());d.add(id);globalThis.localStorage?.setItem(DONE_KEY,JSON.stringify([...d]));}catch{}}
+// After the last journey, the way on is the tour (beyond the Solar System).
+const nextJourney=id=>{const k=JOURNEYS.findIndex(j=>j.id===id);return JOURNEYS[k+1]||null;};
 function paintJourney(){
  const s=state.value,j=journey(s.journey);narration=null;$('action').hidden=true;
  $('journey-step').hidden=!j;
  if(!j){aimCamera({...s,feature:'orbit'});return;}
  const i=Math.max(0,Math.min(j.steps.length-1,s.step)),st=j.steps[i],last=i===j.steps.length-1;
- $('kicker').textContent=`${j.title} · ${i+1} of ${j.steps.length}`;$('title').textContent=st.title;$('fact').textContent=st.text;
- $('view-caption').textContent=st.world?`${st.world} · schematic view, not current positions`:'The whole Solar System · schematic view';
+ $('kicker').textContent=j.title;$('title').textContent=st.title;$('fact').textContent=st.text;
+ // the honest note about the picture goes to the foot of the card, below the controls
+ $('view-caption').textContent='';$('journey-note').textContent=st.world?`${st.world} · schematic view, not current positions`:'The whole Solar System · schematic view';
  bindPredict($('journey-predict'),st.predict,paintJourney);
  const lab=st.lab||st.compare;$('journey-lab').parentElement.hidden=!lab;
  if(st.lab){$('journey-lab').textContent=`Try it: ${LAB_TITLES[st.lab]} →`;$('journey-lab').onclick=()=>go({view:'try',experiment:st.lab,sheet:'half'});}
  else if(st.compare){$('journey-lab').textContent=`Compare ${st.compare[0]} and ${st.compare[1]} →`;$('journey-lab').onclick=()=>go({view:'compare',experiment:null,compareA:st.compare[0],compareB:st.compare[1]});}
+ const ok=canAdvance(st,s.answers);
  $('journey-prev').disabled=i===0;
- const ok=canAdvance(st,s.answers);$('journey-next').disabled=!ok;$('journey-next').textContent=last?'Finish ✓':'Next →';
- $('journey-next').setAttribute('aria-label',ok?(last?'Finish the journey':'Next stop'):'Answer the question to continue');
- $('journey-dots').textContent=j.steps.map((_,k)=>k<i?'●':k===i?'◉':'○').join(' ');
+ // the last stop: what you found, then the way on (the next journey, or the tour after the last one) and back to Explore
+ $('journey-found').hidden=!last||!j.found;$('journey-found-text').textContent=last&&j.found?j.found:'';
+ $('journey-next').hidden=last;$('journey-end').hidden=!last;
+ if(last){const nj=nextJourney(j.id);$('journey-upnext').textContent=nj?`Up next: ${nj.title}`:'Up next: the tour, out beyond the Solar System';
+  $('journey-onward').textContent=nj?'Next ›':'Tour ›';$('journey-onward').setAttribute('aria-label',nj?`Next journey: ${nj.title}`:'Take the tour, beyond the Solar System');$('journey-onward').dataset.next=nj?nj.id:'tour';$('journey-onward').disabled=!ok;$('journey-back').disabled=!ok;}
+ else{$('journey-next').disabled=!ok;$('journey-next').setAttribute('aria-label',ok?'Next stop':'Answer the question to continue');}
+ $('journey-lock').hidden=ok;
+ // the takeaway is the point of the last stop: bring it into view above the pinned controls, and on a short screen
+ // where the half-height card cannot hold it, open the card fully
+ if(last&&j.found)globalThis.requestAnimationFrame?.(()=>{const f=$('journey-found'),foot=document.querySelector('.journey-foot');if(!f||!foot||f.hidden)return;
+  if(state.value.sheet==='half'&&f.getBoundingClientRect().height+foot.getBoundingClientRect().height+24>$('sheet-body').clientHeight){setSheet({sheet:'full'});}
+  globalThis.requestAnimationFrame?.(()=>f.scrollIntoView?.({block:'nearest',behavior:'smooth'}));});
+ $('journey-dots').innerHTML=`<b>${i+1}</b> / ${j.steps.length}`;$('journey-dots').setAttribute('aria-label',`Stop ${i+1} of ${j.steps.length}`);
  const body=st.world?bodies.find(b=>b.data.name===st.world):null;
  if(body)aimCamera({...s,world:st.world,feature:'overview'},body);else aimCamera({...s,feature:'orbit'});
 }
 $('journey-prev').onclick=()=>{stopAudio();state.update({step:Math.max(0,state.value.step-1)});render();};
 $('journey-next').onclick=()=>{stopAudio();const s=state.value,j=journey(s.journey);if(!j||!canAdvance(j.steps[s.step],s.answers))return;
- if(s.step>=j.steps.length-1){state.update({view:'explore',journey:null,step:0,sheet:'closed'});render();openExplore();return;}state.update({step:s.step+1});render();};
+ if(s.step>=j.steps.length-1)return; // the last stop finishes with its own buttons
+ state.update({step:s.step+1});render();};
+// Finishing: mark it done, then go on to the next journey (or the tour), or back to Explore.
+function finishJourney(then){const s=state.value,j=journey(s.journey);if(!j||!canAdvance(j.steps[s.step],s.answers))return;stopAudio();markDone(j.id);
+ state.update({view:'explore',journey:null,step:0,sheet:'closed'});render();then();}
+$('journey-back').onclick=()=>finishJourney(openExplore);
+$('journey-onward').onclick=()=>{const n=$('journey-onward').dataset.next;finishJourney(()=>{if(n==='tour')$('tour-start').click();else go({view:'journey',journey:n,step:0,experiment:null});});};
 function seasonLabel(a){
  const angle=wrap(a);
  if(angle<1||angle>359)return 'June solstice';if(Math.abs(angle-90)<1)return 'September equinox';if(Math.abs(angle-180)<1)return 'December solstice';if(Math.abs(angle-270)<1)return 'March equinox';

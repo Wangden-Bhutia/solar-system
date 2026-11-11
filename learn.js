@@ -123,29 +123,29 @@ export function judge(id, choice) {
 // A step can glide to a world (world) or show the whole system (world omitted), ask a
 // prediction that must be answered before moving on (predict), and offer a lab (lab) or compare.
 export const JOURNEYS = [
-  { id: 'scale', title: 'How big is space?', blurb: 'Light-speed trips and a Sun the size of a football.', steps: [
+  { id: 'scale', title: 'How big is the Solar System?', blurb: 'Light-speed trips and a Sun the size of a football.', found: 'Sunlight takes about 8 minutes to reach us and about 4 hours to reach Neptune. The Tour goes much further.', steps: [
     { world: 'Sun', title: 'Our star', text: 'The Sun is about 1.39 million km wide. You could line up 109 Earths across it.' },
     { world: 'Earth', title: 'Sunlight’s trip to Earth', text: 'Sunlight crosses about 150 million km of space to reach us.', predict: 'light-earth' },
     { world: 'Neptune', title: 'To the edge of the planets', text: 'Neptune is the farthest planet, about 30 times farther from the Sun than Earth.', predict: 'light-neptune' },
     { title: 'Shrink it all down', text: 'Now shrink the Sun to a football and walk the planets out. How far would you walk?', lab: 'scale' },
   ] },
-  { id: 'seasons', title: 'Why do we have seasons?', blurb: 'It is not about distance. Find out what it is.', steps: [
+  { id: 'seasons', title: 'Why do we have seasons?', blurb: 'It is not about distance. Find out what it is.', found: 'Seasons come from the tilt, not the distance.', steps: [
     { world: 'Earth', title: 'A tilted spinning top', text: 'Earth spins around an axis tilted about 23.4°. As it orbits, that axis keeps pointing the same way in space.' },
     { world: 'Earth', title: 'Closer means warmer?', text: 'Many people think summer comes when Earth is nearer the Sun.', predict: 'closest' },
     { world: 'Earth', title: 'Test it yourself', text: 'Move Earth around the Sun and watch daylight change. Then take the tilt away.', lab: 'seasons' },
-    { world: 'Mars', title: 'Seasons on Mars', text: 'Mars is tilted about 25°, close to Earth’s, so it has seasons too. Its year is 687 days, so each season lasts about twice as long.' },
+    { world: 'Mars', title: 'Seasons on Mars', text: 'Mars is tilted about 25°, close to Earth’s, so it has seasons too. Its year is 687 days, so each season lasts about twice as long. Its orbit is egg-shaped, so its seasons are not equal: the southern summer lasts 154 Martian days, the northern summer 178.' },
   ] },
-  { id: 'moon', title: 'The Moon and us', blurb: 'Phases, eclipses and the tides it pulls.', steps: [
+  { id: 'moon', title: 'The Moon and us', blurb: 'Phases, eclipses and the tides it pulls.', found: 'One Moon, three effects: its changing shape, the rare line-ups that make eclipses, and the tides.', steps: [
     { world: 'Moon', title: 'Our Moon', text: 'The Moon makes no light of its own. It reflects sunlight, and the same side always faces Earth.' },
-    { world: 'Moon', title: 'Phases', text: 'Move the Moon around Earth and see why its shape seems to change.', lab: 'phases' },
-    { world: 'Moon', title: 'Eclipses', text: 'Line up the Sun, Earth and Moon. Why don’t eclipses happen every month?', lab: 'eclipses' },
-    { world: 'Earth', title: 'Tides', text: 'The Moon’s pull stretches Earth’s oceans. Watch the tides grow and shrink through the month.', lab: 'tides' },
+    { world: 'Moon', title: 'Phases', text: 'Move the Moon around Earth and see why its shape seems to change.', lab: 'phases', predict: 'phases' },
+    { world: 'Moon', title: 'Eclipses', text: 'Line up the Sun, Earth and Moon, and see when an eclipse can happen.', lab: 'eclipses', predict: 'eclipses' },
+    { world: 'Earth', title: 'Tides', text: 'The Moon’s pull, with help from the Sun’s, stretches Earth’s oceans. Watch the high tides grow and shrink twice a month.', lab: 'tides', predict: 'tides' },
   ] },
-  { id: 'mars', title: 'Next door: Mars', blurb: 'Days, weight and talking to rovers.', steps: [
+  { id: 'mars', title: 'Next door: Mars', blurb: 'Days, weight and talking to rovers.', found: `A day like ours, a year nearly twice as long, 38% of our weight, and ${Math.round(lightSeconds(MARS_EARTH_KM[0]) / 60)} to ${Math.round(lightSeconds(MARS_EARTH_KM[1]) / 60)} minutes away by radio.`, steps: [
     { world: 'Mars', title: 'The red planet', text: 'Mars looks red because iron in its rocks and dust has rusted.' },
     { world: 'Mars', title: 'A Martian day', text: 'Mars spins once in a little over a day.', predict: 'mars-day' },
     { world: 'Mars', title: 'Lighter on Mars', text: 'Mars is about half as wide as Earth and has much less mass.', predict: 'mars-weight', compare: ['Earth', 'Mars'] },
-    { world: 'Mars', title: 'Calling a rover', text: `Radio signals travel at the speed of light. Between Earth and Mars they take from about ${Math.round(lightSeconds(MARS_EARTH_KM[0]) / 60)} to ${Math.round(lightSeconds(MARS_EARTH_KM[1]) / 60)} minutes each way, depending on where the planets are. Rovers have to drive themselves between commands.` },
+    { world: 'Mars', title: 'Calling a rover', text: `Radio signals travel at the speed of light. Between Earth and Mars they take from about ${Math.round(lightSeconds(MARS_EARTH_KM[0]) / 60)} to ${Math.round(lightSeconds(MARS_EARTH_KM[1]) / 60)} minutes each way, depending on where the planets are. So no one can steer a rover live: each day’s plan is sent ahead, and the rover steers round rocks on its own.` },
   ] },
 ];
 export const journey = id => JOURNEYS.find(j => j.id === id) || null;

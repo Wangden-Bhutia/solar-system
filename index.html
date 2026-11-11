@@ -49,7 +49,7 @@
    <details id="world-depth"><summary>Go deeper · facts & sources</summary><p id="world-deeper"></p><dl id="world-facts"></dl><div id="world-sources"></div><button type="button" class="src-more" id="world-all-sources" data-sources="src-worlds">All sources ›</button><p class="fine" id="world-scale"></p></details>
   </div>
   <div id="try-panel" hidden>
-   <div id="experiment-chooser"><button class="experiment-card" data-experiment="seasons"><strong>Why do seasons happen?</strong><span>Move Earth. Try removing its tilt.</span></button><button class="experiment-card" data-experiment="phases"><strong>Explore the Moon’s phases</strong><span>Move the Moon. See it from Earth.</span></button><button class="experiment-card" data-experiment="eclipses"><strong>Why aren’t there eclipses every month?</strong><span>Line up the Sun, Earth and Moon.</span></button><button class="experiment-card" data-experiment="tides"><strong>What makes the tides?</strong><span>Move the Moon. Watch the oceans stretch.</span></button><button class="experiment-card" data-experiment="scale"><strong>How big is space?</strong><span>Shrink the Sun to a football. Race a beam of light.</span></button></div>
+   <div id="experiment-chooser"><button class="experiment-card" data-experiment="seasons"><strong>Why do seasons happen?</strong><span>Move Earth. Try removing its tilt.</span></button><button class="experiment-card" data-experiment="phases"><strong>Explore the Moon’s phases</strong><span>Move the Moon. See it from Earth.</span></button><button class="experiment-card" data-experiment="eclipses"><strong>Why aren’t there eclipses every month?</strong><span>Line up the Sun, Earth and Moon.</span></button><button class="experiment-card" data-experiment="tides"><strong>What makes the tides?</strong><span>Move the Moon. Watch the oceans stretch.</span></button><button class="experiment-card" data-experiment="scale"><strong>How big is the Solar System?</strong><span>Shrink the Sun to a football. Race a beam of light.</span></button></div>
    <div id="experiment" hidden>
     <label class="slider-label" for="experiment-angle" id="angle-label"></label><input id="experiment-angle" type="range" min="0" max="360" step="1"><div id="presets" class="chips"></div>
     <div id="eclipse-controls" hidden><label class="slider-label" for="node">Where the Moon’s tilted orbit crosses ours: <output id="node-value"></output></label><input id="node" type="range" min="0" max="360" step="1" value="30"><div class="chips"><button id="node-line-up">Put a crossing point on the Sun line</button></div></div>
@@ -74,7 +74,11 @@
    <div id="journey-step" hidden>
     <div id="journey-predict" class="predict" aria-live="polite"></div>
     <div class="chips"><button id="journey-lab" class="action"></button></div>
-    <div class="journey-nav"><button id="journey-prev">← Previous</button><span id="journey-dots" aria-hidden="true"></span><button id="journey-next">Next →</button></div>
+    <div id="journey-found" class="journey-found" hidden><p id="journey-found-text"></p><p id="journey-upnext" class="jn-upnext"></p></div>
+    <div class="journey-foot">
+     <div class="journey-nav"><span id="journey-dots"></span><div class="jn-ctl"><button type="button" id="journey-prev" aria-label="Previous stop"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" id="journey-next" aria-label="Next stop"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div><span id="journey-lock" class="jn-lock">Answer to go on</span><div id="journey-end" class="journey-end" hidden><button type="button" id="journey-back" class="jn-back" aria-label="Back to Explore">Explore</button><button type="button" id="journey-onward" class="jn-onward"></button></div></div>
+    </div>
+    <p id="journey-note" class="jn-note"></p>
    </div>
   </div>
   <div id="star-panel" hidden>
