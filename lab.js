@@ -31,6 +31,7 @@ import { REFS, LAB_REFS } from './sources.js';
 import { mountSources, refLinks } from './sources-page.js';
 import * as solarApp from './app.js';
 import { hereLine, FINALE } from './here.js';
+import { createMySky } from './my-sky.js';
 import { PREDICTIONS, judge, JOURNEYS, VOYAGE, journey, canAdvance, eclipseGeometry, tideLabel, tideRange, scaleWalk, sizeLike, formatMetres, formatDuration, lightSeconds, sunlightTo, AU_KM, FOOTBALL_CM, MOON_INCLINATION } from './learn.js';
 let adventure=null; // the Earth–Moon guided story (adventure.js), set up below
 // Labs drawn in their own 3D scene; the scale lab keeps the live Solar System behind the sheet.
@@ -974,6 +975,8 @@ let sourcesPausedTour=false;
 const sourcesUi=mountSources(document,{
  onOpen:()=>{if(tourRef?.active&&!tourRef.paused&&!tourRef.finished){tourRef.pause();sourcesPausedTour=true;}},
  onClose:()=>{if(sourcesPausedTour&&tourRef?.active&&tourRef.paused)tourRef.resume();sourcesPausedTour=false;}});
+const mySky=createMySky({onLeave:()=>goLevel('stars')});
+$('open-mysky').onclick=()=>{$('settings').open=false;if(state.value.voyage!=null)endVoyage();hideFinale();mySky.open();};
 $('open-sources').onclick=()=>{$('settings').open=false;sourcesUi.open(null,$('settings').querySelector('summary'));};
 document.addEventListener('click',e=>{const b=e.target.closest?.('[data-sources]');if(!b)return;e.preventDefault();sourcesUi.open(b.dataset.sources,b);});
 // ---- Install and offline ----
@@ -988,7 +991,7 @@ const appleTouch=/iphone|ipad|ipod/i.test(nav.userAgent||'')||(/macintosh/i.test
 const savedBefore=()=>{try{return localStorage.getItem('offline-saved');}catch{return null;}};
 function saveOffline(){if(!sw)return;offline={done:0,total:0};paintOffline();sw.ready.then(reg=>reg.active?.postMessage({saveAll:true}));}
 // What Save for offline downloads: precache.json's total, written in here (and in index.html) by tools/stamp.mjs at deploy.
-const OFFLINE_SIZE='about 4.0 MB';
+const OFFLINE_SIZE='about 4.1 MB';
 function paintOffline(){
  $('install').hidden=!installEvent;$('save-offline').hidden=!sw;$('save-offline').disabled=!!offline&&!offline.finished&&!offline.error;
  const note=offline?.error?'Couldn’t save just now. Check the connection and try again.':offline&&!offline.finished?`Saving… ${offline.done} of ${offline.total||'…'} files`:offline?.finished?(offline.failed?`Saved, except ${offline.failed} files. Try again with a better connection.`:'Saved ✓ The whole app is on this device and opens even with no signal.'):savedBefore()?'Saved for offline ✓ New versions are saved as you use them.':!sw?'Offline use needs the secure (https) version of the site.':appleTouch&&!standalone()?'To install on iPhone or iPad: tap Share, then “Add to Home Screen”. Or save for offline here.':`Keeps the whole app (${OFFLINE_SIZE}) on this device so it opens fast, even with no signal.`;

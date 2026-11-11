@@ -261,3 +261,10 @@ The app's own list of every claim it shows, opened from the ☰ menu (Sources), 
 - Aphelion: "around 4 July" → "early July (3 to 6 July in recent years)" (USNO).
 
 **Secondary sources still used:** the stars, galaxies and clusters cite Wikipedia articles (which cite the papers), as the cards always have; the Sources screen labels them "Wikipedia". The SMC "a few billion stars" is loose (see the Local Group section). The 66-million-year extinction milestone links the Natural History Museum’s extinction page ("66 million years ago", read 10 Nov 2026).
+
+## My sky
+- **Sun and planets:** E. M. Standish, "Keplerian elements for approximate positions of the major planets" (JPL, Solar System Dynamics), Table 1, valid 1800–2050 AD. Accuracy about 0.1–0.5°.
+- **Moon:** the low-precision series given in the Astronomical Almanac. Accuracy about 0.3°; the Moon's parallax is applied for the observer's position.
+- **Stars:** the HYG v4.1 positions already used elsewhere in the app (J2000), moved to the date with first-order precession. Only stars within 1,000 light-years are in it, so a few distant bright stars (for example Deneb) are missing.
+- **Checks in `tests/sky-math.test.js`:** sidereal time against Meeus's worked example; the Sun at the March equinox and June solstice; the Venus–Jupiter conjunction of 8–9 June 2026; the new and full Moon in November 2026; Polaris at the observer's latitude; sunrise at Siliguri on 10 November 2026.
+- **Limits:** no atmospheric refraction; planet dots are drawn at a typical size, not today's brightness; no constellations; no fainter stars than magnitude 6.5. Your location is read once, only when you tap "My sky", and is never stored or sent anywhere.

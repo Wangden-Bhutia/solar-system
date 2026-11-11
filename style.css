@@ -363,3 +363,21 @@ body.finale-on .hud{opacity:0}
 @media (prefers-reduced-motion:reduce){.finale,.finale p{transition:none;transition-delay:0s!important}}
 #labels{transition:opacity 1.2s ease}
 body.finale-on #labels{opacity:0}
+/* My sky: the real sky overhead */
+.mysky{position:fixed;inset:0;z-index:60;background:#02050e;color:#e8e6da;font:14px/1.4 system-ui,sans-serif;touch-action:none}
+.mysky[hidden]{display:none}
+.mysky-cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}
+.mysky-top{position:absolute;left:0;right:0;top:0;padding:max(10px,env(safe-area-inset-top)) 12px 8px;display:flex;gap:10px;align-items:flex-start;background:linear-gradient(rgba(2,5,14,.78),rgba(2,5,14,0))}
+.mysky-x{flex:none;width:44px;height:44px;border-radius:22px;border:1px solid rgba(255,255,255,.25);background:rgba(8,12,24,.7);color:inherit;font-size:16px}
+.mysky-title{display:flex;flex-direction:column;gap:1px;min-width:0;padding-top:2px}.mysky-title strong{font-size:16px;letter-spacing:.04em}.mysky-title span{font-size:12px;color:#b9c4dc}
+.mysky-note{position:absolute;left:12px;right:12px;top:calc(max(10px,env(safe-area-inset-top)) + 58px);margin:0;font-size:12px;color:#f3c887;text-shadow:0 0 4px #000}
+.mysky-note[hidden]{display:none}
+.mysky-card{position:absolute;left:12px;right:12px;bottom:calc(max(16px,env(safe-area-inset-bottom)) + 130px);padding:10px 14px;border-radius:14px;background:rgba(4,8,20,.84);display:flex;flex-direction:column;gap:2px;max-width:440px;margin:0 auto}
+.mysky-card[hidden]{display:none}.mysky-card strong{font-size:16px;color:#f3c887}.mysky-card span{font-size:13px;color:#d6dbea}
+.mysky-bar{position:absolute;left:12px;right:12px;bottom:calc(max(16px,env(safe-area-inset-bottom)) + 62px);display:flex;gap:8px;align-items:center;max-width:440px;margin:0 auto}
+.mysky-time{flex:1;display:flex;gap:8px;align-items:center;font-size:12px;color:#b9c4dc}.mysky-time input{flex:1;min-width:0}
+.mysky-sel,.mysky-now{min-height:40px;border-radius:20px;border:1px solid rgba(255,255,255,.25);background:rgba(8,12,24,.75);color:inherit;font:inherit;font-size:13px;padding:0 10px}
+.mysky-leave{position:absolute;left:12px;right:12px;bottom:calc(max(16px,env(safe-area-inset-bottom)) + 14px);min-height:44px;border-radius:22px;border:0;background:#f3c887;color:#1a1305;font:inherit;font-weight:600;max-width:440px;margin:0 auto}
+.mysky-leave small{font-weight:400;opacity:.8;margin-left:4px}
+.mysky-src{position:absolute;left:12px;right:12px;bottom:calc(max(16px,env(safe-area-inset-bottom)) - 12px);margin:0;font-size:9.5px;color:#6f7a96;text-align:center}
+body.mysky-on .hud,body.mysky-on .finale{display:none}
