@@ -82,6 +82,15 @@ export function tideLabel(elongation) {
 // ---- Predict, then reveal ----
 // Each lab (and some journey steps) asks a question first; the result shows once the learner commits.
 export const PREDICTIONS = {
+  // The giants and their moons; Small worlds.
+  'jupiter-fit': { q: 'Jupiter is about 11 times wider than Earth. How many Earths could fit inside it?', options: ['About 11', 'About 100', 'More than 1,000'], answer: 2,
+    explain: 'More than 1,000. Eleven times wider is about 11 × 11 × 11 times the volume: Jupiter has about 1,300 times the volume of Earth.' },
+  'saturn-float': { q: 'Saturn is the second-biggest planet. In a bathtub big enough, would it float?', options: ['Yes: it is less dense than water', 'No: planets always sink', 'Only its rings would float'], answer: 0,
+    explain: 'Saturn is the only planet whose average density is less than water’s: about 0.69 times. In a big enough bathtub, it would float.' },
+  'asteroid-mass': { q: 'The asteroid belt holds millions of rocks. Put them all together: how much would they come to?', options: ['More than Earth', 'About as much as Mars', 'Less than our Moon'], answer: 2,
+    explain: 'All the asteroids together have less mass than Earth’s Moon, spread around a ring between Mars and Jupiter.' },
+  'pluto-planet': { q: 'In 2006 Pluto stopped being called a planet. Why?', options: ['It is too small', 'It is too far from the Sun', 'It has not cleared its orbit of other objects'], answer: 2,
+    explain: 'Pluto is big enough to pull itself round, like a planet, but it shares its orbit with many other icy objects. The IAU calls a world like that a dwarf planet.' },
   seasons: { q: 'If Earth had no tilt, what would daylight be like at 40° north through the year?',
     options: ['Long summer days and short winter days, as now', 'About 12 hours every day, all year', 'Always dark in winter'], answer: 1,
     explain: 'Without tilt, sunlight meets every place at the same angle all year, so day and night stay close to 12 hours each. Tick “What if Earth had no tilt?” to check.' },
@@ -146,6 +155,20 @@ export const JOURNEYS = [
     { world: 'Mars', title: 'A Martian day', text: 'Mars spins once in a little over a day.', predict: 'mars-day' },
     { world: 'Mars', title: 'Lighter on Mars', text: 'Mars is about half as wide as Earth and has much less mass.', predict: 'mars-weight', compare: ['Earth', 'Mars'] },
     { world: 'Mars', title: 'Calling a rover', text: `Radio signals travel at the speed of light. Between Earth and Mars they take from about ${Math.round(lightSeconds(MARS_EARTH_KM[0]) / 60)} to ${Math.round(lightSeconds(MARS_EARTH_KM[1]) / 60)} minutes each way, depending on where the planets are. So no one can steer a rover live: each day’s plan is sent ahead, and the rover steers round rocks on its own.` },
+  ] },
+  { id: 'giants', title: 'The giants and their moons', blurb: 'Worlds of gas, rings of ice, and oceans hidden under ice.', found: 'More than 1,000 Earths would fit inside Jupiter; Saturn would float; and under the ice of some of their moons are oceans.', steps: [
+    { world: 'Jupiter', title: 'The biggest planet', text: 'Jupiter is about 143,000 km wide, 11 times wider than Earth.', predict: 'jupiter-fit' },
+    { world: 'Jupiter', title: 'A storm bigger than Earth', text: 'The Great Red Spot is a storm wider than Earth. People have watched it for more than 300 years.' },
+    { world: 'Saturn', title: 'Rings of ice', text: 'Saturn’s rings are billions of chunks of ice and rock, from grains to boulders the size of a building. In the main rings they are typically only about 10 metres thick.', predict: 'saturn-float' },
+    { world: 'Europa', title: 'Oceans under the ice', text: 'Under Europa’s icy shell, scientists believe there is a saltwater ocean with about twice as much water as all of Earth’s oceans. Saturn’s small moon Enceladus sprays its own hidden ocean into space through cracks in its ice.' },
+    { world: 'Titan', title: 'Lakes of methane', text: 'Titan, Saturn’s biggest moon, has a thick atmosphere, mostly nitrogen, and lakes and seas of liquid methane and ethane. It is the only place besides Earth known to have liquid on its surface.' },
+  ] },
+  { id: 'small', title: 'Small worlds', blurb: 'Asteroids, dwarf planets, and where comets come from.', found: 'All the asteroids together have less mass than our Moon; Ceres and Pluto are dwarf planets; and many comets start in the icy belt beyond Neptune.', steps: [
+    { title: 'The asteroid belt', text: 'Between Mars and Jupiter, between 1.1 and 1.9 million asteroids bigger than 1 km circle the Sun, with millions of smaller ones.', predict: 'asteroid-mass' },
+    { world: 'Ceres', title: 'Ceres', text: 'Ceres, 939 km across, is the largest object in the asteroid belt. In 2006 it was named a dwarf planet.' },
+    { world: 'Pluto', title: 'Pluto', text: 'Pluto is about 2,377 km across, smaller than our Moon. From its discovery in 1930 until 2006 it was called the ninth planet.', predict: 'pluto-planet' },
+    { world: 'Charon', title: 'Pluto and Charon', text: 'Charon is half the size of Pluto: no other moon is so big next to the world it circles. The same sides of Pluto and Charon always face each other.' },
+    { scope: 'all', title: 'The Kuiper belt and comets', text: 'Beyond Neptune, from about 30 to 50 times Earth’s distance from the Sun, lies the Kuiper belt: millions of small, icy objects. Some are nudged towards the Sun and become comets; most long-period comets come from the far more distant Oort cloud.' },
   ] },
 ];
 export const journey = id => JOURNEYS.find(j => j.id === id) || null;

@@ -150,7 +150,8 @@ for (const d of DWARFS) REFS[`sbdb:${d.name}`] = { label: `NASA JPL Small-Body D
 // Labs: the predict-then-reveal questions (learn.js PREDICTIONS), the lab notes and the Compare lab's data.
 const PREDICTION_SRC = { seasons: ['nasaEarth'], phases: ['nasaPhases'], eclipses: ['nasaPhases', 'nssdcMoon', 'nasaEclipses'], tides: ['noaaLunarDay', 'noaaTideTypes'],
   scale: ['nssdcSun', 'iauAu', 'ifabBall', 'nssdcNeptune'], 'light-earth': ['iauAu', 'siC'], 'light-neptune': ['nssdcNeptune', 'iauAu', 'siC'],
-  closest: ['usnoSeasons', 'nssdcEarth', 'nasaEarth'], 'mars-day': ['nssdcMars'], 'mars-weight': ['nssdcMars', 'nssdcEarth'] };
+  closest: ['usnoSeasons', 'nssdcEarth', 'nasaEarth'], 'mars-day': ['nssdcMars'], 'mars-weight': ['nssdcMars', 'nssdcEarth'],
+  'jupiter-fit': ['nssdcJupiter', 'nasaJupiter'], 'saturn-float': ['nssdcSaturn', 'nasaSaturn'], 'asteroid-mass': ['nasaAsteroidFacts'], 'pluto-planet': ['nasaPlutoFacts'] };
 // Lab notes (the ⓘ text in each lab): what the lab's own links cite. Keyed by lab; lab.js reads its links from here.
 export const LAB_REFS = {
   seasons: ['nasaEarth', 'nssdcEarth'], phases: ['nasaPhases', 'nssdcMoon'], day: ['nasaEarth', 'nssdcEarth'],
@@ -173,6 +174,10 @@ export const JOURNEY_SRC = {
   'seasons.0': ['nasaEarth'], 'seasons.1': null, 'seasons.2': null, 'seasons.3': ['nssdcMars', 'nasaMars'],
   'moon.0': ['nasaPhases', 'nasaMoon'], 'moon.1': null, 'moon.2': null, 'moon.3': ['noaaTideCause', 'noaaSpringNeap'],
   'scale.found': ['iauAu', 'siC', 'nssdcNeptune'], 'seasons.found': ['nasaEarth', 'usnoSeasons'], 'moon.found': ['nasaPhases', 'nasaEclipses', 'noaaTideCause'], 'mars.found': ['nssdcMars', 'nasaMarsRelay', 'siC'],
+  'giants.0': ['nssdcJupiter', 'nasaJupiter'], 'giants.1': ['nasaJupiter'], 'giants.2': ['nasaSaturn'], 'giants.3': ['nasaEuropa', 'nasaEnceladus'], 'giants.4': ['nasaTitan'],
+  'giants.found': ['nssdcJupiter', 'nasaSaturn', 'nasaEuropa', 'nasaEnceladus'],
+  'small.0': ['nasaAsteroidFacts'], 'small.1': ['nasaCeres', 'sbdb:Ceres'], 'small.2': ['nasaPlutoFacts'], 'small.3': ['nasaCharon'], 'small.4': ['nasaKuiper'],
+  'small.found': ['nasaAsteroidFacts', 'nasaCeres', 'nasaPlutoFacts', 'nasaKuiper'],
   'mars.0': ['nasaMars'], 'mars.1': ['nssdcMars'], 'mars.2': ['nssdcMars'], 'mars.3': ['nasaMarsRelay', 'siC', 'jplAutoNav'],
 };
 // The adventure (adventure.js STOPS): which clip says what, and where that is checked (docs/sources.md table).

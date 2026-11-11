@@ -1,4 +1,4 @@
-import { bodies, focus, unfocus, hooks, renderer, controls, setHomeScope, fitHomeDistance, homeRadius, homeDirection } from './app.js';
+import { bodies, focus, unfocus, hooks, renderer, controls, setHomeScope, chosenHomeScope, fitHomeDistance, homeRadius, homeDirection } from './app.js';
 import { createStars } from './stars.js';
 import { frameOf, eclToGal, galToEcl, seamUp } from './frames.js';
 import { showLabel, labelWidth, frameEvict, setExclusions } from './labels.js';
@@ -658,8 +658,12 @@ function paintJourney(){
   globalThis.requestAnimationFrame?.(()=>f.scrollIntoView?.({block:'nearest',behavior:'smooth'}));});
  $('journey-dots').innerHTML=`<b>${i+1}</b> / ${j.steps.length}`;$('journey-dots').setAttribute('aria-label',`Stop ${i+1} of ${j.steps.length}`);
  const body=st.world?bodies.find(b=>b.data.name===st.world):null;
+ // a stop about the outer Solar System (the Kuiper belt) frames all the planets; the visitor's own choice comes back afterwards
+ if(st.scope&&hooks.homeScope!==st.scope){if(journeyScope===undefined)journeyScope=chosenHomeScope();cameraKey=null;setHomeScope(st.scope);paintScope();}else if(!st.scope)restoreJourneyScope();
  if(body)aimCamera({...s,world:st.world,feature:'overview'},body);else aimCamera({...s,feature:'orbit'});
 }
+let journeyScope; // the Planets-in-view choice to restore after a stop that changed it (undefined: nothing to restore)
+function restoreJourneyScope(){if(journeyScope===undefined)return;const v=journeyScope;journeyScope=undefined;setHomeScope(v);paintScope();}
 $('journey-prev').onclick=()=>{stopAudio();state.update({step:Math.max(0,state.value.step-1)});render();};
 $('journey-next').onclick=()=>{stopAudio();const s=state.value,j=journey(s.journey);if(!j||!canAdvance(j.steps[s.step],s.answers))return;
  if(s.step>=j.steps.length-1)return; // the last stop finishes with its own buttons
@@ -943,6 +947,7 @@ if(level==='stars')(s.view==='system'?(()=>{if(starsView.mode!=='system'||starsV
  controls.enabled=!scene&&!space;hooks.hold=scene||space;
  hooks.renderOverride=level==='local'||level==='super'||level==='universe'?()=>{const r=$('stage').getBoundingClientRect();sceneOf(level).render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:level==='galaxy'?()=>{const r=$('stage').getBoundingClientRect();galaxyView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:space?()=>{const r=$('stage').getBoundingClientRect();starsView.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:scene?()=>{const r=$('stage').getBoundingClientRect();experiments.render(r.width,r.height,s.sheet==='closed'?null:visibleRegion(r.width,r.height,sheet.getBoundingClientRect()));}:null;
  $('action2').hidden=true;
+ if(s.view!=='journey')restoreJourneyScope();
  if(s.view==='local')paintLocal();
  else if(s.view==='super'||s.view==='universe')paintCosmos();
  else if(s.view==='galaxy')paintGalaxy();
