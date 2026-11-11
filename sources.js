@@ -99,6 +99,7 @@ export const REFS = {
   canEncFundy: { label: 'The Canadian Encyclopedia: Bay of Fundy (16.1 m record tide)', url: 'https://thecanadianencyclopedia.ca/en/article/bay-of-fundy-and-gulf-of-maine' },
   usnoSeasons: { label: 'US Naval Observatory: Earth’s seasons and apsides', url: 'https://aa.usno.navy.mil/data/Earth_Seasons' },
   ifabBall: { label: 'IFAB Laws of the Game, Law 2: the ball', url: 'https://www.theifab.com/laws/latest/the-ball/' },
+  jplAutoNav: { label: 'NASA JPL: NASA’s self-driving Perseverance Mars rover takes the wheel', url: 'https://www.jpl.nasa.gov/news/nasas-self-driving-perseverance-mars-rover-takes-the-wheel' },
   nasaMarsRelay: { label: 'NASA Science: Mars Relay Network (Earth–Mars distance and signal time)', url: sci('mars/mars-relay-network/') },
   nasaMwResource: { label: 'NASA Science: the Milky Way galaxy', url: sci('resource/the-milky-way-galaxy/') },
   eilers2019: { label: 'Eilers et al. 2019, ApJ 871, 120 (rotation curve)', url: 'https://arxiv.org/abs/1810.09466' },
@@ -170,8 +171,9 @@ const LAB_NOTES = {
 export const JOURNEY_SRC = {
   'scale.0': ['nssdcSun'], 'scale.1': ['iauAu'], 'scale.2': ['nssdcNeptune'], 'scale.3': null,
   'seasons.0': ['nasaEarth'], 'seasons.1': null, 'seasons.2': null, 'seasons.3': ['nssdcMars', 'nasaMars'],
-  'moon.0': ['nasaPhases', 'nasaMoon'], 'moon.1': null, 'moon.2': null, 'moon.3': ['noaaTideCause'],
-  'mars.0': ['nasaMars'], 'mars.1': ['nssdcMars'], 'mars.2': ['nssdcMars'], 'mars.3': ['nasaMarsRelay', 'siC'],
+  'moon.0': ['nasaPhases', 'nasaMoon'], 'moon.1': null, 'moon.2': null, 'moon.3': ['noaaTideCause', 'noaaSpringNeap'],
+  'scale.found': ['iauAu', 'siC', 'nssdcNeptune'], 'seasons.found': ['nasaEarth', 'usnoSeasons'], 'moon.found': ['nasaPhases', 'nasaEclipses', 'noaaTideCause'], 'mars.found': ['nssdcMars', 'nasaMarsRelay', 'siC'],
+  'mars.0': ['nasaMars'], 'mars.1': ['nssdcMars'], 'mars.2': ['nssdcMars'], 'mars.3': ['nasaMarsRelay', 'siC', 'jplAutoNav'],
 };
 // The adventure (adventure.js STOPS): which clip says what, and where that is checked (docs/sources.md table).
 const ADVENTURE_SRC = { trip_earth: ['nasaEarth'], trip_earth_found: ['nasaEarth', 'nasaMoon'], trip_moon: ['nasaMoon'], trip_moon_found: ['nasaMoon'],
@@ -217,7 +219,8 @@ function labs() {
 }
 function journeys() {
   return JOURNEYS.map(j => ({ id: `journey-${j.id}`, title: j.title,
-    claims: j.steps.map((st, i) => ({ st, src: JOURNEY_SRC[`${j.id}.${i}`] })).filter(x => x.src).map(x => C(x.st.text, x.src)) }));
+    claims: [...j.steps.map((st, i) => ({ st, src: JOURNEY_SRC[`${j.id}.${i}`] })).filter(x => x.src).map(x => C(x.st.text, x.src)),
+      ...(j.found ? [C(j.found, JOURNEY_SRC[`${j.id}.found`], 'What you found: the line on the journey’s last stop.')] : [])] }));
 }
 function tour() {
   return TOUR_STOPS.map((s, i) => ({ id: `tour-${s.id}`, title: `${i + 1}. ${s.title}`,

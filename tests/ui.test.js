@@ -171,12 +171,25 @@ test('journeys: list → steps that move the camera; a question gates Next; labs
  assert.match(a.$('journey-predict').textContent,/8 min 19 s/);assert.equal(a.$('journey-next').disabled,false);
  a.$('journey-next').onclick();assert.equal(a.focuses.at(-1)[0],'Neptune');
  [...a.$('journey-predict').querySelectorAll('[data-choice]')].find(b=>b.dataset.choice==='1').onclick();a.$('journey-next').onclick();
- assert.equal(a.$('journey-lab').parentElement.hidden,false);assert.match(a.$('journey-lab').textContent,/How big is space/);assert.equal(a.$('journey-next').textContent,'Finish ✓');
+ assert.equal(a.$('journey-lab').parentElement.hidden,false);assert.match(a.$('journey-lab').textContent,/How big is the Solar System/);
+ assert.equal(a.$('journey-next').hidden,true,'the last stop has no Next');assert.equal(a.$('journey-end').hidden,false);assert.match(a.$('journey-found').textContent,/8 minutes/,'it ends with what you found');
+ assert.match(a.$('journey-upnext').textContent,/Up next: Why do we have seasons\?/);assert.match(a.$('journey-onward').getAttribute('aria-label'),/Next journey: Why do we have seasons\?/);assert.equal(a.$('journey-dots').textContent,'4 / 4');
  a.$('journey-lab').onclick();assert.equal(a.$('scale-lab').hidden,false);
  a.$('back').onclick();assert.equal(a.lab.state.value.view,'journey');assert.equal(a.$('title').textContent,'Shrink it all down');
- a.$('journey-next').onclick();assert.equal(a.$('explore').hidden,false,'Finish brings Explore back');assert.equal(a.sheet,'closed');
+ a.$('journey-back').onclick();assert.equal(a.$('explore').hidden,false,'Back to Explore');assert.equal(a.sheet,'closed');
+ assert.equal(a.$('journey-list').querySelector('[data-journey="scale"] .ex-done').hidden,false,'a finished journey is marked done');assert.equal(a.$('journey-list').querySelector('[data-journey="mars"] .ex-done').hidden,true);
  a.$('journey-list').querySelector('[data-journey="mars"]').onclick();a.$('journey-next').onclick();a.$('journey-next').onclick();
  assert.equal(a.$('title').textContent,'A Martian day','could not skip the unanswered question');
+});
+test('journeys: the Moon asks its own questions; an answer there shows in its lab; the last journey leads on to the tour',async()=>{
+ const a=await setup();a.$('journeys').onclick();a.$('journey-list').querySelector('[data-journey="moon"]').onclick();
+ a.$('journey-next').onclick();assert.equal(a.$('title').textContent,'Phases');
+ assert.ok(a.$('journey-predict').querySelector('[data-choice]'),'the phases question is on the step itself');assert.equal(a.$('journey-next').disabled,true);assert.equal(a.$('journey-lock').hidden,false,'says why Next is locked');
+ a.$('journey-predict').querySelector('[data-choice="0"]').onclick();assert.equal(a.$('journey-lock').hidden,true);
+ assert.notEqual(a.lab.state.value.answers.phases,undefined,'the answer is kept under the same question');
+ a.$('journeys').onclick();a.$('journey-list').querySelector('[data-journey="mars"]').onclick();
+ for(let k=0;k<3;k++){const c=a.$('journey-predict').querySelector('[data-choice]');if(c)c.onclick();a.$('journey-next').onclick();}
+ assert.equal(a.$('journey-onward').dataset.next,'tour','after the last journey, the way on is the tour');assert.match(a.$('journey-onward').textContent,/Tour/);
 });
 test('explore cards add sunlight travel time for planets',async()=>{
  const a=await setup();a.tap('Mars');assert.match(a.$('world-size').textContent,/Sunlight takes 12 min 40 s to get here/);
