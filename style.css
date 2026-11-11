@@ -427,3 +427,9 @@ body.cyear-on .hud,body.cyear-on .finale{display:none}
 .cy-spans b{position:absolute;right:0;height:100%;min-width:2px;background:rgba(157,180,255,.35);border-radius:13px;font-size:0}
 .cy-spans b:nth-child(2){background:#fff;box-shadow:0 0 10px #fff}
 .cy-axis{display:flex;justify-content:space-between;font-size:11px;color:#8f9bb5;margin-top:8px}.cy-hi{text-align:right}
+
+/* play the year */
+.cy-mid{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px}.cy-nav .cy-play{flex:none;min-height:40px;min-width:104px;padding:0 14px;border-color:#f3c887;color:#f3c887;background:rgba(8,12,24,.78)}
+.cy-mid .cy-dots{min-width:0}
+.cy-main>*{transition:opacity .5s ease}.cy-main.travel .cy-title,.cy-main.travel .cy-when,.cy-main.travel .cy-text,.cy-main.travel .cy-src,.cy-main.travel .cy-go,.cy-main.travel .cy-age{opacity:0;transition:opacity .35s ease}
+.cy-main.travel .cy-kick{opacity:1}

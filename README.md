@@ -155,3 +155,5 @@ Menu → **My sky** shows the real sky above you: the Sun, Moon, five naked-eye 
 Menu → The cosmic year. 13.8 billion years as one calendar year, in 18 steps from the Big Bang (1 Jan) to now (midnight, 31 Dec). A bar shows each moment on the year; most of the story is crammed into the last weeks. Some steps offer "Show it in space". The last step turns your age into seconds of the year.
 
 The cosmic year runs on a small 3D world (`cosmic-world.js`): each era is a stage, Earth wears the land-only city lights of its time, and the camera flies from one to the next. It loads on first open; if WebGL isn't available the 2D backdrops stay.
+
+"▶ Play" in the cosmic year runs it on its own: each card holds for a few seconds, then the card fades, the date counts up through the gap while the camera flies and the bar zooms, and the next card arrives. Any tap on Earlier/Later pauses it; at "Now" it offers a replay.

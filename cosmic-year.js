@@ -10,7 +10,7 @@ const D = 86400, SCALES = [[YEAR_SECONDS, 'The whole year'], [120 * D, 'The last
 export function scaleFor(ago) { const d = YEAR_SECONDS - yearSeconds(ago); let pick = SCALES[0]; for (const sc of SCALES) if (sc[0] >= d * 1.15) pick = sc; return pick; }
 
 export function createCosmicYear({ onGo } = {}) {
-  let root, bar, marker, kick, ttl, when, txt, srcs, goBtn, prev, next, ageRow, ageIn, ageOut, dots, bg, world, worldTry, scaleEl, gapEl, loEl, spansEl, S = YEAR_SECONDS, St = YEAR_SECONDS, tween = 0, i = 0;
+  let root, bar, marker, kick, ttl, when, txt, srcs, goBtn, prev, next, ageRow, ageIn, ageOut, dots, playBtn, mainEl, markSec = null, play = null, playRaf = 0, bg, world, worldTry, scaleEl, gapEl, loEl, spansEl, S = YEAR_SECONDS, St = YEAR_SECONDS, tween = 0, i = 0;
   function build() {
     root = document.createElement('section'); root.id = 'cyear'; root.className = 'cyear'; root.hidden = true; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'The cosmic year');
     root.innerHTML = `<canvas class="cy-bg" aria-hidden="true"></canvas><canvas class="cy-3d" aria-hidden="true" hidden></canvas><div class="cy-top"><button type="button" class="cy-x" aria-label="Close the cosmic year">✕</button><div><strong>The cosmic year</strong><span>13.8 billion years as one calendar year. 1 January is the Big Bang; midnight on 31 December is now.</span></div></div>
@@ -18,24 +18,24 @@ export function createCosmicYear({ onGo } = {}) {
  <label class="cy-age" hidden>How old are you? <input type="number" inputmode="numeric" min="0" max="120" value="80" aria-label="Your age in years"> <span class="cy-ageout"></span></label>
  <p class="cy-src"></p><button type="button" class="cy-go" hidden>Show it in space ↗</button></div>
  <div class="cy-barwrap" aria-hidden="true"><div class="cy-lens"><b class="cy-scale"></b><em class="cy-gap"></em></div><div class="cy-bar"><i class="cy-spans"></i><i class="cy-marker"></i></div><div class="cy-axis"><span class="cy-lo"></span><span class="cy-hi">midnight, 31 Dec: now</span></div></div>
- <div class="cy-nav"><button type="button" class="cy-prev">‹ Earlier</button><span class="cy-dots" aria-live="polite"></span><button type="button" class="cy-next primary">Later ›</button></div>
+ <div class="cy-nav"><button type="button" class="cy-prev">‹ Earlier</button><span class="cy-mid"><button type="button" class="cy-play" aria-label="Play the year">▶ Play</button><span class="cy-dots" aria-live="polite"></span></span><button type="button" class="cy-next primary">Later ›</button></div>
  <p class="cy-note">Dates are worked out from each event’s age, and ages differ between sources. Carl Sagan first told the story this way, in 1977, with 15 billion years.</p>`;
     document.body.appendChild(root); bg = createBackdrop(root.querySelector('.cy-bg'), { reduced: () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches });
-    const q = s => root.querySelector(s); bar = q('.cy-bar'); marker = q('.cy-marker'); kick = q('.cy-kick'); ttl = q('.cy-title'); when = q('.cy-when'); txt = q('.cy-text'); srcs = q('.cy-src'); goBtn = q('.cy-go'); prev = q('.cy-prev'); next = q('.cy-next'); ageRow = q('.cy-age'); ageIn = ageRow.querySelector('input'); ageOut = q('.cy-ageout'); dots = q('.cy-dots');
+    const q = s => root.querySelector(s); bar = q('.cy-bar'); marker = q('.cy-marker'); kick = q('.cy-kick'); ttl = q('.cy-title'); when = q('.cy-when'); txt = q('.cy-text'); srcs = q('.cy-src'); goBtn = q('.cy-go'); prev = q('.cy-prev'); next = q('.cy-next'); ageRow = q('.cy-age'); ageIn = ageRow.querySelector('input'); ageOut = q('.cy-ageout'); dots = q('.cy-dots'); playBtn = q('.cy-play'); mainEl = q('.cy-main');
     scaleEl = q('.cy-scale'); gapEl = q('.cy-gap'); loEl = q('.cy-lo'); spansEl = q('.cy-spans');
     for (const [k, e] of EVENTS.entries()) { const t = document.createElement('i'); t.className = 'cy-tick'; t.dataset.k = k; bar.insertBefore(t, marker); }
-    q('.cy-x').onclick = close; prev.onclick = () => show(i - 1); next.onclick = () => show(i + 1);
-    goBtn.onclick = () => { const l = EVENTS[i].level; close(); if (l) onGo?.(l); };
+    q('.cy-x').onclick = close; prev.onclick = () => nav(i - 1); next.onclick = () => nav(i + 1); playBtn.onclick = () => play ? stopPlay() : startPlay();
+    goBtn.onclick = () => { const l = EVENTS[i].level; stopPlay(); close(); if (l) onGo?.(l); };
     ageIn.oninput = () => { paintAge(); paintSpans(EVENTS[i]); };
-    root.addEventListener('keydown', e => { if (e.key === 'Escape') close(); else if (e.key === 'ArrowRight' && e.target !== ageIn) show(i + 1); else if (e.key === 'ArrowLeft' && e.target !== ageIn) show(i - 1); });
-    let x0 = null; root.addEventListener('pointerdown', e => { x0 = e.target.closest('button,input') ? null : e.clientX; }); root.addEventListener('pointerup', e => { if (x0 != null && Math.abs(e.clientX - x0) > 60) show(i + (e.clientX < x0 ? 1 : -1)); x0 = null; });
+    root.addEventListener('keydown', e => { if (e.key === 'Escape') close(); else if (e.key === 'ArrowRight' && e.target !== ageIn) nav(i + 1); else if (e.key === 'ArrowLeft' && e.target !== ageIn) nav(i - 1); });
+    let x0 = null; root.addEventListener('pointerdown', e => { x0 = e.target.closest('button,input') ? null : e.clientX; }); root.addEventListener('pointerup', e => { if (x0 != null && Math.abs(e.clientX - x0) > 60) nav(i + (e.clientX < x0 ? 1 : -1)); x0 = null; });
   }
   const paintAge = () => { const y = Math.max(0, Math.min(120, Number(ageIn.value) || 0)); ageOut.textContent = `A life of ${y} years lasts ${spanOnCalendar(y)} of this year. All of written history: ${spanOnCalendar(5000)}.`; };
   const xOf = sec => (sec - (YEAR_SECONDS - S)) / S;
   function layout() {
     const ticks = bar.querySelectorAll('.cy-tick');
     for (const t of ticks) { const x = xOf(yearSeconds(EVENTS[Number(t.dataset.k)].ago)); t.style.left = (x * 100) + '%'; t.hidden = x < -0.01 || x > 1.01; }
-    marker.style.left = (Math.max(0, Math.min(1, xOf(yearSeconds(EVENTS[i].ago)))) * 100) + '%';
+    marker.style.left = (Math.max(0, Math.min(1, xOf(markSec ?? yearSeconds(EVENTS[i].ago)))) * 100) + '%';
     loEl.textContent = calendarAt(YEAR_SECONDS - S).label;
     for (const sp of spansEl.children) sp.style.width = Math.min(100, Number(sp.dataset.sec) / S * 100) + '%';
   }
@@ -52,6 +52,24 @@ export function createCosmicYear({ onGo } = {}) {
     gapEl.textContent = 'Blue: all written history. White: your life.';
     for (const [label, y] of [['all written history', 5000], ['a life', years]]) { const sp = document.createElement('b'); sp.dataset.sec = y / AGE_YEARS * YEAR_SECONDS; sp.textContent = label; spansEl.appendChild(sp); }
     layout();
+  }
+  // Play the year: the date counter runs from one step to the next while the camera flies and the bar zooms, then the card appears.
+  const reducedMotion = () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches, ease = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  const dwell = () => Math.min(8000, 3800 + EVENTS[i].text.length * 28);
+  function nav(k) { stopPlay(); show(k); }
+  function startPlay() { if (i >= EVENTS.length - 1) show(0); play = { phase: 'dwell', t0: performance.now(), dur: Math.min(dwell(), 4200) }; playBtn.textContent = '❚❚ Pause'; playBtn.setAttribute('aria-label', 'Pause'); cancelAnimationFrame(playRaf); playRaf = requestAnimationFrame(tick); }
+  function stopPlay(done) { const was = play; play = null; cancelAnimationFrame(playRaf); markSec = null; mainEl?.classList.remove('travel'); if (!playBtn) return; playBtn.textContent = done ? '↺ Replay' : '▶ Play'; playBtn.setAttribute('aria-label', done ? 'Play again' : 'Play the year'); if (was) { layout(); kick.textContent = eventDate(EVENTS[i]).label; } }
+  function tick(now) {
+    if (!play) return; const k = (now - play.t0) / play.dur;
+    if (play.phase === 'dwell') { if (k >= 1) { if (i >= EVENTS.length - 1) { stopPlay(true); return; } depart(now); } }
+    else { const sec = play.from + (play.to - play.from) * ease(Math.min(1, k)); markSec = sec; kick.textContent = calendarAt(sec).label; layout(); if (k >= 1) { markSec = null; mainEl.classList.remove('travel'); show(i + 1); play = { phase: 'dwell', t0: now, dur: dwell() }; } }
+    playRaf = requestAnimationFrame(tick);
+  }
+  function depart(now) {
+    const a = EVENTS[i], b = EVENTS[i + 1], from = yearSeconds(a.ago), to = yearSeconds(b.ago);
+    if (reducedMotion()) { show(i + 1); play = { phase: 'dwell', t0: now, dur: dwell() }; return; }
+    mainEl.classList.add('travel'); const [target, name] = scaleFor(b.ago); scaleEl.textContent = name; zoomTo(target); world?.go(i + 1); bg.set(b.id);
+    play = { phase: 'travel', t0: now, from, to, dur: 2700 + Math.min(2300, Math.log10(to - from + 1) * 330) };
   }
   function show(k) {
     i = Math.max(0, Math.min(EVENTS.length - 1, k)); const e = EVENTS[i], d = eventDate(e);
@@ -71,7 +89,7 @@ export function createCosmicYear({ onGo } = {}) {
     try { const c = root.querySelector('.cy-3d'); c.hidden = false; const w = await createWorld(c, { reduced: () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches }); if (root.hidden) { c.hidden = true; world = w; return; } world = w; w.start(); w.go(i, true); bg.stop(); }
     catch (err) { root.querySelector('.cy-3d').hidden = true; worldTry = false; world = null; }
   }
-  function open() { if (!root) build(); S = St = YEAR_SECONDS; root.hidden = false; document.body.classList.add('cyear-on'); show(0); bg.start(); load(); root.querySelector('.cy-next').focus?.({ preventScroll: true }); }
-  function close() { if (!root || root.hidden) return; root.hidden = true; bg.stop(); world?.stop(); document.body.classList.remove('cyear-on'); }
+  function open() { if (!root) build(); stopPlay(); S = St = YEAR_SECONDS; root.hidden = false; document.body.classList.add('cyear-on'); show(0); bg.start(); load(); root.querySelector('.cy-next').focus?.({ preventScroll: true }); }
+  function close() { if (!root || root.hidden) return; stopPlay(); root.hidden = true; bg.stop(); world?.stop(); document.body.classList.remove('cyear-on'); }
   return { open, close, show, get isOpen() { return !!root && !root.hidden; }, get index() { return i; } };
 }
