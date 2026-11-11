@@ -97,5 +97,7 @@ export function createCosmicYear({ onGo, onOpen, onClose } = {}) {
   }
   function open() { if (!root) build(); opener = document.activeElement; stopPlay(); S = St = YEAR_SECONDS; root.hidden = false; document.body.classList.add('cyear-on'); onOpen?.(); show(0); if (!world) bg.start(); load(); root.focus?.({ preventScroll: true }); }
   function close() { if (!root || root.hidden) return; stopPlay(); root.hidden = true; bg.stop(); world?.stop(); document.body.classList.remove('cyear-on'); onClose?.(); const back = opener?.isConnected && opener.offsetParent ? opener : document.querySelector('#settings summary'); back?.focus?.({ preventScroll: true }); opener = null; }
-  return { open, close, show, get isOpen() { return !!root && !root.hidden; }, get index() { return i; } };
+  // open at one moment (the readout's 'this light left…' link): open, then fly there
+  function openAt(id) { open(); const k = EVENTS.findIndex(e => e.id === id); if (k > 0) show(k); }
+  return { open, openAt, close, show, get isOpen() { return !!root && !root.hidden; }, get index() { return i; } };
 }

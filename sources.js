@@ -265,7 +265,8 @@ function scale() {
   return [{ id: 'scale-hud', title: 'Scale readout', claims: [
     C('Distances in au: 1 au = 149,597,870,700 m exactly.', ['iauAu']),
     C('Light travel times and light-years: light travels 299,792,458 m/s exactly; a light-year is the distance it covers in a Julian year (365.25 days), about 63,241 au.', ['siC', 'iauAu']),
-    C('Beyond about 46.5 billion light-years the readout says the viewpoint is outside the observable universe.', ['davis2004', 'planck2018']) ] }];
+    C('Beyond about 46.5 billion light-years the readout says the viewpoint is outside the observable universe.', ['davis2004', 'planck2018']),
+    C('“Light from the edge of view left …”: how long light from the edge of the view has been travelling. Up to 10 million light-years a light-year is a year of travel; further out it is computed from Planck 2018 cosmology, because space has stretched while the light travelled (light from 46.5 billion light-years away now left 13.8 billion years ago). The moment it is set against, and its date, come from the cosmic year.', ['planck2018', 'davis2004']) ] }];
 }
 // The cosmic year: each step's date (computed from its age) and claim, with the sources that used to sit on its card.
 function cosmicYear() {

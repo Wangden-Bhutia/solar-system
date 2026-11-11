@@ -22,7 +22,7 @@ jobs:
       - name: Build site folder
         run: |
           mkdir -p _site
-          cp -r index.html style.css app.js data.js lab.js lab-state.js tour.js sources.js sources-page.js resume.js sheet.js science.js insights.js learn.js stars.js stars-data.js galaxy.js galaxy-data.js zoom-ladder.js zoom.js zoomlog.js labels.js lod.js frames.js transition.js transition-data.js hud.js here.js sky-math.js my-sky.js cosmic-calendar.js cosmic-year.js cosmic-backdrop.js cosmic-world.js galaxy-motion.js star-motion.js star-pairs.js local.js local-data.js cosmos.js cosmos-data.js laniakea-data.js sky.js experiments.js voice-player.js adventure.js textures.js land.js sw.js manifest.webmanifest icon-192.png icon-512.png voice vendor textures _site/
+          cp -r index.html style.css app.js data.js lab.js lab-state.js tour.js sources.js sources-page.js resume.js sheet.js science.js insights.js learn.js stars.js stars-data.js galaxy.js galaxy-data.js zoom-ladder.js zoom.js zoomlog.js labels.js lod.js frames.js transition.js transition-data.js hud.js here.js sky-math.js my-sky.js cosmic-calendar.js cosmic-year.js cosmic-backdrop.js cosmic-world.js timeline.js galaxy-motion.js star-motion.js star-pairs.js local.js local-data.js cosmos.js cosmos-data.js laniakea-data.js sky.js experiments.js voice-player.js adventure.js textures.js land.js sw.js manifest.webmanifest icon-192.png icon-512.png voice vendor textures _site/
           touch _site/.nojekyll
       - uses: actions/setup-node@v4
         with:

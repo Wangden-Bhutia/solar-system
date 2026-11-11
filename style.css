@@ -543,3 +543,9 @@ body.explore-on .hud,body.explore-on #tour,body.explore-on .home-earth{visibilit
 /* the last stop has no Next arrow: the way on sits on the right instead of the lock note */
 #journey-panel .journey-nav:has(#journey-end:not([hidden])) .jn-lock{display:none}
 .journey-found{scroll-margin-bottom:96px}
+
+/* Far is long ago: the readout's look-back line, a tap opens that moment in the cosmic year */
+.hud .hud-time{display:block;margin:4px 0 0;padding:0;min-height:0;border:0;background:none;text-align:left;font:inherit;color:#e9d9a6;max-width:min(78vw,340px);cursor:pointer;pointer-events:auto}
+.hud .hud-time[hidden]{display:none}
+.hud .hud-time span{display:block;margin-top:1px;color:#f3c887;text-decoration:underline;text-underline-offset:2px;text-decoration-color:rgba(243,200,135,.5)}
+body.touring .hud .hud-time,body.story .hud .hud-time{display:none}
