@@ -52,3 +52,28 @@ test('the sky has the Sun, the Moon, five planets and thousands of stars, and de
   assert.equal(compass(95), 'east'); assert.equal(lookText(34.2, 180), '34° above the south horizon'); assert.match(lookText(-5, 0), /below the north horizon/);
   assert.equal(Object.keys(ELEMENTS).length, 6);
 });
+
+import { bodyAltAz, visibility, heightWord, aimDirection, turnBy } from '../sky-math.js';
+test('what is up at Siliguri on 11 Nov 2026: Saturn tonight, Venus only before dawn (past its October inferior conjunction), Mars and Jupiter late', () => {
+  const from = new Date('2026-11-11T12:30:00Z'); // 18:00 IST
+  const sat = visibility('Saturn', from, 26.7271, 88.3953); assert.ok(sat.upNow && sat.until, JSON.stringify(sat)); assert.ok(sat.nowPos.alt > 35 && sat.nowPos.az > 90 && sat.nowPos.az < 180);
+  const ven = visibility('Venus', from, 26.7271, 88.3953); assert.ok(!ven.upNow && ven.next, JSON.stringify(ven)); const vh = (ven.next.getTime() - Date.UTC(2026, 10, 11, 18, 30)) / 3600000; assert.ok(vh > 3 && vh < 5.5, 'a morning star: visible from about 04:00 IST, ' + vh); assert.ok(ven.nextPos.az > 90 && ven.nextPos.az < 125);
+  const jup = visibility('Jupiter', from, 26.7271, 88.3953); assert.ok(!jup.upNow && jup.next, 'Jupiter rises later'); const hr = (jup.next.getTime() - from.getTime()) / 3600000; assert.ok(hr > 4 && hr < 9, String(hr));
+  assert.ok(jup.nextPos.az > 40 && jup.nextPos.az < 130, 'rises in the east');
+});
+test('the Moon is up when it is above the horizon, in daylight too', () => {
+  const v = visibility('Moon', new Date('2026-11-24T14:00:00Z'), 51.5, -0.13); assert.equal(typeof v.upNow, 'boolean');
+  const b = bodyAltAz('Moon', new Date('2026-11-24T14:00:00Z'), 51.5, -0.13); assert.equal(v.upNow, b.alt > 0.5);
+});
+test('aimDirection: upright and facing north, east, west; tilted back to look up; flat screen-up looks at the ground', () => {
+  const near = (a, b, t = 1e-6) => Math.abs(a - b) < t;
+  let d = aimDirection(0, 90, 0); assert.ok(near(d.alt, 0) && near(d.az, 0), JSON.stringify(d));
+  d = aimDirection(90, 90, 0); assert.ok(near(d.alt, 0) && near(d.az, 270), 'a quarter turn anticlockwise faces west ' + JSON.stringify(d));
+  d = aimDirection(270, 90, 0); assert.ok(near(d.alt, 0) && near(d.az, 90), 'faces east ' + JSON.stringify(d));
+  d = aimDirection(0, 135, 0); assert.ok(near(d.alt, 45, 1e-6) && near(d.az, 0), 'tilted back 45° looks 45° up ' + JSON.stringify(d));
+  d = aimDirection(0, 0, 0); assert.ok(near(d.alt, -90, 1e-6), 'lying flat, the back looks down');
+});
+test('words for height and turning', () => {
+  assert.equal(heightWord(10), 'low'); assert.equal(heightWord(30), 'part-way up'); assert.equal(heightWord(70), 'high');
+  assert.equal(turnBy(350, 10), 20); assert.equal(turnBy(10, 350), -20); assert.equal(Math.abs(turnBy(0, 180)), 180);
+});

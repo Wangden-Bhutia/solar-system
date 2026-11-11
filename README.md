@@ -144,4 +144,8 @@ Evidence, measurements and the open acceptance items for the continuous zoom: [d
 - **A quiet finale.** After the last Voyage stop, a still card ("Here") appears over the whole universe: four short lines, no question, **Go home** and **Save this moment** (a picture with the first line and the app name as a caption). Zooming, or any other move, lets it go.
 
 ## My sky
-Menu → **My sky** shows the real sky above you: the Sun, Moon, five naked-eye planets and about 7,700 stars, from `sky-math.js` (formulas and checks in docs/sources.md). Drag to look around, pinch to zoom, tap anything for its direction, distance and how long its light has travelled. After dark by default (in the daytime it shows tonight, and **Now** returns). A time slider moves ±12 hours; a place picker is the fallback if location is not shared. **Leave Earth** zooms out to the star map. Location is read once, on tap, and never stored or sent.
+Menu → **My sky** shows the real sky above you: the Sun, Moon, five naked-eye planets and about 7,700 stars (`sky-math.js`; formulas and checks in docs/sources.md).
+- **Tonight** list: each planet and the Moon, with where it is, until when, or when it rises. Tap a name and the view turns to it, with an arrow at the screen's edge while it is out of view ("Saturn · turn right 46°, look up"). It opens already turned to the brightest planet that is up.
+- **Aim phone:** the view follows the phone's compass and tilt, so you can hold it up and look through it. Phone compasses can be 5–15° off.
+- Drag to look around, pinch to zoom, tap anything for its direction and how long its light has travelled. A slider moves ±12 hours; in the daytime it opens on tonight (**Now** returns). A place picker is the fallback if location is not shared. **Leave Earth** zooms out to the star map.
+- Location is read once, on tap, and never stored or sent.

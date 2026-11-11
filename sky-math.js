@@ -102,3 +102,36 @@ export function skyAt(date, lat, lon) {
 // A phrase for a direction.
 export const compass = az => ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'][Math.round(norm360(az) / 45) % 8];
 export function lookText(alt, az) { const a = Math.round(Math.abs(alt)); return alt >= 0 ? `${a}° above the ${compass(az)} horizon` : `${a}° below the ${compass(az)} horizon`; }
+
+// ---- Finding things: what is up tonight, when, and where to point ----
+// Altitude and azimuth of the Sun, Moon or a planet at a moment, for a place.
+export function bodyAltAz(name, date, lat, lon) {
+  const jd = julianDate(date), T = centuries(jd), lst = siderealTime(jd, lon);
+  if (name === 'Moon') { const m = moonEquatorial(T), h = horizontal(m.ra, m.dec, lat, lst); return { alt: h.alt - m.parallax * Math.cos(h.alt * RAD), az: h.az }; }
+  const q = planetEquatorial(name, T); return horizontal(q.ra, q.dec, lat, lst);
+}
+// When a body can be seen over the next 24 hours: seen = above 3° with the Sun more than 6° down (the Moon: just above the horizon).
+// Returns { upNow, until, next, nowPos, nextPos, nearSun }: `until` ends the current stretch, `next` starts the next one.
+export function visibility(name, from, lat, lon, stepMin = 10) {
+  const seen = d => { const b = bodyAltAz(name, d, lat, lon), sun = bodyAltAz('Sun', d, lat, lon); return { ok: name === 'Moon' ? b.alt > 0.5 : (b.alt > 3 && sun.alt < -6), ...b }; };
+  const first = seen(from), out = { upNow: first.ok, until: null, next: null, nowPos: { alt: first.alt, az: first.az }, nextPos: null, nearSun: false };
+  let prev = first.ok;
+  for (let m = stepMin; m <= 24 * 60; m += stepMin) {
+    const d = new Date(from.getTime() + m * 60000), s = seen(d);
+    if (prev && !s.ok && !out.until && first.ok) out.until = d;
+    if (!prev && s.ok && !out.next) { out.next = d; out.nextPos = { alt: s.alt, az: s.az }; }
+    prev = s.ok; if (out.next && (out.until || !first.ok)) break;
+  }
+  if (name !== 'Moon' && name !== 'Sun') { const T = centuries(julianDate(from)); out.nearSun = angularSeparation(planetEquatorial(name, T), planetEquatorial('Sun', T)) < 18; }
+  return out;
+}
+export const heightWord = alt => alt < 15 ? 'low' : alt < 45 ? 'part-way up' : 'high';
+// Where the back of a phone points, from DeviceOrientation angles (degrees; alpha counter-clockwise from north when
+// absolute, beta front-back tilt, gamma left-right tilt): altitude and azimuth (azimuth from north through east).
+export function aimDirection(alpha, beta, gamma) {
+  const a = alpha * RAD, b = beta * RAD, g = gamma * RAD;
+  const nx = Math.cos(a) * Math.sin(g) + Math.sin(a) * Math.sin(b) * Math.cos(g), ny = Math.sin(a) * Math.sin(g) - Math.cos(a) * Math.sin(b) * Math.cos(g), nz = Math.cos(b) * Math.cos(g);
+  const dx = -nx, dy = -ny, dz = -nz; // the back of the phone is opposite its screen
+  return { alt: Math.asin(Math.max(-1, Math.min(1, dz))) / RAD, az: norm360(Math.atan2(dx, dy) / RAD) };
+}
+export const turnBy = (fromAz, toAz) => { const d = ((toAz - fromAz + 540) % 360) - 180; return d; }; // −180..180, positive = turn right
