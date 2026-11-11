@@ -1,4 +1,4 @@
-// "You are here": one line per scale that keeps your own place in view, and the quiet words that end the Voyage.
+// "You are here": one line per scale that keeps your own place in view, and the quiet words that end the tour.
 // Pure text. Every figure comes from a source the app already cites (docs/sources.md: the Galaxy, the Local Group,
 // Laniakea and the observable universe) or from cosmos-data.js; the tests pin them to those.
 import { COSMOS_FACTS } from './cosmos-data.js';
@@ -13,7 +13,7 @@ export const HERE = {
 };
 export const hereLine = level => HERE[level] || '';
 
-// The last screen of the Voyage. Plain, true, and short; no question to answer.
+// The last screen of the tour. Plain, true, and short; no question to answer.
 export const FINALE = {
   title: 'Here',
   lines: [

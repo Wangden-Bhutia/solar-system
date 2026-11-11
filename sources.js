@@ -6,7 +6,7 @@
 import { SUN, PLANETS, MOON, MOONS, DWARFS, SUN_SHRINK, DIST_K, DIST_P } from './data.js';
 import { INSIGHTS, STRIKING, genericInsight, dwarfInsight, moonInsight, NASA, MOON_COUNT, SAT_SOURCES, JPL_RADII, DWARF_SOURCES, SBDB } from './insights.js';
 import { LINES } from './voice/lines.js';
-import { PREDICTIONS, JOURNEYS, VOYAGE } from './learn.js';
+import { PREDICTIONS, JOURNEYS } from './learn.js';
 import { SOURCES as TOUR_SOURCES, TOUR_STOPS, sourcesOf } from './tour.js';
 import { STOPS as ADVENTURE_STOPS, SCALE_NOTE } from './adventure.js';
 import { NEARBY } from './science.js';
@@ -149,9 +149,7 @@ for (const d of DWARFS) REFS[`sbdb:${d.name}`] = { label: `NASA JPL Small-Body D
 // Labs: the predict-then-reveal questions (learn.js PREDICTIONS), the lab notes and the Compare lab's data.
 const PREDICTION_SRC = { seasons: ['nasaEarth'], phases: ['nasaPhases'], eclipses: ['nasaPhases', 'nssdcMoon', 'nasaEclipses'], tides: ['noaaLunarDay', 'noaaTideTypes'],
   scale: ['nssdcSun', 'iauAu', 'ifabBall', 'nssdcNeptune'], 'light-earth': ['iauAu', 'siC'], 'light-neptune': ['nssdcNeptune', 'iauAu', 'siC'],
-  closest: ['usnoSeasons', 'nssdcEarth', 'nasaEarth'], 'mars-day': ['nssdcMars'], 'mars-weight': ['nssdcMars', 'nssdcEarth'],
-  'voyage-star': ['svsLightYear', 'iauAu'], 'voyage-pair': [wiki('Alpha Centauri')], 'voyage-nearest': [wiki('List of nearest stars'), 'hyg'],
-  'voyage-orbit': ['eilers2019', wiki('Milky Way'), 'nhmDinosaurs'], 'voyage-edge': ['planck2018', 'davis2004'], 'voyage-andromeda': ['sawala2025', 'uwaAndromeda', wiki('Andromeda Galaxy')] };
+  closest: ['usnoSeasons', 'nssdcEarth', 'nasaEarth'], 'mars-day': ['nssdcMars'], 'mars-weight': ['nssdcMars', 'nssdcEarth'] };
 // Lab notes (the ⓘ text in each lab): what the lab's own links cite. Keyed by lab; lab.js reads its links from here.
 export const LAB_REFS = {
   seasons: ['nasaEarth', 'nssdcEarth'], phases: ['nasaPhases', 'nssdcMoon'], day: ['nasaEarth', 'nssdcEarth'],
@@ -174,9 +172,6 @@ export const JOURNEY_SRC = {
   'seasons.0': ['nasaEarth'], 'seasons.1': null, 'seasons.2': null, 'seasons.3': ['nssdcMars', 'nasaMars'],
   'moon.0': ['nasaPhases', 'nasaMoon'], 'moon.1': null, 'moon.2': null, 'moon.3': ['noaaTideCause'],
   'mars.0': ['nasaMars'], 'mars.1': ['nssdcMars'], 'mars.2': ['nssdcMars'], 'mars.3': ['nasaMarsRelay', 'siC'],
-  'voyage.0': ['iauAu', 'siC', 'nssdcNeptune'], 'voyage.1': [wiki('Alpha Centauri')], 'voyage.2': [wiki('Alpha Centauri')], 'voyage.3': ['hyg', wiki('List of nearest stars')],
-  'voyage.4': [wiki('Milky Way'), 'gravity2022', 'eilers2019'], 'voyage.5': [wiki('Local Group')], 'voyage.6': ['nasaM31', 'siHomo'],
-  'voyage.7': ['openNGC', 'uhLaniakea', 'tully2014'], 'voyage.8': ['planck2018', wiki('Observable universe')],
 };
 // The adventure (adventure.js STOPS): which clip says what, and where that is checked (docs/sources.md table).
 const ADVENTURE_SRC = { trip_earth: ['nasaEarth'], trip_earth_found: ['nasaEarth', 'nasaMoon'], trip_moon: ['nasaMoon'], trip_moon_found: ['nasaMoon'],
@@ -221,7 +216,7 @@ function labs() {
   ];
 }
 function journeys() {
-  return [...JOURNEYS, VOYAGE].map(j => ({ id: `journey-${j.id}`, title: j.title,
+  return JOURNEYS.map(j => ({ id: `journey-${j.id}`, title: j.title,
     claims: j.steps.map((st, i) => ({ st, src: JOURNEY_SRC[`${j.id}.${i}`] })).filter(x => x.src).map(x => C(x.st.text, x.src)) }));
 }
 function tour() {

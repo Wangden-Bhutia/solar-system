@@ -208,9 +208,9 @@ body.bridging #gtime{visibility:hidden}
 .legend .sw.cm{width:8px;height:8px;border-radius:50%;background:#f3c887}
 #star-companions .pair-go{display:block;margin-top:8px;min-height:36px;padding:6px 12px;font-size:13px;text-align:left}
 .head-actions .action.alt{background:none;border:1px solid rgba(194,223,243,.45);color:#c2dff3}
-/* The voyage outward leads the journey list. */
-.experiment-card.voyage-card{border-color:rgba(243,200,135,.55);background:linear-gradient(135deg,rgba(243,200,135,.14),rgba(27,44,69,.6))}
-.experiment-card.voyage-card strong{color:#f3c887}
+/* The tour leads the Explore list. */
+.experiment-card.feature-card{border-color:rgba(243,200,135,.55);background:linear-gradient(135deg,rgba(243,200,135,.14),rgba(27,44,69,.6))}
+.experiment-card.feature-card strong{color:#f3c887}
 
 /* Six scales: short names on narrow screens so the ladder fits a phone. */
 #ladder .short{display:none}
@@ -347,7 +347,7 @@ body:not([data-sheet="closed"]) .tour-hint{display:none}
 .src-more,.tour-all{background:none;border:0;padding:6px 0;min-height:32px;font-size:12.5px;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
 .tour-all{padding:0 0 0 4px;min-height:0;font-size:11.5px}
 body.sources-open #tour,body.sources-open #tour-hint{visibility:hidden}
-/* "You are here": one line at the top of the scale readout, and the quiet finale at the end of the Voyage */
+/* "You are here": one line at the top of the scale readout, and the quiet finale at the end of the tour */
 .hud{display:flex;flex-direction:column}
 .hud .hud-here{order:-1;color:#e9d9a6;font-size:11px;margin-bottom:3px;max-width:min(78vw,340px);line-height:1.35;transition:opacity .4s ease}
 .hud .hud-here:empty{display:none}
@@ -464,3 +464,43 @@ body.hint-up .home-earth{top:calc(var(--safe-t) + 156px)}
 #resume-x{flex:0 0 44px;color:var(--muted)}
 .resume-hint{border-color:rgba(194,223,243,.35)}
 body.sources-open #resume,body.sources-open .home-earth{visibility:hidden}
+
+/* Top bar: the tour leads (gold), Explore holds everything else guided; the adventure is started from Explore */
+#topbar .chip-primary{background:#f3c887;border-color:#f3c887;color:#1a1305;font-weight:600}
+#topbar .chip-primary:hover{background:#f7d49c}
+#topbar .chip-primary[aria-pressed="true"]{background:#f3c887;color:#1a1305}
+#topbar #adventure{display:none}
+/* Explore sheet: section headings between the cards */
+#journey-list .xsec{margin:16px 2px 6px;font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#f3c887}
+/* The readout: two lines (where you are, how wide the view is); tap it for the rest. Hidden in the adventure, whose caption says the same. */
+.hud{pointer-events:auto;cursor:pointer}
+.hud:not(.more)>div:nth-child(2),.hud:not(.more)>div:nth-child(3),.hud:not(.more)>.hud-note{display:none}
+.hud:not(.more)>div:first-child::after{content:'  ⋯';opacity:.55;letter-spacing:.05em}
+body.story .hud{display:none}
+/* In the tour the readout is the tour's distance line (its caption does not repeat it): the view, the distance and the note, nothing else */
+body.touring .hud>.hud-here,body.touring .hud>div:nth-child(3){display:none}
+body.touring .hud>div:nth-child(2),body.touring .hud>.hud-note{display:block}
+body.touring .hud>div:first-child::after{content:none}
+/* My sky, in the same quiet chrome as the cosmic year: a frosted close button, a small gold label, frosted panels */
+.mysky .mysky-x{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.18);background:rgba(10,14,26,.42);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.mysky .mysky-x svg{width:16px;height:16px;stroke:#f4efe4;stroke-width:2;fill:none;stroke-linecap:round}
+.mysky .mysky-top{align-items:center;gap:12px}
+.mysky .mysky-title strong{font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#f3c887}
+.mysky .mysky-title span{font-size:12px;color:rgba(240,236,228,.75)}
+.mysky .mysky-chip{border-color:rgba(255,255,255,.16);background:rgba(10,14,26,.5);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.mysky .mysky-note{left:12px;right:auto;max-width:min(88vw,420px);padding:7px 12px;border-radius:12px;font-size:12px;line-height:1.35;color:#ece6d8;text-shadow:none;background:rgba(10,14,26,.55);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.mysky .mysky-note:empty{display:none}
+.mysky .mysky-card{background:rgba(10,14,26,.62);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1)}
+.mysky .mysky-sel,.mysky .mysky-now,.mysky .mysky-acts button{border-color:rgba(255,255,255,.2);background:rgba(10,14,26,.5);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.mysky .mysky-acts .primary{background:#f3c887;border-color:#f3c887;color:#1a1305}
+.mysky .mysky-src{color:rgba(240,236,228,.45)}
+/* The Earth and Moon adventure panel, in the same style: frosted, a small gold step label, gold main action, round icon buttons */
+#story{background:rgba(10,14,26,.62);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1)}
+#story .story-step{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#f3c887}
+#story .story-icon{min-width:40px;min-height:40px;width:40px;height:40px;padding:0;border-radius:50%;border-color:rgba(255,255,255,.22);background:rgba(10,14,26,.45)}
+#story .story-main{background:#f3c887;color:#1a1305}
+#story .story-main:hover,#story .story-main:active{background:#f7d49c;color:#1a1305}
+#story .story-main:disabled{background:rgba(243,200,135,.45);color:#1a1305}
+#story .story-skip{border-color:rgba(255,255,255,.22);background:rgba(10,14,26,.45)}
+#topbar{justify-content:flex-start}#topbar .top-right{margin-left:auto}
+#topbar .chip-primary svg,#topbar .chip-primary svg path{color:#1a1305;fill:#1a1305}

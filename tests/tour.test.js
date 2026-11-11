@@ -52,7 +52,7 @@ test('one tap plays every stop in order from Earth to the observable universe; e
  assert.equal(a.lab.state.value.view,'universe','reached the Universe scale');
  assert.match(hud(a)[3],/viewpoint outside the observable universe/,'the readout agrees with the last caption: this viewpoint is outside');
  assert.match(TOUR_STOPS.at(-1).illustration,/outside the observable universe/);
- until(a,()=>t.finished,400);assert.equal(a.$('tour-play').getAttribute('aria-label'),'Start the tour again');assert.equal(a.$('tour-next').disabled,true);
+ until(a,()=>!t.active,400);const fin=a.document.getElementById('finale');assert.ok(fin&&!fin.hidden,'the last stop leads into the quiet finale');assert.equal(a.$('tour').hidden,true,'the tour bar steps aside for it');
  assert.equal(a.errors.length,0);
 });
 

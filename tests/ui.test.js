@@ -93,7 +93,7 @@ test('Planets in view (menu) switches inner planets ↔ all planets; ✕ closes 
  // The menu keeps only real options: no duplicate overview button, no trails switch, no world picker.
  const menu=a.document.querySelector('#settings .menu');for(const id of ['reset','trails','world'])assert.equal(menu.querySelector('#'+id),null,id);
  assert.ok(a.document.querySelector('#world-nav #world'),'world picker lives in the keyboard skip-nav');
- assert.equal(menu.querySelectorAll('.mrow').length,9,'My sky, the cosmic year, planets in view, real scale, speed, names, voice, offline, sources');assert.ok(menu.querySelector('#save-offline'));
+ assert.equal(menu.querySelectorAll('.mrow').length,7,'settings only: planets in view, real scale, speed, names, voice, offline, sources (My sky and the cosmic year live in Explore)');assert.ok(menu.querySelector('#save-offline'));
 });
 test('every world has a working card, contextual action, facts and external source',async()=>{
  const a=await setup(412,915);
@@ -161,7 +161,7 @@ test('scale lab: keeps the live Solar System, walks the planets out to scale and
 test('journeys: list → steps that move the camera; a question gates Next; labs open from a step and Back returns',async()=>{
  const a=await setup();a.$('journeys').onclick();
  assert.equal(a.$('journey-panel').hidden,false);assert.equal(a.document.querySelector('#sheet .tabs').hidden,true);
- assert.equal(a.$('journey-list').querySelectorAll('button').length,5,'the voyage plus four Solar System journeys');
+ assert.equal(a.$('journey-list').querySelectorAll('button').length,8,'the tour, four Solar System journeys, the cosmic year, My sky and the adventure');
  a.$('journey-list').querySelector('[data-journey="scale"]').onclick();
  assert.equal(a.$('title').textContent,'Our star');assert.equal(a.focuses.at(-1)[0],'Sun','glides to the Sun');assert.equal(a.$('journey-prev').disabled,true);
  a.$('journey-next').onclick();assert.equal(a.$('title').textContent,'Sunlight’s trip to Earth');assert.equal(a.focuses.at(-1)[0],'Earth');
@@ -173,7 +173,7 @@ test('journeys: list → steps that move the camera; a question gates Next; labs
  assert.equal(a.$('journey-lab').parentElement.hidden,false);assert.match(a.$('journey-lab').textContent,/How big is space/);assert.equal(a.$('journey-next').textContent,'Finish ✓');
  a.$('journey-lab').onclick();assert.equal(a.$('scale-lab').hidden,false);
  a.$('back').onclick();assert.equal(a.lab.state.value.view,'journey');assert.equal(a.$('title').textContent,'Shrink it all down');
- a.$('journey-next').onclick();assert.equal(a.$('title').textContent,'Choose a journey','Finish returns to the list');
+ a.$('journey-next').onclick();assert.equal(a.$('title').textContent,'Where to go','Finish returns to the list');
  a.$('journey-list').querySelector('[data-journey="mars"]').onclick();a.$('journey-next').onclick();a.$('journey-next').onclick();
  assert.equal(a.$('title').textContent,'A Martian day','could not skip the unanswered question');
 });
@@ -326,26 +326,24 @@ test('the Local Group: a fourth scale past the Milky Way, metric seam, galaxy ca
  space.localZoom={d:ladderMod.LOCAL_NEAR*1.02,min:25,max:10000,busy:false,atSun:false};wheel(-120);assert.ok(space.log.filter(x=>x==='local:zoomBackIn').length>=1,'first returns to the Sun');
  space.localZoom={d:ladderMod.LOCAL_NEAR*1.02,min:25,max:10000,busy:false,atSun:true};wheel(-120);assert.equal(a.document.body.classList.contains('bridging'),true);for(let i=0;i<30;i++)wheel(-120);assert.equal(a.lab.state.value.view,'galaxy');
 });
-test('voyage outward: one guided trip across every scale; questions gate each stop; it travels with the zoom and ends where you can explore',async()=>{
- const a=await setup();
- a.$('journeys').onclick();const card=a.document.querySelector('#journey-list .voyage-card');assert.ok(card,'the voyage is first in the list');assert.match(card.textContent,/Voyage outward/);
- card.onclick();let v=a.lab.state.value;assert.equal(v.voyage,0);assert.equal(v.view,'explore');
- assert.equal(a.$('title').textContent,'Home');assert.match(a.$('kicker').textContent,/Voyage outward · 1 of 9/);assert.equal(a.$('journey-panel').hidden,false);assert.equal(a.$('explore-panel').hidden,true);
- assert.equal(a.$('journey-next').disabled,true,'answer first');assert.equal(a.$('back').hidden,true,'no Back in the voyage: Previous and ✕');
- const answer=k=>{const b=a.$('journey-predict').querySelectorAll('button')[k];assert.ok(b,'question buttons');b.onclick();};
- answer(1);assert.match(a.$('journey-predict').textContent,/4\.2 years/);assert.equal(a.$('journey-next').disabled,false);
- a.$('journey-next').onclick();v=a.lab.state.value;assert.equal(v.view,'stars');assert.equal(v.voyage,1);assert.equal(v.star,'Alpha Centauri');assert.equal(a.$('title').textContent,'The nearest stars');assert.equal(a.$('star-panel').hidden,true,'the voyage card, not the star card');assert.ok(space.log.includes('stars:frame:11'),'pulls back to see the neighbours');
- a.$('journey-next').onclick();v=a.lab.state.value;assert.equal(v.view,'pair');assert.ok(space.log.includes('pair:Alpha Centauri'));answer(1);
- a.$('journey-next').onclick();v=a.lab.state.value;assert.equal(v.view,'stars');assert.ok(space.log.includes('stars:play'),'the star clock runs');answer(1);
- a.$('journey-next').onclick();v=a.lab.state.value;assert.equal(v.view,'galaxy');assert.ok(space.log.includes('stars:rewind')||space.st===0,'star clock back to today before leaving');assert.ok(space.log.includes('galaxy:play'));answer(2);assert.match(a.$('journey-predict').textContent,/230 million years/);
- a.$('journey-next').onclick();v=a.lab.state.value;assert.equal(v.view,'local');assert.ok(space.log.includes('local:overview'));
- a.$('journey-prev').onclick();assert.equal(a.lab.state.value.view,'galaxy','Previous travels back');a.$('journey-next').onclick();
- a.$('journey-next').onclick();v=a.lab.state.value;assert.equal(v.landmark,'Andromeda Galaxy');answer(0);assert.match(a.$('journey-predict').textContent,/50%/);
- space.localPick=localData.GALAXIES[1];a.hooks.overrideTap(3,3);assert.equal(a.lab.state.value.landmark,'Andromeda Galaxy','taps do not interrupt the voyage');
- a.$('journey-next').onclick();v=a.lab.state.value;assert.equal(v.view,'super');assert.ok(space.log.includes('super:overview'));assert.equal(a.$('title').textContent,'Laniakea');
- a.$('journey-next').onclick();v=a.lab.state.value;assert.equal(v.view,'universe');assert.ok(space.log.includes('universe:overview'));answer(1);assert.match(a.$('journey-predict').textContent,/46 billion/);assert.equal(a.$('journey-next').textContent,'Finish ✓');
- a.$('journey-next').onclick();v=a.lab.state.value;assert.equal(v.voyage,null);assert.equal(v.view,'universe');assert.equal(a.sheet,'closed');assert.equal(a.document.querySelector('#ladder [aria-pressed="true"]').dataset.level,'universe','free to explore from here');
- const fin=a.document.getElementById('finale');assert.ok(fin&&!fin.hidden,'the quiet finale follows the last stop');assert.match(fin.textContent,/Somewhere near the middle/);assert.match(fin.textContent,/Go home/);assert.match(fin.textContent,/Save this moment/);
+test('Explore: one hub for everything guided; the top bar is Tour, Explore and the menu',async()=>{
+ const a=await setup(),top=a.$('topbar');
+ const chips=[...top.querySelectorAll('.chip')].filter(c=>c.id!=='adventure').map(c=>c.id||'menu');
+ assert.deepEqual(chips.slice(0,2),['tour-start','journeys'],'the tour leads, then Explore');assert.ok(a.$('tour-start').classList.contains('chip-primary'));
+ assert.match(a.$('journeys').textContent,/Explore/);
+ a.$('journeys').onclick();assert.equal(a.$('kicker').textContent,'Explore');
+ const list=a.$('journey-list'),heads=[...list.querySelectorAll('.xsec')].map(h=>h.textContent);
+ assert.deepEqual(heads,['Journeys','Time and the sky','For young explorers']);
+ assert.deepEqual([...list.querySelectorAll('button')].map(b=>b.dataset.act),['tour','journey:scale','journey:seasons','journey:moon','journey:mars','cyear','mysky','adventure']);
+ assert.equal(list.querySelector('.voyage-card'),null,'the voyage was folded into the tour');
+ const g=globalThis,saved={document:g.document,requestAnimationFrame:g.requestAnimationFrame,cancelAnimationFrame:g.cancelAnimationFrame};g.document=a.document;g.requestAnimationFrame=undefined;g.cancelAnimationFrame=()=>{}; // the overlay modules use the page's document
+ try{
+  list.querySelector('[data-act="cyear"]').onclick();assert.equal(a.document.getElementById('cyear').hidden,false,'the cosmic year opens from Explore');
+  assert.equal(a.app.hooks.covered,true,'the scene behind it is paused');
+  a.document.querySelector('#cyear .cy-x').onclick();assert.equal(a.app.hooks.covered,false,'and runs again when it closes');
+ }finally{Object.assign(g,saved);}
+ assert.ok(list.querySelector('[data-act="mysky"]'),'My sky is in Explore (opened in the browser checks: it needs a canvas and location)');
+ assert.equal(a.$('open-mysky'),null,'not in the menu any more');assert.equal(a.$('open-cyear'),null);
 });
 test('Laniakea and the observable universe: two more scales, metric seams, honest cards, short ladder names, Back steps in',async()=>{
  const a=await setup(),c=a.$('c'),wheel=dy=>c.dispatchEvent(Object.assign(new a.document.defaultView.Event('wheel'),{deltaY:dy}));
