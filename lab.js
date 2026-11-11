@@ -978,7 +978,10 @@ const sourcesUi=mountSources(document,{
  onClose:()=>{if(sourcesPausedTour&&tourRef?.active&&tourRef.paused)tourRef.resume();sourcesPausedTour=false;}});
 const mySky=createMySky({onLeave:()=>goLevel('stars')});
 $('open-mysky').onclick=()=>{$('settings').open=false;if(state.value.voyage!=null)endVoyage();hideFinale();mySky.open();};
-const cYear=createCosmicYear({onGo:l=>goLevel(l)});
+let cYearPausedTour=false;
+const cYear=createCosmicYear({onGo:l=>goLevel(l),
+ onOpen:()=>{hooks.covered=true;if(tourRef?.active&&!tourRef.paused&&!tourRef.finished){tourRef.pause();cYearPausedTour=true;}},
+ onClose:()=>{hooks.covered=false;if(cYearPausedTour&&tourRef?.active&&tourRef.paused)tourRef.resume();cYearPausedTour=false;}});
 $('open-cyear').onclick=()=>{$('settings').open=false;if(state.value.voyage!=null)endVoyage();hideFinale();mySky.close();cYear.open();};
 $('open-sources').onclick=()=>{$('settings').open=false;sourcesUi.open(null,$('settings').querySelector('summary'));};
 document.addEventListener('click',e=>{const b=e.target.closest?.('[data-sources]');if(!b)return;e.preventDefault();sourcesUi.open(b.dataset.sources,b);});

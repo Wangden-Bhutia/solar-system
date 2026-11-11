@@ -394,7 +394,7 @@ body.mysky-on .hud,body.mysky-on .finale{display:none}
 .cyear[hidden]{display:none}
 .cy-top{display:flex;gap:12px;align-items:flex-start}.cy-top strong{display:block;font-size:16px;letter-spacing:.04em}.cy-top span{display:block;font-size:12px;color:#b9c4dc;margin-top:2px}
 .cy-x{flex:none;width:44px;height:44px;border-radius:22px;border:1px solid rgba(255,255,255,.25);background:rgba(8,12,24,.7);color:inherit;font-size:16px}
-.cy-main{flex:1;display:flex;flex-direction:column;justify-content:center;gap:6px;min-height:0;overflow:auto;padding:12px 0}
+.cy-main{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;min-height:0;overflow:auto;padding:12px 0}
 .cy-kick{margin:0;font-size:34px;font-weight:300;color:#f3c887;letter-spacing:.02em;font-variant-numeric:tabular-nums}
 .cy-title{margin:0;font-size:24px;line-height:1.2;font-weight:600}.cy-when{margin:0;font-size:13px;color:#9db4ff}
 .cy-text{margin:6px 0 0;font-size:16px;line-height:1.5;max-width:34em}
@@ -411,3 +411,25 @@ body.mysky-on .hud,body.mysky-on .finale{display:none}
 .cy-note{margin:8px 0 0;font-size:10.5px;color:#6f7a96}
 body.cyear-on .hud,body.cyear-on .finale{display:none}
 @media (prefers-reduced-motion:reduce){.cy-marker{transition:none}}
+.cy-bg{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+.cy-main{text-shadow:0 1px 10px rgba(0,0,0,.7)}
+.cyear>.cy-3d{position:absolute;inset:0;width:100%;height:100%;z-index:0}.cyear>.cy-3d[hidden]{display:none}
+.cyear::before{content:'';position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(2,5,14,.15) 0%,rgba(2,5,14,0) 18%,rgba(2,5,14,.38) 42%,rgba(2,5,14,.5) 70%,rgba(2,5,14,.78) 100%)}
+.cyear>:not(.cy-bg):not(.cy-3d){position:relative;z-index:2}
+
+/* the time lens */
+.cy-barwrap{padding:8px 2px 4px}.cy-lens{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px}
+.cy-scale{white-space:nowrap;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#f3c887;font-weight:600}.cy-gap{font-size:11px;color:#8f9bb5;font-style:normal;text-align:right}
+.cy-bar{height:26px;border-radius:13px;background:linear-gradient(90deg,#070b18,#141f3c);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.cy-bar .cy-tick{top:3px;height:20px;width:3px;margin-left:-1.5px;border-radius:2px;background:rgba(243,200,135,.45)}.cy-bar .cy-tick.on{background:#f3c887;box-shadow:0 0 8px #f3c887}.cy-tick[hidden]{display:none}
+.cy-bar .cy-marker{top:-6px;height:38px;width:14px;margin-left:-7px;border-radius:7px;transition:none}
+.cy-spans{position:absolute;right:0;top:0;bottom:0;left:0;pointer-events:none;font-style:normal}
+.cy-spans b{position:absolute;right:0;height:100%;min-width:2px;background:rgba(157,180,255,.35);border-radius:13px;font-size:0}
+.cy-spans b:nth-child(2){background:#fff;box-shadow:0 0 10px #fff}
+.cy-axis{display:flex;justify-content:space-between;font-size:11px;color:#8f9bb5;margin-top:8px}.cy-hi{text-align:right}
+
+/* play the year */
+.cy-mid{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px}.cy-nav .cy-play{flex:none;min-height:40px;min-width:104px;padding:0 14px;border-color:#f3c887;color:#f3c887;background:rgba(8,12,24,.78)}
+.cy-mid .cy-dots{min-width:0}
+.cy-main>*{transition:opacity .5s ease}.cy-main.travel .cy-title,.cy-main.travel .cy-when,.cy-main.travel .cy-text,.cy-main.travel .cy-src,.cy-main.travel .cy-go,.cy-main.travel .cy-age{opacity:0;transition:opacity .35s ease}
+.cy-main.travel .cy-kick{opacity:1}

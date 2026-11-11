@@ -33,3 +33,9 @@ test('spans are put on the calendar: a long life is a fraction of a second, writ
   assert.equal(spanOnCalendar(80), '0.18 seconds'); assert.equal(spanOnCalendar(5000), '11 seconds'); assert.equal(spanOnCalendar(0.5e6), '19 minutes');
   assert.equal(agoText(AGE_YEARS), '13.79 billion years ago'.replace('13.79', String(+(AGE_YEARS / 1e9).toPrecision(4)))); assert.equal(agoText(12000), '12,000 years ago'); assert.equal(agoText(0), 'today');
 });
+
+test('the year bar zooms: each step gets the smallest window that holds it', async () => {
+  const { scaleFor } = await import('../cosmic-year.js'); const by = id => scaleFor(EVENTS.find(e => e.id === id).ago)[1];
+  assert.equal(by('bang'), 'The whole year'); assert.equal(by('disk'), 'The whole year'); assert.equal(by('life'), 'The last 4 months');
+  assert.equal(by('dinos'), 'The last month'); assert.equal(by('impact'), 'The last 4 days'); assert.equal(by('humans'), 'The last hour'); assert.equal(by('farming'), 'The last minute'); assert.equal(by('now'), 'The last 15 seconds');
+});
