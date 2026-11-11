@@ -389,3 +389,25 @@ body.mysky-on .hud,body.mysky-on .finale{display:none}
 .mysky-acts button{flex:1;min-height:46px;border-radius:23px;border:1px solid rgba(255,255,255,.25);background:rgba(8,12,24,.78);color:inherit;font:inherit;font-weight:600}
 .mysky-acts .primary{background:#f3c887;border-color:#f3c887;color:#1a1305}
 .mysky.aiming .mysky-aim{background:#2a3a66;border-color:#9db4ff}
+/* The cosmic year */
+.cyear{position:fixed;inset:0;z-index:60;background:#02050e;color:#e8e6da;font:14px/1.45 system-ui,sans-serif;display:flex;flex-direction:column;padding:max(10px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom))}
+.cyear[hidden]{display:none}
+.cy-top{display:flex;gap:12px;align-items:flex-start}.cy-top strong{display:block;font-size:16px;letter-spacing:.04em}.cy-top span{display:block;font-size:12px;color:#b9c4dc;margin-top:2px}
+.cy-x{flex:none;width:44px;height:44px;border-radius:22px;border:1px solid rgba(255,255,255,.25);background:rgba(8,12,24,.7);color:inherit;font-size:16px}
+.cy-main{flex:1;display:flex;flex-direction:column;justify-content:center;gap:6px;min-height:0;overflow:auto;padding:12px 0}
+.cy-kick{margin:0;font-size:34px;font-weight:300;color:#f3c887;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.cy-title{margin:0;font-size:24px;line-height:1.2;font-weight:600}.cy-when{margin:0;font-size:13px;color:#9db4ff}
+.cy-text{margin:6px 0 0;font-size:16px;line-height:1.5;max-width:34em}
+.cy-age{display:block;margin-top:8px;font-size:14px}.cy-age input{width:64px;min-height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.3);background:rgba(8,12,24,.8);color:inherit;font:inherit;padding:0 8px;text-align:center}.cy-ageout{display:block;margin-top:6px;color:#f3c887}
+.cy-src{margin:10px 0 0;font-size:11px;color:#8f9bb5}.cy-src a{color:#9db4ff}
+.cy-go{align-self:flex-start;min-height:40px;margin-top:8px;padding:0 16px;border-radius:20px;border:1px solid #f3c887;background:transparent;color:#f3c887;font:inherit}
+.cy-go[hidden],.cy-age[hidden]{display:none}
+.cy-barwrap{padding:6px 2px 4px}.cy-bar{position:relative;height:10px;border-radius:5px;background:linear-gradient(90deg,#14203f,#2a3a66)}
+.cy-tick{position:absolute;top:-3px;width:2px;height:16px;margin-left:-1px;background:rgba(243,200,135,.35);border-radius:1px}.cy-tick.on{background:#f3c887}
+.cy-marker{position:absolute;top:-6px;width:12px;height:22px;margin-left:-6px;border-radius:6px;background:#f3c887;box-shadow:0 0 10px rgba(243,200,135,.7);transition:left .5s ease}
+.cy-months{display:flex;justify-content:space-between;font-size:10px;color:#6f7a96;margin-top:4px}.cy-months span{flex:1;text-align:center}
+.cy-nav{display:flex;align-items:center;gap:10px;margin-top:8px}.cy-nav button{flex:1;min-height:48px;border-radius:24px;border:1px solid rgba(255,255,255,.25);background:rgba(8,12,24,.78);color:inherit;font:inherit;font-weight:600}.cy-nav .primary{background:#f3c887;border-color:#f3c887;color:#1a1305}.cy-nav button:disabled{opacity:.35}
+.cy-dots{flex:none;font-size:12px;color:#8f9bb5;min-width:56px;text-align:center}
+.cy-note{margin:8px 0 0;font-size:10.5px;color:#6f7a96}
+body.cyear-on .hud,body.cyear-on .finale{display:none}
+@media (prefers-reduced-motion:reduce){.cy-marker{transition:none}}

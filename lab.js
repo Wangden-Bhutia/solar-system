@@ -32,6 +32,7 @@ import { mountSources, refLinks } from './sources-page.js';
 import * as solarApp from './app.js';
 import { hereLine, FINALE } from './here.js';
 import { createMySky } from './my-sky.js';
+import { createCosmicYear } from './cosmic-year.js';
 import { PREDICTIONS, judge, JOURNEYS, VOYAGE, journey, canAdvance, eclipseGeometry, tideLabel, tideRange, scaleWalk, sizeLike, formatMetres, formatDuration, lightSeconds, sunlightTo, AU_KM, FOOTBALL_CM, MOON_INCLINATION } from './learn.js';
 let adventure=null; // the Earth–Moon guided story (adventure.js), set up below
 // Labs drawn in their own 3D scene; the scale lab keeps the live Solar System behind the sheet.
@@ -977,6 +978,8 @@ const sourcesUi=mountSources(document,{
  onClose:()=>{if(sourcesPausedTour&&tourRef?.active&&tourRef.paused)tourRef.resume();sourcesPausedTour=false;}});
 const mySky=createMySky({onLeave:()=>goLevel('stars')});
 $('open-mysky').onclick=()=>{$('settings').open=false;if(state.value.voyage!=null)endVoyage();hideFinale();mySky.open();};
+const cYear=createCosmicYear({onGo:l=>goLevel(l)});
+$('open-cyear').onclick=()=>{$('settings').open=false;if(state.value.voyage!=null)endVoyage();hideFinale();mySky.close();cYear.open();};
 $('open-sources').onclick=()=>{$('settings').open=false;sourcesUi.open(null,$('settings').querySelector('summary'));};
 document.addEventListener('click',e=>{const b=e.target.closest?.('[data-sources]');if(!b)return;e.preventDefault();sourcesUi.open(b.dataset.sources,b);});
 // ---- Install and offline ----

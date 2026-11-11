@@ -149,3 +149,7 @@ Menu → **My sky** shows the real sky above you: the Sun, Moon, five naked-eye 
 - **Aim phone:** the view follows the phone's compass and tilt, so you can hold it up and look through it. Phone compasses can be 5–15° off.
 - Drag to look around, pinch to zoom, tap anything for its direction and how long its light has travelled. A slider moves ±12 hours; in the daytime it opens on tonight (**Now** returns). A place picker is the fallback if location is not shared. **Leave Earth** zooms out to the star map.
 - Location is read once, on tap, and never stored or sent.
+
+## The cosmic year
+
+Menu → The cosmic year. 13.8 billion years as one calendar year, in 18 steps from the Big Bang (1 Jan) to now (midnight, 31 Dec). A bar shows each moment on the year; most of the story is crammed into the last weeks. Some steps offer "Show it in space". The last step turns your age into seconds of the year.
