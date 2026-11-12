@@ -19,7 +19,7 @@ test('the words: recent light gives the year; older light the nearest cosmic-yea
  assert.match(lightLeft(640,2026).text,/about 640 years ago, around 1390/);
  /* rounded to two figures, so the readout does not claim (or flicker through) digits the view cannot give */
  assert.equal(lightLeft(60433).short,'Its light is about 60,000 years old');assert.match(lightLeft(60433).text,/left about 60,000 years ago/);assert.equal(lightLeft(4.65e10).short,'Its light is about 13.8 billion years old');assert.equal(lightLeft(4.24).short,'Its light is 4 years old');
- assert.match(lightLeft(2.5e6).text,/2\.5 million years ago, before our species appeared/);
+ assert.match(lightLeft(2.5e6).text,/2\.5 million years ago, after our ancestors began walking upright/);
  assert.match(lightLeft(5.4e7).text,/after the asteroid ended the dinosaurs/);
  assert.match(lightLeft(5.5e9).text,/before the Sun formed/);
  const edge=lightLeft(4.65e10);assert.equal(edge.eventId,'cmb');assert.equal(edge.cosmic,eventDate(EVENTS.find(e=>e.id==='cmb')).label,'same date as the first-light card');
