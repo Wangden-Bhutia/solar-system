@@ -478,7 +478,7 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     const beamTex = (() => { const c = document.createElement('canvas'); c.width = 256; c.height = 8; const x = c.getContext('2d'), gr = x.createLinearGradient(0, 0, 256, 0); [[0, '#000'], [0.35, '#3a2a1c'], [0.5, '#8a6a4a'], [0.65, '#3a2a1c'], [1, '#000']].forEach(([k, col]) => gr.addColorStop(k, col)); x.fillStyle = gr; x.fillRect(0, 0, 256, 8); return new THREE.CanvasTexture(c); })();
     const beams = [[0, 1, 200, '#c89a6a'], [-110, 0.55, 150, '#8aa0c8'], [100, 0.5, 120, '#c8a070']].map(([x, o, w, col]) => { const b = mesh(new THREE.PlaneGeometry(w, 2400), B(col, { map: beamTex, transparent: true, opacity: 0, blending: add, depthWrite: false, fog: false })); b.position.set(x, 0, -600); b.rotation.z = 0.22; b.userData.o = o; g.add(b); return b; });
     const label = (() => { const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 170; const x = cv.getContext('2d'); x.textAlign = 'center'; x.fillStyle = '#f3c887'; x.font = '600 54px system-ui, sans-serif'; x.fillText('Earth, from Voyager 1, 1990:', 512, 66); x.fillStyle = '#e8e2d2'; x.font = '400 54px system-ui, sans-serif'; x.fillText('a mote in a sunbeam', 512, 140); const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; return new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false, fog: false })); })();
-    label.scale.set(300, 50, 1); label.position.set(0, 175, -200); g.add(label);
+    label.scale.set(300, 50, 1); label.position.set(0, 150, -200); g.add(label);
     const ring = new THREE.Sprite(new THREE.SpriteMaterial({ map: (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); x.strokeStyle = '#f3c887'; x.lineWidth = 5; x.beginPath(); x.arc(64, 64, 54, 0, 6.283); x.stroke(); return new THREE.CanvasTexture(c); })(), transparent: true, opacity: 0, depthWrite: false, fog: false, sizeAttenuation: false })); ring.scale.setScalar(0.09); g.add(ring);
     const P = V();
     return { group: g, fit: 1, pose: { pos: V(0, 10, 760), look: V(0, -40, 0) }, fog: ['#01020a', 6000, 90000], update(t) {
@@ -970,7 +970,7 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     const river = mesh(new THREE.PlaneGeometry(10, 500), M('#5a8ab0', { metalness: 0.3, roughness: 0.25 }), 34, 0.03, -120); river.rotation.x = -Math.PI / 2; river.rotation.z = 0.3; g.add(river);
     const smoke = cloud(60, () => [9 + gauss(r) * 0.25 + r() * r() * 2, 3.2 + r() * 6, -19 + gauss(r) * 0.25], { size: 1.4, opacity: 0.1 }); smoke.material.color.set('#3a3632'); g.add(smoke);
     const green = C('#7ab03a'), gold = C('#e2c062'), sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
-    return { group: g, fit: 1, sun: 2.2, amb: 0.45, sunDir: [-3, 3, 2], pose: { pos: V(-7, 5.2, 7.5), look: V(-5, 0.4, -14) }, fog: ['#f0d0a8', 30, 380], update(t) {
+    return { group: g, fit: 1, sun: 2.2, amb: 0.45, sunDir: [-3, 3, 2], pose: { pos: V(-6, 9, 13), look: V(-4, 0, -17) }, fog: ['#f0d0a8', 30, 380], update(t) {
       /* one farming year in 20 seconds: sow, sprout, ripen, harvest, grind */
       const T = reduced() ? 10.5 : t % 20, sowing = T < 3.6;
       for (const c of crops) { const u = T - c.lag, grow = sm(3, 8.5, u), ripe = sm(8.5, 11, u), cut = sm(12.2, 16, u), back = 1 - sm(19.2, 20, T); c.m.scale.y = 0.03 + 0.97 * grow * (1 - 0.86 * cut) * back; c.m.material.color.copy(green).lerp(gold, ripe); c.m.visible = grow * back > 0.01; }
@@ -1050,9 +1050,9 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     const satPts = new THREE.Points(sg, new THREE.PointsMaterial({ size: 1.8, map: dot, color: C('#e8f0ff'), transparent: true, blending: add, depthWrite: false, fog: false })); satPts.frustumCulled = false; g.add(satPts);
     const moon = mesh(new THREE.SphereGeometry(27, 32, 24), M('#b0aaa0')); moon.position.set(-230, 150, -420); g.add(moon);
     /* the year and what happened, drawn as a caption above Earth */
-    const cap = (() => { const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 190; const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; const s2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, depthWrite: false, fog: false })); s2.scale.set(200, 37.1, 1); s2.position.set(0, 150, 40); s2.userData = { cv, tx, last: '' }; return s2; })(); g.add(cap);
+    const cap = (() => { const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 190; const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; const s2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, depthWrite: false, fog: false })); s2.scale.set(200, 37.1, 1); s2.position.set(0, 140, 40); s2.userData = { cv, tx, last: '' }; return s2; })(); g.add(cap);
     const say = (year, line) => { const key = year + line; if (cap.userData.last === key) return; cap.userData.last = key; const x = cap.userData.cv.getContext('2d'); x.clearRect(0, 0, 1024, 190); x.textAlign = 'center'; x.fillStyle = '#f3c887'; x.font = '600 76px system-ui, sans-serif'; x.fillText(year, 512, 78); x.fillStyle = '#e8e2d2'; x.font = '400 46px system-ui, sans-serif'; x.fillText(line, 512, 160); cap.userData.tx.needsUpdate = true; };
-    const KEYS = [[0, 1500], [1.6, 1609], [4.5, 1880], [6, 1903], [8, 1957], [9.4, 1969], [10.2, 1972], [14.2, 1990], [16.2, 2026]];
+    const KEYS = [[0, 1500], [1.6, 1609], [4.5, 1880], [6, 1903], [8, 1957], [9.4, 1969], [10.2, 1972], [13.9, 1972], [16.2, 2026]] /* holds on 1972 while the photograph shows */;
     const yearAt = T => { let k = 0; while (k < KEYS.length - 2 && T > KEYS[k + 1][0]) k++; const [t0, y0] = KEYS[k], [t1, y1] = KEYS[k + 1]; return Math.round(y0 + (y1 - y0) * Math.min(1, Math.max(0, (T - t0) / (t1 - t0)))); };
     const EVENTS_M = [[1609, 'Galileo turns a telescope to the sky'], [1880, 'electric light'], [1903, 'the first aeroplane'], [1957, 'the first satellite'], [1969, 'people walk on the Moon'], [1972, 'the whole Earth, photographed from space'], [2026, 'today: thousands of satellites']];
     /* the first photograph of the whole Earth, painted once from the app's own Earth map, centred on Africa */
@@ -1064,7 +1064,7 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
       const s2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false, fog: false })); s2.scale.set(80, 94, 1); s2.position.set(0, 22, 150); return s2; })(); g.add(photoFrame);
     const dimmer = new THREE.Sprite(new THREE.SpriteMaterial({ color: C('#000000'), transparent: true, opacity: 0, depthWrite: false, fog: false })); dimmer.position.set(0, 0, 120); dimmer.scale.set(900, 900, 1); g.add(dimmer);
     const Q = V(), S = V(4, 1.5, -3).normalize(), W = V();
-    return { group: g, fit: 1, sun: 1.6, amb: 0.08, sunDir: [4, 1.5, -3], pose: { pos: V(0, 40, 470), look: V(0, 30, 0) }, fog: ['#01020a', 2000, 4000], update(t) {
+    return { group: g, fit: 1, sun: 1.6, amb: 0.08, sunDir: [4, 1.5, -3], pose: { pos: V(0, 40, 640), look: V(0, 24, 0) }, fog: ['#01020a', 2000, 4000], update(t) {
       const T = reduced() ? 16.5 : t % LOOP, year = yearAt(T), fade = 1 - sm(17.4, 18, T);
       e.rotation.y = -2.1 + t * 0.01;
       /* lights: on once their year has come, and only on the night side */
