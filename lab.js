@@ -1045,7 +1045,7 @@ const sourcesUi=mountSources(document,{
 const mySky=createMySky({onLeave:()=>goLevel('stars'),onOpen:()=>{hooks.covered=true;pushLayer('mysky');},onClose:()=>{hooks.covered=false;dropLayer('mysky');}});
 function openMySky(){$('settings').open=false;hideFinale();cYear.close();mySky.open();}
 let cYearPausedTour=false;
-const cYear=createCosmicYear({onGo:l=>goLevel(l),
+const cYear=createCosmicYear({
  onOpen:()=>{hooks.covered=true;pushLayer('cyear');if(tourRef?.active&&!tourRef.paused&&!tourRef.finished){tourRef.pause();cYearPausedTour=true;}},
  onClose:()=>{hooks.covered=false;dropLayer('cyear');if(cYearPausedTour&&tourRef?.active&&tourRef.paused)tourRef.resume();cYearPausedTour=false;}});
 function openCosmicYear(id){$('settings').open=false;hideFinale();mySky.close();if(id)cYear.openAt(id);else cYear.open();}

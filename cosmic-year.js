@@ -9,22 +9,21 @@ import { EVENTS, YEAR_SECONDS, AGE_YEARS, yearSeconds, eventDate, calendarAt, sp
 const D = 86400, SCALES = [[YEAR_SECONDS, 'The whole year'], [120 * D, 'The last 4 months'], [31 * D, 'The last month'], [4 * D, 'The last 4 days'], [D, 'The last day'], [3600, 'The last hour'], [60, 'The last minute'], [15, 'The last 15 seconds']];
 export function scaleFor(ago) { const d = YEAR_SECONDS - yearSeconds(ago); let pick = SCALES[0]; for (const sc of SCALES) if (sc[0] >= d * 1.15) pick = sc; return pick; }
 
-export function createCosmicYear({ onGo, onOpen, onClose } = {}) {
-  let root, bar, marker, kick, ttl, when, txt, goBtn, prev, next, ageRow, ageIn, ageOut, dots, playBtn, mainEl, markSec = null, play = null, playRaf = 0, bg, world, worldTry, worldFailed = false, opener = null, scaleEl, gapEl, loEl, spansEl, S = YEAR_SECONDS, St = YEAR_SECONDS, tween = 0, i = 0;
+export function createCosmicYear({ onOpen, onClose } = {}) {
+  let root, bar, marker, kick, ttl, when, txt, prev, next, ageRow, ageIn, ageOut, dots, playBtn, mainEl, markSec = null, play = null, playRaf = 0, bg, world, worldTry, worldFailed = false, opener = null, scaleEl, gapEl, loEl, spansEl, S = YEAR_SECONDS, St = YEAR_SECONDS, tween = 0, i = 0;
   function build() {
     root = document.createElement('section'); root.id = 'cyear'; root.className = 'cyear'; root.hidden = true; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.tabIndex = -1; root.setAttribute('aria-label', 'The cosmic year');
     root.innerHTML = `<canvas class="cy-bg" aria-hidden="true"></canvas><canvas class="cy-3d" aria-hidden="true" hidden></canvas><div class="cy-top"><button type="button" class="cy-x" aria-label="Close the cosmic year"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="cy-head"><strong>The cosmic year</strong><span>13.8 billion years as one year: 1 January is the Big Bang, midnight on 31 December is now.</span></div></div>
  <div class="cy-main"><p class="cy-kick"></p><h2 class="cy-title"></h2><p class="cy-when"></p><p class="cy-text"></p>
  <label class="cy-age" hidden>How old are you? <input type="number" inputmode="numeric" min="0" max="120" value="80" aria-label="Your age in years"> <span class="cy-ageout"></span></label>
- <button type="button" class="cy-go" hidden>Show it in space ↗</button></div>
+</div>
  <div class="cy-barwrap" aria-hidden="true"><div class="cy-lens"><b class="cy-scale"></b><em class="cy-gap"></em></div><div class="cy-bar"><i class="cy-spans"></i><i class="cy-marker"></i></div><div class="cy-axis"><span class="cy-lo"></span><span class="cy-hi">midnight, 31 Dec: now</span></div></div>
  <div class="cy-nav"><span class="cy-dots" aria-live="polite"></span><div class="cy-ctl"><button type="button" class="cy-prev" aria-label="Earlier"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="cy-play" aria-label="Play the year" data-state="play"><svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg><svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg><svg class="i-replay" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 1 0 2.2-5.1M5 4.5v4h4"/></svg></button><button type="button" class="cy-next" aria-label="Later"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div><span class="cy-spacer"></span></div>`;
     document.body.appendChild(root); bg = createBackdrop(root.querySelector('.cy-bg'), { reduced: () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches });
-    const q = s => root.querySelector(s); bar = q('.cy-bar'); marker = q('.cy-marker'); kick = q('.cy-kick'); ttl = q('.cy-title'); when = q('.cy-when'); txt = q('.cy-text'); goBtn = q('.cy-go'); prev = q('.cy-prev'); next = q('.cy-next'); ageRow = q('.cy-age'); ageIn = ageRow.querySelector('input'); ageOut = q('.cy-ageout'); dots = q('.cy-dots'); playBtn = q('.cy-play'); mainEl = q('.cy-main');
+    const q = s => root.querySelector(s); bar = q('.cy-bar'); marker = q('.cy-marker'); kick = q('.cy-kick'); ttl = q('.cy-title'); when = q('.cy-when'); txt = q('.cy-text'); prev = q('.cy-prev'); next = q('.cy-next'); ageRow = q('.cy-age'); ageIn = ageRow.querySelector('input'); ageOut = q('.cy-ageout'); dots = q('.cy-dots'); playBtn = q('.cy-play'); mainEl = q('.cy-main');
     scaleEl = q('.cy-scale'); gapEl = q('.cy-gap'); loEl = q('.cy-lo'); spansEl = q('.cy-spans');
     for (const [k, e] of EVENTS.entries()) { const t = document.createElement('i'); t.className = 'cy-tick'; t.dataset.k = k; bar.insertBefore(t, marker); }
     q('.cy-x').onclick = close; prev.onclick = () => nav(i - 1); next.onclick = () => nav(i + 1); playBtn.onclick = () => play ? stopPlay() : startPlay();
-    goBtn.onclick = () => { const l = EVENTS[i].level; stopPlay(); close(); if (l) onGo?.(l); };
     ageIn.oninput = () => { paintAge(); paintSpans(EVENTS[i]); };
     root.addEventListener('keydown', e => { if (e.key === 'Escape') close(); else if (e.key === 'ArrowRight' && e.target !== ageIn) nav(i + 1); else if (e.key === 'ArrowLeft' && e.target !== ageIn) nav(i - 1); });
     let x0 = null; root.addEventListener('pointerdown', e => { x0 = e.target.closest('button,input') ? null : e.clientX; }); root.addEventListener('pointerup', e => { if (x0 != null && Math.abs(e.clientX - x0) > 60) nav(i + (e.clientX < x0 ? 1 : -1)); x0 = null; });
@@ -73,7 +72,7 @@ export function createCosmicYear({ onGo, onOpen, onClose } = {}) {
   function show(k) {
     i = Math.max(0, Math.min(EVENTS.length - 1, k)); const e = EVENTS[i], d = eventDate(e);
     kick.textContent = d.label; ttl.textContent = e.title; when.textContent = (e.note && e.ago > 1e9 - 1 && e.id === 'cmb' ? e.note : agoText(e.ago)) + (e.note && e.id !== 'cmb' ? ' · ' + e.note : ''); txt.textContent = e.text;
-    goBtn.hidden = !e.level; ageRow.hidden = e.id !== 'now'; if (e.id === 'now') paintAge();
+    ageRow.hidden = e.id !== 'now'; if (e.id === 'now') paintAge();
     const [target, name] = scaleFor(e.ago); scaleEl.textContent = name;
     gapEl.textContent = i === 0 ? '' : `${spanOnCalendar(EVENTS[i - 1].ago - e.ago)} later`;
     for (const t of bar.querySelectorAll('.cy-tick')) t.classList.toggle('on', Number(t.dataset.k) === i);
