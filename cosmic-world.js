@@ -457,33 +457,60 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   }
   function hubble() { const g = new THREE.Group(), tubeM = M('#d8d8d8', { metalness: 0.9, roughness: 0.25 }), b = mesh(new THREE.CylinderGeometry(1.1, 1.1, 5.2, 16), tubeM); b.rotation.z = Math.PI / 2; g.add(b); const cap = mesh(new THREE.CylinderGeometry(1.12, 1.12, 0.2, 16, 1, true), M('#333')); cap.rotation.z = Math.PI / 2; cap.position.x = 2.7; g.add(cap); for (const z of [-1, 1]) g.add(mesh(new THREE.BoxGeometry(2.2, 0.05, 4.2), M('#2a3a7a', { metalness: 0.6, roughness: 0.3, emissive: C('#0a1440') }), -0.6, 0, z * 3.4)); return g; }
 
-  // 7 Jan: the earliest galaxy we have seen. 290 million years after the Big Bang, galaxies were small, clumpy and
-  // blazing blue-white with newborn stars: no spirals yet (those took billions of years to settle). The universe
-  // between them was still filled with dark hydrogen haze; each young galaxy lit a bubble of glowing gas around it.
+  // 7 Jan: the earliest galaxy we have seen so far, MoM-z14, about 280 million years after the Big Bang, as a 14-second
+  // loop. Galaxies then were small, clumpy and blazing blue-white with newborn stars (no spirals yet). Their stars
+  // switch on clump by clump, and each galaxy's light blows a growing bubble of glowing gas into the dark hydrogen haze
+  // that still filled the universe; the bubbles spread and start to overlap. MoM-z14, compact and the brightest, is
+  // marked in the middle. Last, the view gives way to what Webb actually records: its light, stretched about 15 times
+  // on the way into infrared, is a faint red smudge.
   stages.galaxy = () => {
-    const r = rng(41), g = new THREE.Group(), gals = [];
-    function youngGalaxy(size, seed, bright = 1) {
-      const q = rng(seed), gg = new THREE.Group(), clumps = 2 + Math.floor(q() * 4);
+    const r = rng(41), g = new THREE.Group(), LOOP = 14, Y = 28, CZ = 150, gals = [], flashes = [];
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    function youngGalaxy(size, seed, bright, stretch = 1) {
+      const q = rng(seed), gg = new THREE.Group(), clumps = 2 + Math.floor(q() * 4), parts = [];
       for (let c = 0; c < clumps; c++) {
-        const cx = gauss(q) * size * 0.55, cy = gauss(q) * size * 0.4, cz = gauss(q) * size * 0.4, cr = size * (0.16 + q() * 0.2);
-        gg.add(cloud(260, (i, col) => { col.setHSL(0.58 + q() * 0.06, 0.6 + q() * 0.3, 0.55 + q() * 0.35); const d = sphereDir(q), rr = Math.pow(q(), 2.2) * cr; return [cx + d[0] * rr, cy + d[1] * rr * 0.8, cz + d[2] * rr]; }, { size: size * 0.032, opacity: Math.min(1, 0.85 * bright) }));
-        const core = glow('#a8c8ff', cr * 0.9, 0.22 * bright); core.position.set(cx, cy, cz); gg.add(core);
+        const lead = stretch !== 1 && c === 0, cx = lead ? 0 : gauss(q) * size * 0.5 * stretch, cy = lead ? 0 : gauss(q) * size * 0.32, cz = lead ? 0 : gauss(q) * size * 0.35, /* the marked galaxy's main clump sits at its centre */ cr = size * (0.16 + q() * 0.18), on = 0.5 + q() * 5;
+        const pts = cloud(150, (i, col) => { col.setHSL(0.58 + q() * 0.06, 0.6 + q() * 0.3, 0.55 + q() * 0.35); const d = sphereDir(q), rr = Math.pow(q(), 2) * cr; return [cx + d[0] * rr, cy + d[1] * rr * 0.8, cz + d[2] * rr]; }, { size: size * 0.034, opacity: 0 });
+        const core = glow('#b8d0ff', cr * 0.8, 0); core.position.set(cx, cy, cz); gg.add(pts, core); parts.push({ pts, core, on, bright });
+        /* stars switching on: a few brief flashes as the clump lights up */
+        for (let k = 0; k < 3; k++) { const f = glow('#f4f8ff', size * 0.22, 0); f.position.set(cx + gauss(q) * cr * 0.5, cy + gauss(q) * cr * 0.4, cz); f.userData.at = on + q() * 1.2; flashes.push(f); gg.add(f); }
       }
-      gg.add(glow('#2a62b0', size * 3.2, 0.06 * bright)); /* the bubble of gas its starlight has lit */
-      return gg;
+      const bubble = glow('#2e6ec0', size * 2, 0); gg.add(bubble);
+      gg.userData = { parts, bubble, size, bright }; return gg;
     }
     /* the haze: dim, warm and dark, everywhere between the galaxies */
-    for (let k = 0; k < 36; k++) { const f = glow(k % 3 ? '#20150c' : '#1a140e', 260 + r() * 520, 0.4); f.position.set((r() - 0.5) * 1500, 28 + (r() - 0.35) * 900, -260 - r() * 1300); g.add(f); }
-    /* MoM-z14: compact and the brightest, near the middle of the view */
-    const first = youngGalaxy(44, 7, 2); first.position.set(0, 30, 0); first.scale.set(1.5, 0.75, 1); first.userData.sp = 0.02; /* MoM-z14 is compact and elongated */ gals.push(first); g.add(first);
-    /* the others, kept to the part of the view above the card (the camera sits at z = 150) */
-    for (let k = 0, n = 0; k < 200 && n < 20; k++) {
-      const z = -60 - r() * 900, d = 150 - z, x = (r() - 0.5) * d * 0.55, y = 28 + (r() - 0.25) * d * 0.5;
-      if (y - 28 < -0.03 * d || Math.hypot(x, y - 30) < 90) continue;
-      const m = youngGalaxy(22 + r() * 40, 200 + k, 0.55 + r() * 0.5); m.position.set(x, y, z); m.rotation.set(r() * 3, r() * 3, 0); m.userData.sp = (r() - 0.5) * 0.08; gals.push(m); g.add(m); n++;
+    const haze = []; for (let k = 0; k < 34; k++) { const f = glow(k % 3 ? '#20150c' : '#1a140e', 260 + r() * 520, 0); f.position.set((r() - 0.5) * 1500, Y + (r() - 0.35) * 900, -260 - r() * 1300); haze.push(f); g.add(f); }
+    /* MoM-z14, compact and brightest, in the middle, with a fine gold ring and its name */
+    const first = youngGalaxy(16, 7, 2.6, 1.4); first.position.set(0, Y + 2, 0); gals.push(first); g.add(first);
+    const heart = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex, color: C('#d8e6ff'), blending: add, transparent: true, opacity: 0, depthWrite: false, fog: false })); heart.scale.setScalar(9); heart.position.copy(first.position); g.add(heart); /* its blazing centre */
+    const ring = mesh(new THREE.RingGeometry(19, 19.7, 96), B('#f3c887', { transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, fog: false })); ring.position.copy(first.position); ring.scale.y = 0.72; g.add(ring);
+    const tag = (text, w = 512) => { const cv = document.createElement('canvas'); cv.width = w; cv.height = 96; const x = cv.getContext('2d'); x.fillStyle = '#f3c887'; x.font = '600 52px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, w / 2, 50); const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; return new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false, fog: false })); };
+    const name = tag('MoM-z14'); name.scale.set(26, 4.9, 1); name.position.set(0, Y + 2 - 19, 0); g.add(name);
+    /* the others, kept between the header and the card (the camera sits at z = 150) */
+    for (let k = 0, n = 0; k < 300 && n < 18; k++) {
+      const z = -80 - r() * 900, d = CZ - z, x = (r() - 0.5) * 0.44 * d, y = Y + (r() * 0.25 - 0.12) * d;
+      if (Math.hypot(x, (y - Y) * 1.6, z * 0.12) < 170) continue;
+      const m = youngGalaxy(20 + r() * 36, 200 + k, 0.5 + r() * 0.5); m.position.set(x, y, z); m.rotation.set(r() * 3, r() * 3, 0); gals.push(m); g.add(m); n++;
     }
-    g.add(cloud(500, (i, c) => { c.setHSL(0.6, 0.4, 0.5 + r() * 0.4); const z = -900 - r() * 900, d = 150 - z; return [(r() - 0.5) * d * 0.9, 28 + (r() - 0.1) * d * 0.7, z]; }, { size: 2.4, opacity: 0.45 }));
-    return { group: g, fit: 1, pose: { pos: V(0, 28, 150), look: V(0, 28, -40) }, fog: ['#020206', 1400, 3200], update(t) { for (const m of gals) m.rotation.y += m.userData.sp * 0.01; } };
+    g.add(cloud(400, (i, c) => { c.setHSL(0.6, 0.4, 0.45 + r() * 0.35); const z = -1000 - r() * 800, d = CZ - z; return [(r() - 0.5) * d * 0.5, Y + (r() * 0.25 - 0.12) * d, z]; }, { size: 2.2, opacity: 0.35 }));
+    /* as Webb sees it: a framed picture of a faint red smudge */
+    const webb = (() => { const cv = document.createElement('canvas'); cv.width = 512; cv.height = 600; const x = cv.getContext('2d'), q = rng(5);
+      x.fillStyle = '#05060c'; x.fillRect(0, 0, 512, 512); for (let i = 0; i < 2200; i++) { x.fillStyle = `rgba(${40 + q() * 30},${30 + q() * 20},${50 + q() * 30},${0.3 + q() * 0.4})`; x.fillRect(Math.floor(q() * 64) * 8, Math.floor(q() * 64) * 8, 8, 8); }
+      for (let i = 0; i < 220; i++) { const a = q() * 6.283, d = Math.pow(q(), 1.3) * 46; const v = 1 - d / 50; x.fillStyle = `rgba(${210 + v * 45},${50 + v * 80},${30 + v * 30},${0.3 + v * 0.65})`; x.fillRect(Math.floor((256 + Math.cos(a) * d * 1.3) / 16) * 16, Math.floor((256 + Math.sin(a) * d) / 16) * 16, 16, 16); }
+      x.strokeStyle = '#f3c887'; x.lineWidth = 6; x.strokeRect(3, 3, 506, 506); x.fillStyle = '#f3c887'; x.font = '600 50px system-ui, sans-serif'; x.textAlign = 'center'; x.fillText('as Webb sees it', 256, 572);
+      const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.magFilter = THREE.NearestFilter; return new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false, fog: false })); })();
+    webb.position.set(0, Y + 1, 60); webb.scale.set(30, 35.2, 1); g.add(webb);
+    const dim = new THREE.Sprite(new THREE.SpriteMaterial({ color: C('#000000'), transparent: true, opacity: 0, depthWrite: false, fog: false })); dim.position.set(0, Y, 45); dim.scale.set(400, 400, 1); g.add(dim);
+    return { group: g, fit: 1, pose: { pos: V(0, Y, CZ), look: V(0, Y, -40) }, fog: ['#020206', 1400, 3200], update(t) {
+      const T = reduced() ? 8 : t % LOOP, fade = sm(0, 0.8, T) * (1 - sm(13.4, 14, T)), grow = sm(1.5, 10, T);
+      for (const f of haze) f.material.opacity = 0.4 * fade;
+      for (const m of gals) { const u = m.userData; m.rotation.y += 0.0004;
+        for (const p of u.parts) { const on = sm(p.on, p.on + 1.4, T) * fade; p.pts.material.opacity = Math.min(1, 0.85 * p.bright) * on; p.core.material.opacity = 0.2 * p.bright * on; }
+        u.bubble.scale.setScalar(u.size * (2 + 5.5 * grow)); u.bubble.material.opacity = 0.11 * Math.min(1.4, u.bright) * grow * fade; }
+      for (const f of flashes) { const k = T - f.userData.at; f.material.opacity = k > 0 && k < 0.6 ? Math.sin(k / 0.6 * Math.PI) * 0.9 * fade : 0; }
+      const mark = sm(3.5, 4.5, T) * (1 - sm(10.2, 10.8, T)); ring.material.opacity = 0.75 * mark; name.material.opacity = mark; heart.material.opacity = 0.55 * sm(1, 3, T) * fade;
+      const view = sm(10.6, 11.6, T) * (1 - sm(13.2, 13.8, T)); dim.material.opacity = 0.82 * view; webb.material.opacity = view;
+    } };
   };
   // 2 Sep: the Sun in a ringed disc of dust, with planets forming in the gaps
   stages.sun = () => {
