@@ -25,3 +25,14 @@ test('mass is invariant; force and diameters use explicit NASA units',()=>{
  near(NEARBY.Moon.gravity/NEARBY.Earth.gravity,.165,1e-3);assert.equal(NEARBY.Moon.distance,384400);assert.match(NEARBY.Moon.distanceLabel,/Earth/);assert.match(NEARBY.Mars.distanceLabel,/Sun/);
  assert.throws(()=>weightNewtons(-1,9.8));assert.ok(NEARBY.Moon.diameter/NEARBY.Earth.diameter<.273);
 });
+test('Earth–Sun distance: closest about 147.1 million km around 3 January, farthest about 152.1 million km in early July',async()=>{
+ const {earthSunDistance,EARTH_ORBIT}=await import('../science.js');
+ const near=earthSunDistance(EARTH_ORBIT.perihelion), far=earthSunDistance(EARTH_ORBIT.perihelion+180);
+ assert.ok(Math.abs(near/1e6-147.1)<0.05,`${near}`); assert.ok(Math.abs(far/1e6-152.1)<0.05,`${far}`);
+ /* the orbit is nearly a circle: about 3% between nearest and farthest */
+ assert.ok((far-near)/near<0.035);
+ /* June solstice (orbit 0) is near the farthest point; December (180) near the closest: summer in the north is not when Earth is nearest */
+ assert.ok(earthSunDistance(0)>152e6 && earthSunDistance(180)<147.2e6);
+ /* the closest point falls about 13 days after the December solstice (around 3 January) */
+ const days=(EARTH_ORBIT.perihelion-180)/360*365.25; assert.ok(days>10&&days<16,`${days}`);
+});

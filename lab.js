@@ -22,7 +22,7 @@ import { createExperiments } from './experiments.js';
 import { createLabState } from './lab-state.js';
 import { createTour, mountTour, TOUR_STOPS } from './tour.js';
 import { swipe, emptyTap, openHeight, classifyDrag, visibleRegion } from './sheet.js';
-import { seasonGeometry, daylightHours, noonAltitude, phaseGeometry, phaseName, weightNewtons, NEARBY, wrap } from './science.js';
+import { seasonGeometry, daylightHours, noonAltitude, phaseGeometry, phaseName, weightNewtons, NEARBY, wrap, earthSunDistance, EARTH_ORBIT } from './science.js';
 import { INSIGHTS, STRIKING, genericInsight, dwarfInsight, moonInsight, NASA, CHECKED, MOON_COUNT, SAT_SOURCES, JPL_RADII, DWARF_SOURCES, SBDB } from './insights.js';
 import { LINES, VOICE } from './voice/lines.js';
 import { createVoicePlayer } from './voice-player.js';
@@ -492,9 +492,17 @@ function diagram(experiment,angle){
  <circle cx="80" cy="68" r="46" fill="none" stroke="#52677e" stroke-dasharray="3 3"/>
  <circle cx="80" cy="68" r="${phase?9:11}" fill="${phase?'#5e9dd5':'#ffd591'}"/><text x="80" y="90" fill="#bccce0" font-size="10" text-anchor="middle">${phase?'Earth':'Sun'}</text>
  ${phase?'<path d="M153 40H130M153 64H130M153 88H130" stroke="#ffd591"/><text x="154" y="25" fill="#ffd591" font-size="9" text-anchor="end">Sunlight ←</text>':''}
+ ${phase?'':(()=>{const P=EARTH_ORBIT.perihelion*Math.PI/180,px=80-46*Math.cos(P),py=68+46*Math.sin(P),qx=80+46*Math.cos(P),qy=68-46*Math.sin(P);return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="2.2" fill="#f3c887"/><text x="${(px-6).toFixed(1)}" y="${(py-7).toFixed(1)}" fill="#f3c887" font-size="10" font-weight="600" text-anchor="middle">closest</text><circle cx="${qx.toFixed(1)}" cy="${qy.toFixed(1)}" r="2.2" fill="#9fb0c9"/><text x="${(qx+4).toFixed(1)}" y="${(qy+15).toFixed(1)}" fill="#c8d4e6" font-size="10" font-weight="600" text-anchor="middle">farthest</text>`;})()}
  <circle cx="${x}" cy="${y}" r="6" fill="${phase?'#c8c6c1':'#72b2e6'}"/>
  ${phase?`<line x1="80" y1="68" x2="${x}" y2="${y}" stroke="#c8c6c1" stroke-dasharray="2 3"/>`:`<path d="M${x-10} ${y}H${x+14}l-4 -3m4 3l-4 3" stroke="#ffd591" fill="none"/>`}
- <text x="80" y="135" fill="#aabbd3" font-size="8" text-anchor="middle">${phase?'Top-down orbit • not to scale':'Tilt direction projected • not to scale'}</text></svg><p>${phase?'Main view: Moon seen from Earth':'Main view: following Earth'}</p>`;
+ <text x="80" y="135" fill="#aabbd3" font-size="8" text-anchor="middle">${phase?'Top-down orbit • not to scale':'Orbit shape to scale: almost a circle'}</text></svg><p>${phase?'Main view: Moon seen from Earth':distanceNote(angle).line}</p>`;
+}
+// Earth's distance from the Sun at this point of the orbit, and what to make of it.
+const mkm=km=>(km/1e6).toFixed(1);
+function distanceNote(orbit){
+ const d=earthSunDistance(orbit),from=wrap(orbit-EARTH_ORBIT.perihelion),dn=Math.min(from,360-from),df=Math.abs(from-180),near=dn<20,far=df<20;
+ return {d,line:`Earth–Sun: ${mkm(d)} million km${dn<3?', the closest of the year':df<3?', the farthest of the year':near?', near the closest':far?', near the farthest':''}`,
+  why:near?'Earth is near its closest to the Sun (closest around 3 January), and it is winter in the north.':far?'Earth is near its farthest from the Sun (farthest in early July), yet it is summer in the north.':`Through the year it varies only from ${mkm(earthSunDistance(EARTH_ORBIT.perihelion))} to ${mkm(earthSunDistance(EARTH_ORBIT.perihelion+180))} million km, about 3%.`};
 }
 function paintExperiment(){
  const s=state.value, seasons=s.experiment==='seasons', kind=s.experiment;
@@ -518,7 +526,7 @@ function paintExperiment(){
  $('orbit-map').innerHTML=diagram(s.experiment,seasons?s.orbit:s.phase);
  if(seasons){
   const g=seasonGeometry(s.orbit,s.tilt),hours=daylightHours(s.latitude,g.declination),alt=noonAltitude(s.latitude,g.declination);
-  $('experiment-result').innerHTML=`<strong>${seasonLabel(s.orbit)}</strong><p>At your latitude: about <b>${hours.toFixed(1)} hours of daylight</b>. Midday Sun: <b>${alt.toFixed(1)}° above the horizon</b>.</p><p>${s.tilt===0?'With no tilt: about 12 hours everywhere in this ideal model, throughout the year.':g.declination>1?'The north leans toward sunlight; the south leans away.':g.declination< -1?'The south leans toward sunlight; the north leans away.':'Neither hemisphere leans toward the Sun: both get roughly equal daylight.'}</p>`;
+  $('experiment-result').innerHTML=`<strong>${seasonLabel(s.orbit)}</strong><p>At your latitude: about <b>${hours.toFixed(1)} hours of daylight</b>. Midday Sun: <b>${alt.toFixed(1)}° above the horizon</b>.</p><p>${s.tilt===0?'With no tilt: about 12 hours everywhere in this ideal model, throughout the year.':g.declination>20?'The north leans towards the Sun: longer days, a higher Sun, more heat. The south leans away and has winter, at the same distance from the Sun.':g.declination< -20?'The south leans towards the Sun and has summer. The north leans away and has winter, at the same distance from the Sun.':g.declination>1?'The north leans toward sunlight; the south leans away.':g.declination< -1?'The south leans toward sunlight; the north leans away.':'Neither hemisphere leans toward the Sun: both get roughly equal daylight.'}</p><p>${distanceNote(s.orbit).why} The tilt makes the seasons, not the distance.</p>`;
   $('view-caption').textContent=`Tilt ${s.tilt.toFixed(2)}° · gold dot: north · gold circle: your latitude · camera follows Earth; diagram shows its orbit`;
   $('experiment-depth').innerHTML=`<p>${INSIGHTS.Earth.deeper}</p><p>Try 40° north in June, then December. Next remove the tilt: the difference disappears. Now move the latitude to 40° south and repeat.</p><p>The gold circle marks your latitude (distance north or south of the equator). The pale circle is the equator. The main globe is viewed obliquely from space, not from the chosen place. The axis holds a fixed direction in space while the camera follows Earth’s orbit. The globe is held at an illustrative fixed daily rotation; daylight totals are calculated over a full rotation.</p><p>Calculated daylight uses a spherical Earth, circular orbit, parallel sunlight and a flat horizon, excluding refraction, terrain and twilight. Orbit angle is not a date predictor. Midday angle is geometric solar altitude, not temperature. Distance is held constant to isolate tilt; no climate or weather simulation.</p>${sourceLink('earth','NASA · Earth and seasons')} · ${sourceLink('earthfact','NASA · tilt and orbit data')}${sourceNote}`;
  }else{
