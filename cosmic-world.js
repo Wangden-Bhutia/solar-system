@@ -476,7 +476,7 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     const dotE = new THREE.Sprite(new THREE.SpriteMaterial({ map: dot, color: C('#bcd8ff'), transparent: true, opacity: 0, depthWrite: false, fog: false, sizeAttenuation: false })); dotE.scale.setScalar(0.012); g.add(dotE);
     /* the sunbeams: bands of scattered sunlight across the view, as in Voyager's photograph */
     const beamTex = (() => { const c = document.createElement('canvas'); c.width = 256; c.height = 8; const x = c.getContext('2d'), gr = x.createLinearGradient(0, 0, 256, 0); [[0, '#000'], [0.35, '#3a2a1c'], [0.5, '#8a6a4a'], [0.65, '#3a2a1c'], [1, '#000']].forEach(([k, col]) => gr.addColorStop(k, col)); x.fillStyle = gr; x.fillRect(0, 0, 256, 8); return new THREE.CanvasTexture(c); })();
-    const beams = [[-60, 1, 260, '#c89a6a'], [10, 0.7, 180, '#8aa0c8'], [80, 0.55, 140, '#c8a070']].map(([x, o, w, col]) => { const b = mesh(new THREE.PlaneGeometry(w, 2400), B(col, { map: beamTex, transparent: true, opacity: 0, blending: add, depthWrite: false, fog: false })); b.position.set(x, 0, -600); b.rotation.z = 0.22; b.userData.o = o; g.add(b); return b; });
+    const beams = [[0, 1, 200, '#c89a6a'], [-110, 0.55, 150, '#8aa0c8'], [100, 0.5, 120, '#c8a070']].map(([x, o, w, col]) => { const b = mesh(new THREE.PlaneGeometry(w, 2400), B(col, { map: beamTex, transparent: true, opacity: 0, blending: add, depthWrite: false, fog: false })); b.position.set(x, 0, -600); b.rotation.z = 0.22; b.userData.o = o; g.add(b); return b; });
     const label = (() => { const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 170; const x = cv.getContext('2d'); x.textAlign = 'center'; x.fillStyle = '#f3c887'; x.font = '600 54px system-ui, sans-serif'; x.fillText('Earth, from Voyager 1, 1990:', 512, 66); x.fillStyle = '#e8e2d2'; x.font = '400 54px system-ui, sans-serif'; x.fillText('a mote in a sunbeam', 512, 140); const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; return new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false, fog: false })); })();
     label.scale.set(300, 50, 1); label.position.set(0, 175, -200); g.add(label);
     const ring = new THREE.Sprite(new THREE.SpriteMaterial({ map: (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); x.strokeStyle = '#f3c887'; x.lineWidth = 5; x.beginPath(); x.arc(64, 64, 54, 0, 6.283); x.stroke(); return new THREE.CanvasTexture(c); })(), transparent: true, opacity: 0, depthWrite: false, fog: false, sizeAttenuation: false })); ring.scale.setScalar(0.09); g.add(ring);
@@ -485,7 +485,7 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
       const T = reduced() ? 13 : t % LOOP, away = sm(3, 11, T), back = sm(17.2, 18, T), k = away * (1 - back);
       e.rotation.y = t * 0.05; const m = e.userData.marker; if (m) { m.scale.setScalar(20 + 12 * Math.sin(t * 2.2)); m.material.opacity = (0.75 + 0.25 * Math.sin(t * 2.2)) * (1 - sm(2.5, 4, T)); }
       /* pulling back: Earth (and the Moon) recede along the view, far beyond the Moon's orbit */
-      far.position.set(0, 60 * k, -Math.pow(k, 2.2) * 60000); far.updateMatrixWorld(); e.getWorldPosition(P); P.sub(g.position);
+      far.position.set(0, 50 * k, -k * 5000); far.scale.setScalar(1 - 0.975 * Math.pow(k, 0.7)); far.updateMatrixWorld(); e.getWorldPosition(P); P.sub(g.position);
       dotE.position.copy(P); ring.position.copy(P);
       const tiny = sm(7.5, 10, T) * (1 - back); dotE.material.opacity = tiny; e.visible = k < 0.99; moon.visible = k < 0.6;
       for (const b of beams) b.material.opacity = 0.55 * b.userData.o * sm(8, 11, T) * (1 - back);
@@ -970,7 +970,7 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     const river = mesh(new THREE.PlaneGeometry(10, 500), M('#5a8ab0', { metalness: 0.3, roughness: 0.25 }), 34, 0.03, -120); river.rotation.x = -Math.PI / 2; river.rotation.z = 0.3; g.add(river);
     const smoke = cloud(60, () => [9 + gauss(r) * 0.25 + r() * r() * 2, 3.2 + r() * 6, -19 + gauss(r) * 0.25], { size: 1.4, opacity: 0.1 }); smoke.material.color.set('#3a3632'); g.add(smoke);
     const green = C('#7ab03a'), gold = C('#e2c062'), sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
-    return { group: g, fit: 1, sun: 2.2, amb: 0.45, sunDir: [-3, 3, 2], pose: { pos: V(-3, 4.6, 6.5), look: V(-1.5, 0.6, -14) }, fog: ['#f0d0a8', 30, 380], update(t) {
+    return { group: g, fit: 1, sun: 2.2, amb: 0.45, sunDir: [-3, 3, 2], pose: { pos: V(-7, 5.2, 7.5), look: V(-5, 0.4, -14) }, fog: ['#f0d0a8', 30, 380], update(t) {
       /* one farming year in 20 seconds: sow, sprout, ripen, harvest, grind */
       const T = reduced() ? 10.5 : t % 20, sowing = T < 3.6;
       for (const c of crops) { const u = T - c.lag, grow = sm(3, 8.5, u), ripe = sm(8.5, 11, u), cut = sm(12.2, 16, u), back = 1 - sm(19.2, 20, T); c.m.scale.y = 0.03 + 0.97 * grow * (1 - 0.86 * cut) * back; c.m.material.color.copy(green).lerp(gold, ripe); c.m.visible = grow * back > 0.01; }
@@ -1034,7 +1034,7 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   stages.modern = () => {
     const g = new THREE.Group(), r = rng(73), LOOP = 18, R = 100;
     const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
-    const e = earth({ glowColor: '#7aa0ff', clouds: 0.25, r0: R }); e.rotation.y = 2.2; g.add(e, stars(900, 2200, 74));
+    const e = earth({ glowColor: '#7aa0ff', clouds: 0.25, r0: R }); e.rotation.y = -2.1; /* Europe, Africa and Asia face us */ g.add(e, stars(900, 2200, 74));
     /* city lights, each with the year it switches on: a few early centres first, then everywhere */
     const NL = 3600, lp = new Float32Array(NL * 3), lc = new Float32Array(NL * 3), born = new Float32Array(NL), nrm = [];
     const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(lp, 3)); lg.setAttribute('color', new THREE.BufferAttribute(lc, 3));
@@ -1050,7 +1050,7 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     const satPts = new THREE.Points(sg, new THREE.PointsMaterial({ size: 1.8, map: dot, color: C('#e8f0ff'), transparent: true, blending: add, depthWrite: false, fog: false })); satPts.frustumCulled = false; g.add(satPts);
     const moon = mesh(new THREE.SphereGeometry(27, 32, 24), M('#b0aaa0')); moon.position.set(-230, 150, -420); g.add(moon);
     /* the year and what happened, drawn as a caption above Earth */
-    const cap = (() => { const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 190; const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; const s2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, depthWrite: false, fog: false })); s2.scale.set(180, 33.4, 1); s2.position.set(0, 128, 40); s2.userData = { cv, tx, last: '' }; return s2; })(); g.add(cap);
+    const cap = (() => { const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 190; const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; const s2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, depthWrite: false, fog: false })); s2.scale.set(200, 37.1, 1); s2.position.set(0, 150, 40); s2.userData = { cv, tx, last: '' }; return s2; })(); g.add(cap);
     const say = (year, line) => { const key = year + line; if (cap.userData.last === key) return; cap.userData.last = key; const x = cap.userData.cv.getContext('2d'); x.clearRect(0, 0, 1024, 190); x.textAlign = 'center'; x.fillStyle = '#f3c887'; x.font = '600 76px system-ui, sans-serif'; x.fillText(year, 512, 78); x.fillStyle = '#e8e2d2'; x.font = '400 46px system-ui, sans-serif'; x.fillText(line, 512, 160); cap.userData.tx.needsUpdate = true; };
     const KEYS = [[0, 1500], [1.6, 1609], [4.5, 1880], [6, 1903], [8, 1957], [9.4, 1969], [10.2, 1972], [14.2, 1990], [16.2, 2026]];
     const yearAt = T => { let k = 0; while (k < KEYS.length - 2 && T > KEYS[k + 1][0]) k++; const [t0, y0] = KEYS[k], [t1, y1] = KEYS[k + 1]; return Math.round(y0 + (y1 - y0) * Math.min(1, Math.max(0, (T - t0) / (t1 - t0)))); };
@@ -1061,12 +1061,12 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
           for (let py = 0; py < 320; py++) for (let px = 0; px < 320; px++) { const nx = (px - 160) / 155, ny = (py - 160) / 155, rr = nx * nx + ny * ny; if (rr > 1) continue; const nz = Math.sqrt(1 - rr), lat = Math.asin(-ny) * 180 / Math.PI, lon = 20 + Math.atan2(nx, nz) * 180 / Math.PI;
             const u = Math.floor(((lon + 180) / 360 % 1 + 1) % 1 * 511), v = Math.floor((90 - lat) / 180 * 255), k = (v * 512 + u) * 4, o = (py * 320 + px) * 4, shade = 0.55 + 0.45 * nz; out.data[o] = src[k] * shade; out.data[o + 1] = src[k + 1] * shade; out.data[o + 2] = src[k + 2] * shade; out.data[o + 3] = 255; }
           x.putImageData(out, 40, 40); tx.needsUpdate = true; }; img.src = 'textures/earth.webp';
-      const s2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false, fog: false })); s2.scale.set(96, 112.8, 1); s2.position.set(0, -2, 130); return s2; })(); g.add(photoFrame);
+      const s2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false, fog: false })); s2.scale.set(80, 94, 1); s2.position.set(0, 22, 150); return s2; })(); g.add(photoFrame);
     const dimmer = new THREE.Sprite(new THREE.SpriteMaterial({ color: C('#000000'), transparent: true, opacity: 0, depthWrite: false, fog: false })); dimmer.position.set(0, 0, 120); dimmer.scale.set(900, 900, 1); g.add(dimmer);
     const Q = V(), S = V(4, 1.5, -3).normalize(), W = V();
-    return { group: g, fit: 1, sun: 1.6, amb: 0.08, sunDir: [4, 1.5, -3], pose: { pos: V(0, 30, 300), look: V(0, 22, 0) }, fog: ['#01020a', 2000, 4000], update(t) {
+    return { group: g, fit: 1, sun: 1.6, amb: 0.08, sunDir: [4, 1.5, -3], pose: { pos: V(0, 40, 470), look: V(0, 30, 0) }, fog: ['#01020a', 2000, 4000], update(t) {
       const T = reduced() ? 16.5 : t % LOOP, year = yearAt(T), fade = 1 - sm(17.4, 18, T);
-      e.rotation.y = 2.2 + t * 0.01;
+      e.rotation.y = -2.1 + t * 0.01;
       /* lights: on once their year has come, and only on the night side */
       for (let i = 0; i < nrm.length; i++) { W.copy(nrm[i]).applyQuaternion(e.quaternion); const night = sm(0.05, -0.2, W.dot(S)), on = year >= born[i] ? Math.min(1, (year - born[i]) / 12) : 0, b = on * night * fade; lc[i * 3] = 1 * b; lc[i * 3 + 1] = 0.84 * b; lc[i * 3 + 2] = 0.54 * b; }
       lg.attributes.color.needsUpdate = true;
