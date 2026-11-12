@@ -19,7 +19,7 @@ export const EVENTS = [
   { id: 'oxygen', ago: 2.4e9, title: 'Oxygen fills the air', text: 'Photosynthesising microbes release so much oxygen that the whole atmosphere changes: the Great Oxidation Event.', note: 'about 2.4–2.5 billion years ago', src: [wiki('Great Oxidation Event')] },
   { id: 'cells', ago: 2.0e9, title: 'Complex cells', text: 'Cells with a nucleus appear: the kind every animal, plant and fungus is built from.', note: 'estimates run from about 1.85 to 2.1 billion years ago', src: [wiki('Eukaryote')] },
   { id: 'animals', ago: 0.67e9, title: 'The first animals', text: 'Simple animals appear in the sea.', note: 'estimates run from about 540 to 800 million years ago', src: [CAL, wiki('Ediacaran')] },
-  { id: 'plants', ago: 0.45e9, title: 'Plants reach the land', text: 'Green life begins to cover the continents.', src: [CAL, wiki('Evolutionary history of plants')] },
+  { id: 'plants', ago: 0.45e9, title: 'Plants reach the land', text: 'The first plants creep out of the water onto damp ground: small and low, like today’s liverworts and mosses.', src: [CAL, wiki('Evolutionary history of plants')] },
   { id: 'dinos', ago: 0.23e9, title: 'The dinosaurs', text: 'The first dinosaurs appear and go on to rule the land for over 150 million years.', src: [wiki('Dinosaur')] },
   { id: 'impact', ago: 66e6, title: 'The asteroid', text: 'An asteroid about 10 km wide strikes what is now Mexico. The dinosaurs that could not fly die out; mammals inherit the world.', src: [wiki('Cretaceous–Paleogene extinction event')] },
   { id: 'humans', ago: 0.2e6, title: 'Our species', text: 'Anatomically modern humans appear in Africa.', note: 'estimates run from about 200,000 to 300,000 years ago', src: [wiki('Homo sapiens')] },
