@@ -112,18 +112,20 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   // ---- shapes for living things and landscapes ----
   // A smooth body swept along a curve that lies (mostly) in the x–y plane: rings of radius rad(t), t from the first
   // point (0) to the last (1), flattened sideways by sz. The side axis is fixed (z), so the body never twists.
-  function sweep(pts, rad, mat, { seg = 40, ring = 12, sz = 1 } = {}) {
-    const curve = new THREE.CatmullRomCurve3(pts.map(p => V(...p))), pos = [], idx = [], Z = V(0, 0, 1), T = V(0, 0, 0), N = V(0, 0, 0), Bn = V(0, 0, 0);
+  // colors(t, up), when given, colours each vertex: t along the body, up from -1 (belly) to 1 (back).
+  function sweep(pts, rad, mat, { seg = 40, ring = 12, sz = 1, colors = null } = {}) {
+    const curve = new THREE.CatmullRomCurve3(pts.map(p => V(...p))), pos = [], idx = [], cols = [], Z = V(0, 0, 1), T = V(0, 0, 0), N = V(0, 0, 0), Bn = V(0, 0, 0);
     for (let i = 0; i <= seg; i++) {
       const t = i / seg, c = curve.getPointAt(t), r = rad(t);
       curve.getTangentAt(t, T); N.crossVectors(Z, T).normalize(); if (N.lengthSq() < 1e-6) N.set(1, 0, 0); Bn.crossVectors(T, N).normalize();
       for (let j = 0; j <= ring; j++) {
         const a = j / ring * Math.PI * 2, u = Math.cos(a) * r, v = Math.sin(a) * r * sz;
         pos.push(c.x + N.x * u + Bn.x * v, c.y + N.y * u + Bn.y * v, c.z + N.z * u + Bn.z * v);
+        if (colors) { const k = colors(t, (N.y * Math.cos(a) + Bn.y * Math.sin(a))); cols.push(k.r, k.g, k.b); }
       }
     }
     for (let i = 0; i < seg; i++) for (let j = 0; j < ring; j++) { const a = i * (ring + 1) + j, b = a + ring + 1; idx.push(a, a + 1, b, b, a + 1, b + 1); }
-    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals(); if (colors) geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
     return new THREE.Mesh(geo, mat);
   }
   // A weathered rock: an icosahedron pushed in and out by a smooth function of position (so shared corners move
@@ -214,8 +216,8 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   stages.life = () => {
     const r = rng(43), g = new THREE.Group(), plumes = [];
     g.add(skyDome('#2f7a68', '#0b2f2a', '#061a17', 400), ground(M('#3a3a34', { map: groundTex('#34332d', ['#1f1f1b', '#4a463c', '#2a2a24'], 5, 30) })), hemi('#7fd8c0', '#1c1c16', 1.7));
-    const smoker = M('#2a2420', { roughness: 1, flatShading: true }), crust = M('#5a3a22', { roughness: 1 }), white = M('#cfc7b4', { roughness: 0.95, flatShading: true });
-    const mat = (c, e) => M(c, { roughness: 0.8, emissive: C(e), emissiveIntensity: 0.35, transparent: true, opacity: 0.92 });
+    const smoker = M('#3c3530', { roughness: 0.9, flatShading: true }), crust = M('#5a3a22', { roughness: 1 }), white = M('#cfc7b4', { roughness: 0.95, flatShading: true });
+    const mat = (c, e) => M(c, { roughness: 0.6, emissive: C(e), emissiveIntensity: 0.9, transparent: true, opacity: 0.95 });
     const chimney = (x, z, h, w, m, seed) => { const q = rng(seed), wob = [0, 1, 2, 3, 4].map(() => (q() - 0.5) * w * 0.5); const c = sweep(wob.map((dx, k) => [x + dx, h * k / 4, z]), t => w * (1 - 0.55 * t) * (1 + 0.18 * Math.sin(t * 26 + seed) + 0.1 * Math.sin(t * 63 + seed * 2)), m, { seg: 30, ring: 10 }); c.position.y = -0.1; return c; };
     /* black smokers, with dark plumes rising and spreading */
     for (const [x, z, h, w] of [[-1.6, -3, 7.5, 0.75], [2.4, -6, 9.5, 0.9], [-5, -9, 6, 0.7], [6, -12, 8, 0.85], [0.6, -14, 11, 1]]) {
@@ -225,15 +227,30 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     }
     /* pale carbonate towers, like the Lost City vents: alkaline vents, a favourite idea for where life began */
     for (const [x, z, h, w] of [[-8, -5, 6, 1.1], [-10.5, -7, 8.5, 1.2], [9, -4, 4.5, 0.9]]) { g.add(chimney(x, z, h, w, white, x * 3 + z)); g.add(chimney(x + w, z + 0.5, h * 0.55, w * 0.6, white, x + z * 5)); }
-    /* microbial mats on the rock around the vents: thin films in white, ochre and rust */
-    for (let k = 0; k < 70; k++) { const a = r() * 6.283, d = 1 + r() * 9, f = mesh(new THREE.CircleGeometry(0.4 + r() * 1.3, 10), mat(['#d8cfb0', '#c89a4a', '#a8582a'][k % 3], ['#3a3420', '#3a2408', '#2a1206'][k % 3]), Math.cos(a) * d, 0.02 + k * 0.0004, -6 + Math.sin(a) * d * 0.8); f.rotation.x = -Math.PI / 2; f.scale.y = 0.5 + r() * 0.5; g.add(f); }
+    /* microbial mats on the rock around the vents: slimy films in white, ochre, rust and green, brightest where the warm water seeps */
+    for (let k = 0; k < 90; k++) { const a = r() * 6.283, d = 0.6 + r() * 8, f = mesh(new THREE.CircleGeometry(0.5 + r() * 1.5, 12), mat(['#efe4c0', '#e0a040', '#c8602a', '#7ab84a'][k % 4], ['#6a5a30', '#6a3a08', '#5a1e06', '#2a5a10'][k % 4]), Math.cos(a) * d, 0.02 + k * 0.0004, -6 + Math.sin(a) * d * 0.8); f.rotation.x = -Math.PI / 2; f.scale.y = 0.5 + r() * 0.5; g.add(f); }
     for (let k = 0; k < 26; k++) { const s = 0.3 + r() * 1.2, m = mesh(rockGeo(s, 100 + k), M('#2e2d28', { flatShading: true, roughness: 1 }), (r() - 0.5) * 24, s * 0.2, 2 - r() * 18); m.rotation.y = r() * 6; g.add(m); }
-    /* single cells: far too small to see one by one, so a haze of motes over the vents */
+    /* a lens over the mat: what the slime is made of, magnified about 2,000 times: rod- and ball-shaped cells,
+       some dividing in two, each a thin skin around a speck of DNA */
+    const lens = new THREE.Group(), lensR = 1.55, flat = o => ({ fog: false, ...o }), cells = [];
+    lens.add(mesh(new THREE.CircleGeometry(lensR, 48), B('#0d2c27', flat({ transparent: true, opacity: 0.94 }))), mesh(new THREE.TorusGeometry(lensR, 0.05, 8, 64), B('#f3c887', flat())));
+    const skin = (c) => new THREE.MeshStandardMaterial({ color: C(c), roughness: 0.35, transparent: true, opacity: 0.8, emissive: C(c), emissiveIntensity: 0.25, fog: false });
+    const rodG = new THREE.CapsuleGeometry(0.11, 0.34, 6, 12), ballG = new THREE.SphereGeometry(0.13, 16, 12), dnaG = new THREE.SphereGeometry(0.035, 8, 6), dnaM = B('#2a4a30', flat());
+    for (let k = 0; k < 22; k++) { const c = new THREE.Group(), kind = k % 4, m = skin(['#9fe0b0', '#c8e890', '#f0c888', '#a8d8e0'][k % 4]);
+      if (kind === 3) { c.add(mesh(ballG, m, -0.1, 0, 0), mesh(ballG, m, 0.1, 0, 0)); } else c.add(mesh(kind === 1 ? ballG : rodG, m));
+      c.add(mesh(dnaG, dnaM)); const a = r() * 6.283, d = Math.sqrt(r()) * (lensR - 0.3); c.position.set(Math.cos(a) * d, Math.sin(a) * d, 0.15); c.rotation.set(r() * 3, r() * 3, r() * 3); c.userData = { a, d, sp: (r() - 0.5) * 0.2, sp2: 0.3 + r() * 0.6 }; cells.push(c); lens.add(c); }
+    const tag = (() => { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const x = cv.getContext('2d'); x.fillStyle = '#0d2c27'; x.fillRect(0, 0, 256, 64); x.fillStyle = '#f3c887'; x.font = '600 30px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('× 2,000', 128, 34); const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, fog: false })); sp.scale.set(2, 0.5, 1); sp.position.set(0, -lensR - 0.42, 0); return sp; })();
+    lens.add(tag); lens.scale.setScalar(0.55); lens.position.set(0.85, 4.75, 6); lens.lookAt(0, 3.4, 14); g.add(lens);
+    /* a thin line from the lens down to the patch of mat it magnifies */
+    { const lg = new THREE.BufferGeometry().setFromPoints([V(0.6, 4.75 - lensR * 0.55, 6), V(-0.4, 0.1, -0.5)]); g.add(new THREE.Line(lg, new THREE.LineBasicMaterial({ color: C('#f3c887'), transparent: true, opacity: 0.55, fog: false }))); }
+    { const spot = mesh(new THREE.CircleGeometry(0.5, 24), B('#f3c887', { transparent: true, opacity: 0.35 }), -0.4, 0.06, -0.5); spot.rotation.x = -Math.PI / 2; g.add(spot); }
+    /* the rest: far too small to see one by one, a haze of motes over the vents */
     const motes = cloud(1600, (i, c) => { c.setHSL(0.33 + r() * 0.08, 0.5, 0.55 + r() * 0.3); return [(r() - 0.5) * 18, r() * 9, -r() * 16 + 2]; }, { size: 0.045, opacity: 0.7 }); g.add(motes);
     shafts(g, 5, 7, 2.4, 30, 22, '#a8f0d8', 0.035);
     return { group: g, sun: 0.9, amb: 0.45, sunDir: [-2, 5, 3], fit: 1, pose: { pos: V(0, 3.4, 14), look: V(0, 4.4, -6) }, fog: ['#0b2f2a', 4, 46], update(t) {
       for (const p of plumes) { const u = (t * p.userData.sp + p.userData.ph) % 1, d = p.userData.top; p.position.set(d.x + p.userData.dx * u * 4 + Math.sin(t * 0.3 + p.userData.ph * 6) * u, d.y + 0.2 + u * 9, d.z); p.scale.setScalar(0.6 + u * 4.5); p.material.opacity = 0.6 * (1 - u) * Math.min(1, u * 6); }
       motes.rotation.y = Math.sin(t * 0.05) * 0.05; motes.position.y = Math.sin(t * 0.2) * 0.15;
+      for (const c of cells) { const u = c.userData, a = u.a + t * u.sp * 0.3; c.position.x = Math.cos(a) * u.d; c.position.y = Math.sin(a) * u.d; c.rotation.z += 0.004 * u.sp2; c.rotation.x += 0.003 * u.sp2; }
     } };
   };
   // 14 Dec: the first animals we can see as fossils: the Ediacaran sea floor, about 570 million years ago. Soft-bodied
@@ -241,9 +258,10 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   // (Tribrachidium), the slug-like Kimberella and small vase sponges. Almost nothing swam yet; jellyfish are later.
   stages.animals = () => {
     const r = rng(47), g = new THREE.Group(), fronds = [], crawlers = [];
-    g.add(skyDome('#5aa6c4', '#103852', '#0a2234', 400), ground(M('#8a7a58', { map: groundTex('#7e7052', ['#5e5238', '#9a8a64', '#6a5a3c'], 9, 60, ['#4e4430', '#a89670']) })), hemi('#a8e0f0', '#3a3020', 1.25));
-    const tissue = (c, e = '#3a2010') => M(c, { roughness: 0.65, emissive: C(e), emissiveIntensity: 0.25 });
-    const peach = tissue('#e6b48c'), tan = tissue('#c4946a'), sand = tissue('#d8b070'), pale = tissue('#e8c8a0');
+    g.add(skyDome('#6cc4e4', '#1a5a80', '#0c3048', 400), ground(M('#6a7058', { map: groundTex('#5e6a50', ['#4a5a40', '#7a805e', '#56604a'], 9, 60, ['#3e4a34', '#8a9070']) })), hemi('#c0ecff', '#3a4030', 1.35));
+    /* their real colours are unknown (only impressions in rock survive); soft, living tones keep them apart from the mat */
+    const tissue = (c, e) => M(c, { roughness: 0.55, emissive: C(e), emissiveIntensity: 0.35 });
+    const peach = tissue('#ffb08a', '#5a2410'), tan = tissue('#e8907a', '#4a1a10'), sand = tissue('#ffd2a0', '#4a3010'), pale = tissue('#ffc8c8', '#4a2020');
     /* Charnia: a holdfast disc, a short stalk and a leaf-like frond of paired branches, smaller towards the tip */
     const branch = new THREE.SphereGeometry(1, 10, 8);
     const frond = (h, m) => { const f = new THREE.Group(); f.add(mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.06, 14), tan), mesh(new THREE.CylinderGeometry(0.035, 0.045, h * 0.22, 6), tan, 0, h * 0.11, 0), mesh(new THREE.CylinderGeometry(0.02, 0.035, h * 0.8, 6), m, 0, h * 0.6, 0));
@@ -259,10 +277,10 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     /* Kimberella: a slug-like dome with a frilled edge, grazing the mat (slowly) */
     for (let k = 0; k < 4; k++) { const kb = new THREE.Group(), body = mesh(new THREE.SphereGeometry(0.5, 18, 10), peach); body.scale.set(1, 0.32, 0.6); body.position.y = 0.08; const frill = mesh(new THREE.TorusGeometry(0.5, 0.06, 6, 24), sand, 0, 0.04, 0); frill.rotation.x = Math.PI / 2; frill.scale.set(1.05, 0.66, 1); kb.add(body, frill); kb.position.set((r() - 0.5) * 6, 0, -1 - r() * 4); kb.rotation.y = r() * 6; kb.userData = { x: kb.position.x, z: kb.position.z, a: r() * 6 }; crawlers.push(kb); g.add(kb); }
     /* small vase sponges */
-    for (let k = 0; k < 9; k++) { const h = 0.5 + r() * 0.9, sp = sweep([[0, 0, 0], [0, h * 0.5, 0], [0, h, 0]], t => 0.12 + 0.16 * Math.sin(t * 2.4), M('#d8c070', { roughness: 1, side: THREE.DoubleSide }), { seg: 10, ring: 12 }); sp.position.set((r() - 0.5) * 18, 0, -r() * 14); g.add(sp); }
+    for (let k = 0; k < 9; k++) { const h = 0.5 + r() * 0.9, sp = sweep([[0, 0, 0], [0, h * 0.5, 0], [0, h, 0]], t => 0.12 + 0.16 * Math.sin(t * 2.4), M('#f0d060', { roughness: 0.8, side: THREE.DoubleSide, emissive: C('#4a3a08') }), { seg: 10, ring: 12 }); sp.position.set((r() - 0.5) * 18, 0, -r() * 14); g.add(sp); }
     const snow = cloud(500, () => [(r() - 0.5) * 26, r() * 10, -r() * 22 + 4], { size: 0.05, opacity: 0.35 }); g.add(snow);
     shafts(g, 6, 11, 2.2, 26, 22, '#c8f2ff', 0.045);
-    return { group: g, sun: 1.6, amb: 0.45, sunDir: [2, 5, 3], fit: 1, pose: { pos: V(0, 1.5, 4.2), look: V(0, 1.4, -4) }, fog: ['#123c56', 4, 38], update(t) {
+    return { group: g, sun: 1.6, amb: 0.45, sunDir: [2, 5, 3], fit: 1, pose: { pos: V(0, 1.5, 4.2), look: V(0, 1.4, -4) }, fog: ['#1a5a80', 5, 44], update(t) {
       for (const f of fronds) { f.rotation.z = Math.sin(t * 0.5 + f.userData.a) * 0.07; f.rotation.x = Math.sin(t * 0.37 + f.userData.a) * 0.04; }
       for (const c of crawlers) { const u = t * 0.02 + c.userData.a; c.position.x = c.userData.x + Math.cos(u) * 0.8; c.position.z = c.userData.z + Math.sin(u) * 0.5; c.rotation.y = -u; }
       snow.position.y = -((t * 0.08) % 1) * 0.6;
@@ -301,15 +319,16 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   // cycads and horsetails by a river. The giants (Brachiosaurus, T. rex) came tens of millions of years later.
   stages.dinos = () => {
     const r = rng(59), g = new THREE.Group(), walkers = [], drinkers = [], herd = [];
-    g.add(skyDome('#3a3260', '#ffb070', '#5a3020', 2400, { dir: [-1, 0.07, -0.55], col: '#fff0c8' }), ground(M('#7a4a2c', { map: groundTex('#74462a', ['#5a3420', '#8a5a36', '#6a3e22'], 17, 70) })), hemi('#ffd2a8', '#4a2a16', 1.3));
+    g.add(skyDome('#5a86c0', '#ffd8a0', '#6a5030', 2400, { dir: [-1, 0.16, -0.55], col: '#fff4d8' }), ground(M('#5e5a34', { map: groundTex('#5a5632', ['#46482a', '#6e6a3c', '#7a5a34'], 17, 70) })), hemi('#ffe8c8', '#3a3420', 1.4));
+    { const rim = new THREE.DirectionalLight(C('#fff0d0'), 2.2); rim.position.set(-6, 8, -40); rim.target.position.set(0, 0, -10); g.add(rim, rim.target); } /* backlight: a bright edge on every animal */
     /* the river, holding the sky's colour: a flat ribbon winding away from the middle distance */
     const bank = new THREE.CatmullRomCurve3([V(30, 0, -12), V(10, 0, -16), V(-6, 0, -26), V(4, 0, -48), V(30, 0, -90), V(10, 0, -160), V(-40, 0, -300)]), rp = [], ri = [], reeds = [];
     for (let i = 0; i <= 80; i++) { const t = i / 80, c = bank.getPointAt(t), tg = bank.getTangentAt(t), w = 2.2 + t * 22, nx = -tg.z, nz = tg.x; rp.push(c.x + nx * w, 0.05, c.z + nz * w, c.x - nx * w, 0.05, c.z - nz * w); if (i < 80) ri.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
       for (let k = 0; k < (t < 0.4 ? 5 : 2); k++) { const side = k % 2 ? 1 : -1, off = w + 0.4 + r() * 2, h = 0.7 + r() * 1.3; reeds.push([c.x + nx * off * side, h / 2, c.z + nz * off * side, (r() - 0.5) * 0.1, 0, (r() - 0.5) * 0.12, [1, h, 1]]); } }
     const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(rp, 3)); rg.setIndex(ri); rg.computeVertexNormals();
-    g.add(mesh(rg, B('#f0a868', { transparent: true, opacity: 0.85, side: THREE.DoubleSide })));
+    g.add(mesh(rg, B('#e8d8b0', { transparent: true, opacity: 0.85, side: THREE.DoubleSide })));
     /* red-bed mesas on the horizon */
-    for (let k = 0; k < 9; k++) { const w = 60 + r() * 120, h = 18 + r() * 40, m = mesh(new THREE.CylinderGeometry(w * 0.42, w * 0.55, h, 7), M('#9a5434', { flatShading: true }), -500 + k * 130 + r() * 40, h / 2 - 1, -520 - r() * 200); m.rotation.y = r() * 3; g.add(m); }
+    for (let k = 0; k < 9; k++) { const w = 60 + r() * 120, h = 18 + r() * 40, m = mesh(new THREE.CylinderGeometry(w * 0.42, w * 0.55, h, 7), M('#b8704a', { flatShading: true }), -500 + k * 130 + r() * 40, h / 2 - 1, -520 - r() * 200); m.rotation.y = r() * 3; g.add(m); }
     const bark = M('#4a3424', { roughness: 1 }), needle = M('#3a4a22', { roughness: 0.95, flatShading: true }), fern = M('#4a6a28', { roughness: 0.9, side: THREE.DoubleSide }), cy = M('#5a4a30');
     /* Triassic conifers: tall straight trunks with a crown of short whorled branches */
     const conifer = (x, z, h) => { const t = new THREE.Group(); t.add(mesh(new THREE.CylinderGeometry(0.35 * h / 30, 0.8 * h / 30, h, 8), bark, 0, h / 2, 0)); for (let k = 0; k < 7; k++) { const y = h * (0.62 + k * 0.055), L = h * (0.16 - k * 0.018); for (let a = 0; a < 5; a++) { const br = sweep([[0, 0, 0], [L * 0.5, L * 0.05, 0], [L, -L * 0.12, 0]], u => 0.4 * (1 - u * 0.6) * h / 30, bark, { seg: 6, ring: 5 }); const tuft = mesh(rockGeo(L * 0.35, k * 5 + a, 1, 0.6), needle, L, -L * 0.1, 0); const arm = new THREE.Group(); arm.add(br, tuft); arm.position.y = y; arm.rotation.y = a * 1.257 + k * 0.6; t.add(arm); } } t.add(mesh(rockGeo(h * 0.06, x, 1, 1.4), needle, 0, h * 1.02, 0)); t.position.set(x, 0, z); return t; };
@@ -321,26 +340,26 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     /* horsetails along the river banks */
     g.add(instanced(new THREE.CylinderGeometry(0.03, 0.045, 1, 5), M('#5a6a2a'), reeds));
     /* the animals: smooth bodies swept along a spine, legs that swing as they walk */
-    const hide = (c) => M(c, { roughness: 0.8 });
+    const hide = (c) => M(c, { roughness: 0.8 }), pattern = (back, belly, stripe) => { const A = C(back), Bc = C(belly), S2 = C(stripe), k = new THREE.Color(); return (t, up) => { k.copy(Bc).lerp(A, Math.min(1, Math.max(0, up * 0.8 + 0.5))); if (up > 0.1 && Math.sin(t * 70) > 0.55) k.lerp(S2, 0.55); return k; }; }, skin = M('#ffffff', { roughness: 0.75, vertexColors: true });
     const leg = (m, len, w, hipX, hipY, z) => { const j = new THREE.Group(); j.position.set(hipX, hipY, z); const l = sweep([[0, 0, 0], [len * 0.18, -len * 0.45, 0], [-len * 0.1, -len * 0.82, 0], [len * 0.12, -len, 0]], t => w * (1 - t * 0.65), m, { seg: 12, ring: 8 }); j.add(l); return j; };
-    function biped({ spine, rad, legLen, legW, hip, armAt, m, s = 1, sz = 0.8 }) { const a = new THREE.Group(), body = sweep(spine, rad, m, { seg: 48, ring: 14, sz }); a.add(body); const legs = [-1, 1].map(side => { const l = leg(m, legLen, legW, hip[0], hip[1], side * legW * 1.3); a.add(l); return l; }); if (armAt) for (const side of [-1, 1]) a.add(sweep([[armAt[0], armAt[1], side * 0.2], [armAt[0] + 0.25, armAt[1] - 0.35, side * 0.25], [armAt[0] + 0.45, armAt[1] - 0.55, side * 0.22]], t => 0.07 * (1 - t * 0.5), m, { seg: 6, ring: 6 })); a.scale.setScalar(s); a.userData.legs = legs; return a; }
+    function biped({ spine, rad, legLen, legW, hip, armAt, m, s = 1, sz = 0.8, colors = null }) { const a = new THREE.Group(), body = sweep(spine, rad, colors ? skin : m, { seg: 64, ring: 14, sz, colors }); a.add(body); const legs = [-1, 1].map(side => { const l = leg(m, legLen, legW, hip[0], hip[1], side * legW * 1.3); a.add(l); return l; }); if (armAt) for (const side of [-1, 1]) a.add(sweep([[armAt[0], armAt[1], side * 0.2], [armAt[0] + 0.25, armAt[1] - 0.35, side * 0.25], [armAt[0] + 0.45, armAt[1] - 0.55, side * 0.22]], t => 0.07 * (1 - t * 0.5), m, { seg: 6, ring: 6 })); a.scale.setScalar(s); a.userData.legs = legs; return a; }
     /* Herrerasaurus: a lean two-legged hunter, about 4 m long */
-    const herrera = s => biped({ s, m: hide('#6e5638'), legLen: 1.55, legW: 0.17, hip: [-0.3, 1.55], armAt: [1.15, 1.45],
+    const herrera = s => biped({ s, m: hide('#5a3a22'), colors: pattern('#6a3a1e', '#e8c890', '#2a1608'), legLen: 1.55, legW: 0.17, hip: [-0.3, 1.55], armAt: [1.15, 1.45],
       spine: [[3.1, 2.05, 0], [2.6, 2.15, 0], [2.0, 2.0, 0], [1.4, 1.7, 0], [0.6, 1.55, 0], [-0.4, 1.6, 0], [-1.6, 1.55, 0], [-3, 1.4, 0], [-4.6, 1.3, 0]],
       rad: t => t < 0.08 ? 0.13 + t * 1.6 : t < 0.16 ? 0.26 - (t - 0.08) * 1.2 : t < 0.45 ? 0.17 + Math.sin((t - 0.16) / 0.29 * Math.PI / 2) * 0.38 : 0.55 * Math.pow(1 - (t - 0.45) / 0.55, 1.3) + 0.02 });
     for (const [x, z, ry, s, ph] of [[-0.6, -12, 0, 1, Math.PI / 2], [-1.2, -19, 0, 0.9, Math.PI * 1.35]]) { const h = herrera(s); h.position.set(x, 0, z); h.rotation.y = ry; h.userData.ph = ph; h.userData.x0 = x; h.userData.z0 = z; walkers.push(h); g.add(h); }
     /* Saturnalia-like early sauropodomorphs: small head, long neck, long tail, about 1.5 m, drinking at the river */
-    const saturn = s => biped({ s, m: hide('#6a5a3e'), legLen: 1.05, legW: 0.12, hip: [-0.2, 1.05], armAt: [0.75, 1.0],
+    const saturn = s => biped({ s, m: hide('#5a6a3a'), colors: pattern('#5a7038', '#e0dca8', '#3a4a20'), legLen: 1.05, legW: 0.12, hip: [-0.2, 1.05], armAt: [0.75, 1.0],
       spine: [[2.6, 0.55, 0], [2.3, 0.75, 0], [1.9, 1.05, 0], [1.4, 1.2, 0], [0.7, 1.1, 0], [-0.2, 1.1, 0], [-1.2, 1.05, 0], [-2.4, 0.9, 0], [-3.6, 0.75, 0]],
       rad: t => t < 0.05 ? 0.07 + t * 1.2 : t < 0.3 ? 0.1 + (t - 0.05) * 0.4 : t < 0.55 ? 0.2 + Math.sin((t - 0.3) / 0.25 * Math.PI / 2) * 0.12 : 0.32 * Math.pow(1 - (t - 0.55) / 0.45, 1.3) + 0.015 });
     for (const [x, z, ry] of [[2.6, -16, 2.75], [4.6, -18, 2.95], [1.6, -19.5, 2.5]]) { const a = saturn(1.1); a.position.set(x, 0, z); a.rotation.y = ry; a.userData.ph = x; drinkers.push(a); g.add(a); }
     /* dicynodonts (Placerias): barrel bodies on four short legs, a beak and two tusks; the big plant-eaters of the day */
-    const dicyno = (x, z, ry, s) => { const a = new THREE.Group(), m = hide('#8a6a4a'); a.add(sweep([[1.15, 0.85, 0], [0.4, 0.95, 0], [-0.6, 0.92, 0], [-1.4, 0.72, 0], [-1.9, 0.55, 0]], t => 0.48 * Math.sin(Math.PI * (0.2 + t * 0.75)) + 0.05, m, { seg: 30, ring: 14, sz: 1.15 }));
+    const dicyno = (x, z, ry, s) => { const a = new THREE.Group(), m = hide('#7a7468'); a.add(sweep([[1.15, 0.85, 0], [0.4, 0.95, 0], [-0.6, 0.92, 0], [-1.4, 0.72, 0], [-1.9, 0.55, 0]], t => 0.48 * Math.sin(Math.PI * (0.2 + t * 0.75)) + 0.05, skin, { seg: 30, ring: 14, sz: 1.15, colors: pattern('#6a665c', '#c8c0a8', '#6a665c') }));
       const head = mesh(new THREE.SphereGeometry(0.3, 14, 10), m, 1.45, 0.8, 0); head.scale.set(1.25, 0.9, 0.9); const beak = mesh(new THREE.ConeGeometry(0.13, 0.32, 8), M('#3a2c20'), 1.85, 0.68, 0); beak.rotation.z = -Math.PI / 2 - 0.5; a.add(head, beak);
       for (const [lx, lz] of [[0.9, 0.5], [0.9, -0.5], [-1, 0.5], [-1, -0.5]]) a.add(mesh(new THREE.CylinderGeometry(0.17, 0.14, 0.5, 8), m, lx, 0.25, lz)); for (const side of [-1, 1]) { const tusk = mesh(new THREE.ConeGeometry(0.05, 0.3, 6), M('#e8dcc0'), 1.62, 0.5, side * 0.16); tusk.rotation.z = Math.PI; a.add(tusk); }
       a.scale.setScalar(s); a.position.set(x, 0, z); a.rotation.y = ry; a.userData.ph = x; herd.push(a); return a; };
     g.add(dicyno(-3.4, -22, 0.25, 1.35), dicyno(-5.6, -25, 0.45, 1.15), dicyno(-1.8, -26, 0.1, 1.25));
-    return { group: g, sun: 2.6, amb: 0.45, sunDir: [-4, 1.4, 1.8], sunColor: '#ffb478', fit: 1, pose: { pos: V(0, 2.6, 6), look: V(0, 2.6, -20) }, fog: ['#d08454', 40, 640], update(t) {
+    return { group: g, sun: 2.4, amb: 0.5, sunDir: [-4, 2.4, 2.2], sunColor: '#ffd8a8', fit: 1, pose: { pos: V(0, 2.6, 6), look: V(0, 2.6, -20) }, fog: ['#e8c8a0', 40, 700], update(t) {
       for (const w of walkers) { const u = t * 1.6 + w.userData.ph, [l1, l2] = w.userData.legs; l1.rotation.z = Math.sin(u) * 0.45; l2.rotation.z = -Math.sin(u) * 0.45; /* a long, flat loop, so the hunters are seen side-on, striding across the view */ const th = t * 0.05 + w.userData.ph, A = 3.4, Bz = 0.7; w.position.x = w.userData.x0 + Math.cos(th) * A; w.position.z = w.userData.z0 + Math.sin(th) * Bz; w.rotation.y = Math.atan2(-Math.cos(th) * Bz, -Math.sin(th) * A); w.position.y = Math.abs(Math.sin(u)) * 0.06; }
       for (const a of drinkers) { a.children[0].rotation.z = -0.05 + Math.sin(t * 0.5 + a.userData.ph) * 0.05; }
       for (const a of herd) a.rotation.y += Math.sin(t * 0.2 + a.userData.ph) * 0.0008;
@@ -538,7 +557,7 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     if (flight < 1) { flight = Math.min(1, flight + dt / 2.4); const k = ease(flight); camPos.lerpVectors(from.pos, to.pos, k); camLook.lerpVectors(from.look, to.look, k); fogFrom.c.lerp(fogTo.c, 0.06 + 0.1 * k); fogFrom.n += (fogTo.n - fogFrom.n) * 0.08; fogFrom.f += (fogTo.f - fogFrom.f) * 0.08; if (flight >= 1) { built.forEach((s, k2) => { if (s) s.group.visible = k2 === cur; }); prevIdx = -1; if (built[cur]) built[cur].since = t; } }
     else { fogFrom.c.lerp(fogTo.c, 0.1); }
     scene.fog.color.copy(fogFrom.c); scene.fog.near = fogFrom.n; scene.fog.far = fogFrom.f; scene.background.copy(fogFrom.c);
-    const wob = reduced() ? 0 : camPos.distanceTo(camLook) / 400; /* drift and parallax scale with the scene, so a ground-level camera never sinks below the ground */ cam.position.set(camPos.x + (Math.sin(t * 0.13) * 14 + px * 26) * wob, camPos.y + Math.max(-camPos.y * 0.5 / Math.max(wob, 1e-6), Math.cos(t * 0.1) * 8 - py * 16) * wob, camPos.z - drift * wob); cam.position.set(camPos.x + (Math.sin(t * 0.13) * 14 + px * 26) * wob, camPos.y + (Math.cos(t * 0.1) * 8 - py * 16) * wob, camPos.z - drift * wob); cam.lookAt(camLook);
+    const wob = reduced() ? 0 : camPos.distanceTo(camLook) / 400; /* drift and parallax scale with the scene, so a ground-level camera never sinks below the ground */ cam.position.set(camPos.x + (Math.sin(t * 0.13) * 14 + px * 26) * wob, camPos.y + Math.max(-camPos.y * 0.5 / Math.max(wob, 1e-6), Math.cos(t * 0.1) * 8 - py * 16) * wob, camPos.z - drift * wob); cam.lookAt(camLook);
     tNow = t; const local = st => st && st.update?.(Math.max(0, t - (st.since || 0))); local(built[cur]); if (prevIdx >= 0) local(built[prevIdx]);
     renderer.render(scene, cam);
   }
