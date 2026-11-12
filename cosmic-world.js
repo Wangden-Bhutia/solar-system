@@ -624,7 +624,7 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
       const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.magFilter = THREE.NearestFilter; return new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false, fog: false })); })();
     webb.position.set(0, Y + 1, 60); webb.scale.set(30, 35.2, 1); g.add(webb);
     const dim = new THREE.Sprite(new THREE.SpriteMaterial({ color: C('#000000'), transparent: true, opacity: 0, depthWrite: false, fog: false })); dim.position.set(0, Y, 45); dim.scale.set(400, 400, 1); g.add(dim);
-    return { group: g, fit: 1, pose: { pos: V(0, Y, CZ), look: V(0, Y, -40) }, fog: ['#020206', 1400, 3200], update(t) {
+    return { group: g, fit: 1, pose: { pos: V(0, Y, CZ + 30), look: V(0, Y - 16, -40) }, fog: ['#020206', 1400, 3200], /* the galaxy sits high, clear of a long card on a short screen */ update(t) {
       const T = reduced() ? 8 : t % LOOP, fade = sm(0, 0.8, T) * (1 - sm(13.4, 14, T)), grow = sm(1.5, 10, T);
       for (const f of haze) f.material.opacity = 0.4 * fade;
       for (const m of gals) { const u = m.userData; m.rotation.y += 0.0004;
