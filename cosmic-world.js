@@ -74,8 +74,73 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     return { group: g, pose: { pos: V(0, 0, 0), look: V(0, 0, -100) }, fog: ['#140604', 3000, 6000], update(t2) { sph.rotation.y = t2 * 0.012; } }; };
   stages.disk = () => { const r = rng(13), g = new THREE.Group(), pts = cloud(11000, (i, c) => { const rr = Math.pow(r(), 0.75) * 330, arm = r() < 0.5 ? 0 : Math.PI, th = arm + rr / 330 * 4.4 + gauss(r) * (0.25 + rr / 900), y = gauss(r) * (14 * (1 - rr / 420)); c.setHSL(0.1 + (rr / 330) * 0.5, 0.55, 0.62 + r() * 0.3); return [Math.cos(th) * rr, y, Math.sin(th) * rr]; }, { size: 2.6 }), core = glow('#ffe2a8', 190, 0.9); g.add(pts, core);
     return { group: g, pose: { pos: V(0, 230, 380), look: V(0, 0, 0) }, fog: ['#02030a', 900, 2200], update(t) { pts.rotation.y = t * 0.035; } }; };
-  stages.earth = () => { const g = new THREE.Group(), e = earth({ tint: '#ff7a3a', emissive: '#7a1d02', glowColor: '#ff6a20', r0: 100 }), moon = new THREE.Mesh(new THREE.SphereGeometry(27, 32, 24), new THREE.MeshStandardMaterial({ color: C('#a89f95'), roughness: 1 })), r = rng(17), debris = cloud(900, (i, c) => { const rr = 135 + r() * 90, th = r() * 6.2832; c.set(r() > 0.5 ? '#ff9a50' : '#d8c0a8'); return [Math.cos(th) * rr, gauss(r) * 9, Math.sin(th) * rr]; }, { size: 2.4 }); g.add(e, moon, debris);
-    return { group: g, pose: { pos: V(40, 40, 380), look: V(0, 0, 0) }, fog: ['#0a0204', 1000, 2600], update(t) { e.rotation.y = t * 0.06; moon.position.set(Math.cos(t * 0.18) * 250, 0, Math.sin(t * 0.18) * 250); debris.rotation.y = -t * 0.05; } }; };
+  // 3 Sep: Earth and the Moon, the giant impact, played as an 18-second loop. A young Earth, still with no continents,
+  // its crust thin and cracked over molten rock, is struck a glancing blow by Theia, a world about the size of Mars
+  // (half Earth's width). The impact melts Earth's whole surface and throws out a spray of molten and vaporised rock;
+  // the part that does not fall back settles into a ring around Earth, and the ring gathers into the Moon, which
+  // forms close to Earth and glows as it cools.
+  stages.earth = () => {
+    const g = new THREE.Group(), r = rng(17), R = 100, LOOP = 18, HIT = 4.2;
+    const lavaTex = (seed, base, crack, glowOnly) => { const c = document.createElement('canvas'); c.width = 512; c.height = 256; const x = c.getContext('2d'), q = rng(seed);
+      x.fillStyle = glowOnly ? '#000' : base; x.fillRect(0, 0, 512, 256);
+      if (!glowOnly) for (let k = 0; k < 500; k++) { x.globalAlpha = 0.25; x.fillStyle = q() > 0.5 ? '#1a100c' : '#3a2418'; const rr = 4 + q() * 26; x.beginPath(); x.ellipse(q() * 512, q() * 256, rr, rr * 0.6, q() * 3, 0, 6.283); x.fill(); }
+      x.globalAlpha = 1; x.strokeStyle = crack; x.lineCap = 'round';
+      for (let k = 0; k < 140; k++) { x.lineWidth = 0.6 + q() * 2.2; x.beginPath(); let px = q() * 512, py = 20 + q() * 216; x.moveTo(px, py); for (let j = 0; j < 7; j++) { px += (q() - 0.5) * 40; py += (q() - 0.5) * 22; x.lineTo(px, py); } x.stroke(); }
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+    /* the young Earth: dark crust, glowing cracks; after the impact the whole surface runs molten */
+    const crustM = new THREE.MeshStandardMaterial({ map: lavaTex(3, '#2c1c14', '#ff8a30'), emissiveMap: lavaTex(3, '', '#ff7a20', true), emissive: C('#ffffff'), emissiveIntensity: 1, roughness: 0.95 });
+    const earthB = mesh(new THREE.SphereGeometry(R, 64, 40), crustM); earthB.rotation.z = 0.3; g.add(earthB);
+    const melt = mesh(new THREE.SphereGeometry(R * 1.004, 64, 40), new THREE.MeshBasicMaterial({ color: C('#ff7a20'), transparent: true, opacity: 0, blending: add, depthWrite: false }));
+    const halo = glow('#ff6a20', R * 3.4, 0.25); g.add(melt, halo);
+    /* Theia: rocky, about the size of Mars */
+    const theia = mesh(new THREE.SphereGeometry(R * 0.53, 48, 32), new THREE.MeshStandardMaterial({ map: lavaTex(8, '#8a7e72', '#a07050'), roughness: 1 })); g.add(theia);
+    const contact = V(0.62, 0.42, 0.66).normalize().multiplyScalar(R), start = V(300, 150, 160), flash = glow('#fffbe8', 1, 0); g.add(flash);
+    /* debris: each piece flies out from the contact point, bends round into an orbit, then joins the Moon */
+    const N = 2600, MOON_R = 3 * R, piece = []; /* the Moon gathers about three Earth radii out, beyond the distance where Earth's pull would tear it apart */
+    const tan = V().crossVectors(contact, V(0, 1, 0)).normalize(), out = contact.clone().normalize();
+    for (let i = 0; i < N; i++) { const spread = V(gauss(r), gauss(r) * 0.6, gauss(r)).multiplyScalar(0.45), dir = out.clone().multiplyScalar(0.8).add(tan.clone().multiplyScalar(0.7)).add(spread).normalize();
+      piece.push({ dir, sp: 120 + r() * 260, orb: 1.3 + Math.pow(r(), 0.8) * 1.4, th: Math.atan2(contact.z, contact.x) + (r() - 0.5) * 2.4, y: gauss(r) * 6, fall: r() < 0.3, join: 0.15 + r() * 0.85 }); }
+    const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), tmpc = new THREE.Color();
+    for (let i = 0; i < N; i++) { tmpc.setHSL(0.06 + r() * 0.07, 0.9, 0.55 + r() * 0.35); col.set([tmpc.r, tmpc.g, tmpc.b], i * 3); }
+    const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); dg.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const debris = new THREE.Points(dg, new THREE.PointsMaterial({ size: 5, map: dot, vertexColors: true, transparent: true, opacity: 0, blending: add, depthWrite: false, sizeAttenuation: true })); debris.frustumCulled = false; g.add(debris);
+    /* the Moon: gathers from the ring, glowing, then cools to grey */
+    const moonM = new THREE.MeshStandardMaterial({ map: lavaTex(11, '#7a7068', '#ff9a40'), emissiveMap: lavaTex(11, '', '#ff8a30', true), emissive: C('#ffffff'), emissiveIntensity: 0, roughness: 1 });
+    const moon = mesh(new THREE.SphereGeometry(R * 0.27, 40, 28), moonM), moonGlow = glow('#ff8a40', R * 0.9, 0); g.add(moon, moonGlow);
+    const P = V(), O = V(), hot = C('#fff0c0'), warm = C('#ff8a30'), cool = C('#a03a20'), tint = new THREE.Color();
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const moonAt = (T, out2) => { const a = -Math.PI / 2 - 1.05 + (T - HIT) * 0.04; return out2.set(Math.cos(a) * MOON_R, 6, Math.sin(a) * MOON_R); }; /* behind Earth and to the left, so it forms in open sky, clear of Earth */
+    return { group: g, fit: 1, sun: 1.2, amb: 0.25, sunDir: [-3, 1.5, 2], pose: { pos: V(0, 470, 1040), look: V(0, -10, 0) }, fog: ['#0a0204', 2000, 4000], update(t) {
+      const T = t % LOOP, after = T - HIT;
+      earthB.rotation.y = t * 0.05;
+      /* Theia: in on a glancing path, then sinks into Earth and is gone */
+      if (after < 0) { const k = Math.pow(T / HIT, 1.5); theia.visible = true; theia.position.lerpVectors(start, contact.clone().multiplyScalar(1.45), k); theia.scale.setScalar(1); theia.rotation.y = t * 0.3; }
+      else if (after < 0.9) { const k = after / 0.9; theia.visible = true; theia.position.lerpVectors(contact.clone().multiplyScalar(1.45), contact.clone().multiplyScalar(0.7), k); theia.scale.setScalar(1 - k * 0.85); }
+      else theia.visible = false;
+      /* the flash, and the surface running molten, cooling slowly */
+      flash.position.copy(contact).multiplyScalar(1.15); flash.material.opacity = after > 0 && after < 1.4 ? Math.pow(1 - after / 1.4, 1.5) : 0; flash.scale.setScalar(R * (0.6 + Math.max(0, after) * 1.6));
+      const molten = after > 0 ? sm(0, 0.8, after) * (1 - sm(4, LOOP - HIT, after) * 0.6) : 0;
+      melt.material.opacity = 0.75 * molten; crustM.emissiveIntensity = 1 + molten * 2; halo.material.opacity = 0.25 + 0.3 * molten; halo.material.color.set(molten > 0.5 ? '#ff8a30' : '#ff6a20');
+      /* debris */
+      if (after <= 0) { debris.material.opacity = 0; }
+      else {
+        debris.material.opacity = Math.min(1, after * 3) * (1 - sm(LOOP - HIT - 1.5, LOOP - HIT, after));
+        tint.copy(hot).lerp(warm, sm(0.3, 3, after)).lerp(cool, sm(6, 11, after)); debris.material.color.copy(tint);
+        const ring = sm(1.4, 5.5, after), gather = after > 6 ? after - 6 : 0; moonAt(T, O);
+        for (let i = 0; i < N; i++) { const p = piece[i], fly = Math.min(after, 3.5), d = p.sp * (1 - Math.exp(-fly * 0.9));
+          P.copy(contact).addScaledVector(p.dir, d); if (p.fall) P.multiplyScalar(1 - sm(1.5, 4, after) * 0.3);
+          const rr = p.orb * R, w = 1.5 / Math.pow(p.orb, 1.5), a = p.th + after * w; /* inner debris orbits faster, so the spray smears into a full ring */
+          const ox = Math.cos(a) * rr, oz = Math.sin(a) * rr, oy = p.y; let x = P.x + (ox - P.x) * ring, y = P.y + (oy - P.y) * ring, z = P.z + (oz - P.z) * ring;
+          if (p.fall) { const k = sm(2, 5, after); x *= 1 - k * 0.32; y *= 1 - k * 0.32; z *= 1 - k * 0.32; }
+          else { const j = sm(p.join * 6, p.join * 6 + 2.5, gather); x += (O.x - x) * j; y += (O.y - y) * j; z += (O.z - z) * j; }
+          pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z; }
+        dg.attributes.position.needsUpdate = true;
+      }
+      /* the Moon grows as the ring gathers, then cools */
+      const grow = sm(6.5, 11.5, after); moon.visible = grow > 0.01; moonAt(T, moon.position); moon.scale.setScalar(Math.max(0.01, grow)); moon.rotation.y = t * 0.1;
+      const mHot = grow * (1 - sm(12, LOOP - HIT, after) * 0.7); moonM.emissiveIntensity = 2.2 * mHot; moonGlow.position.copy(moon.position); moonGlow.material.opacity = 0.7 * mHot; moonGlow.scale.setScalar(R * 0.9 * Math.max(0.2, grow));
+    } };
+  };
   const planet = (o, pose, fogc, extra) => () => { const g = new THREE.Group(), e = earth(o); g.add(e); const ex = extra?.(g, e); return { group: g, pose, fog: fogc, update(t) { e.rotation.y = t * 0.05; if (e.userData.clouds) e.userData.clouds.rotation.y = t * 0.012; ex?.update?.(t, e); } }; };
   stages.oxygen = planet({ tint: '#a8c8ff', glowColor: '#6ab4ff', clouds: 0.7 }, { pos: V(-40, 20, 340), look: V(0, 0, 0) }, ['#041428', 1000, 2600]);
   stages.cells = () => { const r = rng(19), g = new THREE.Group(), cells = []; for (let i = 0; i < 70; i++) { const rad = 6 + r() * 18, c = new THREE.Group(); c.add(new THREE.Mesh(new THREE.SphereGeometry(rad, 24, 16), new THREE.MeshStandardMaterial({ color: C('#7fe8d0'), transparent: true, opacity: 0.28, roughness: 0.3, emissive: C('#0a4a44') })), new THREE.Mesh(new THREE.SphereGeometry(rad * 0.34, 16, 12), new THREE.MeshStandardMaterial({ color: C('#d8ffe8'), emissive: C('#3a9a80'), roughness: 0.5 }))); c.position.set((r() - 0.5) * 420, (r() - 0.5) * 300, (r() - 0.5) * 300 - 60); c.userData = { a: r() * 9, b: 0.2 + r() * 0.5 }; cells.push(c); g.add(c); }
