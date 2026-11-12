@@ -31,11 +31,11 @@ export function travelYears(ly) {
 // How each cosmic-year moment reads when the light set out shortly before or after it.
 const BEFORE = { cmb: 'before light broke free', galaxy: 'before the earliest galaxy we have seen', disk: 'before the Milky Way’s disk formed',
   sun: 'before the Sun formed', earth: 'before Earth formed', life: 'before life began on Earth', oxygen: 'before Earth’s air had oxygen',
-  cells: 'before the first complex cells', animals: 'before the first animals', cambrian: 'before the Cambrian explosion', plants: 'before plants reached the land', ashore: 'before animals came ashore', dinos: 'before the first dinosaurs',
+  cells: 'before the first complex cells', animals: 'before the first animals', cambrian: 'before the Cambrian explosion', plants: 'before plants reached the land', ashore: 'before fish crawled onto land', dinos: 'before the first dinosaurs',
   impact: 'before the asteroid that ended the dinosaurs', ancestors: 'before our ancestors walked upright', humans: 'before our species appeared', farming: 'before farming began', writing: 'before writing began' };
 const AFTER = { bang: 'just after the Big Bang', cmb: 'not long after light broke free', galaxy: 'after the first galaxies formed', disk: 'after the Milky Way’s disk formed',
   sun: 'after the Sun formed', earth: 'after Earth formed', life: 'after life began on Earth', oxygen: 'after oxygen filled the air', cells: 'after the first complex cells',
-  animals: 'after the first animals', cambrian: 'after the Cambrian explosion', plants: 'after plants reached the land', ashore: 'after animals came ashore', dinos: 'in the age of the dinosaurs', impact: 'after the asteroid ended the dinosaurs',
+  animals: 'after the first animals', cambrian: 'after the Cambrian explosion', plants: 'after plants reached the land', ashore: 'after fish crawled onto land', dinos: 'in the age of the dinosaurs', impact: 'after the asteroid ended the dinosaurs',
   ancestors: 'after our ancestors began walking upright', humans: 'after our species appeared', farming: 'after farming began', writing: 'after the first cities and writing' };
 // Under 2,000 years the calendar says more than the cosmic year does ("in 1926", "around 1390").
 const RECENT = 2000;
