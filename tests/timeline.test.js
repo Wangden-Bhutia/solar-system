@@ -10,7 +10,7 @@ test('travel time: a light-year is a year nearby; far out it follows the same Pl
  near(travelYears(NEAR_LY*1.001),NEAR_LY,0.002,'no jump where the model takes over');near(travelYears(1e8),1e8,0.01,'100 million light-years is about 100 million years');
  near(travelYears(SHELLS[0].gly*1e9),SHELLS[0].gyr*1e9,0.01,'the tour’s look-back shell');
  near(travelYears(FAR_GALAXY.gly*1e9),FAR_GALAXY.lookback*1e9,0.01,'the most distant galaxy known');
- assert.equal(travelYears(9e10),EVENTS.find(e=>e.id==='cmb').ago,'the edge is the first light');
+ assert.equal(travelYears(9e10),EVENTS.find(e=>e.id==='cmb').ago,'the edge is the light that broke free');
  let last=0;for(let ly=1e6;ly<5e10;ly*=1.5){const t=travelYears(ly);assert.ok(t>=last,'never goes back in time as you look further');last=t;}
 });
 test('the words: recent light gives the year; older light the nearest cosmic-year moment; the date matches that moment’s card',()=>{

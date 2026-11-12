@@ -19,6 +19,8 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   // shared bits
   // Opaque grey gradient, used with additive blending: iOS turns near-transparent canvas pixels into coloured speckles.
   const dot = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 64, 64); const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, '#fff'); g.addColorStop(0.25, '#8c8c8c'); g.addColorStop(1, '#000'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); const t = new THREE.CanvasTexture(c); t.premultiplyAlpha = false; return t; })();
+  // A softer glow that fades like a bell curve, for light filling the whole view (no visible edge however large).
+  const softTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 128, 128); const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64); [[0, '#ffffff'], [0.12, '#f2f2f2'], [0.3, '#a8a8a8'], [0.5, '#525252'], [0.7, '#1a1a1a'], [0.88, '#050505'], [1, '#000000']].forEach(([k, c2]) => gr.addColorStop(k, c2)); x.fillStyle = gr; x.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(c); t.premultiplyAlpha = false; return t; })();
   const glow = (color, size, opacity = 1) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: dot, color: C(color), blending: add, transparent: true, opacity, depthWrite: false, fog: false })); s.scale.setScalar(size); return s; };
   const cloud = (n, fn, { size = 2, opacity = 1, fog = true } = {}) => {
     const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), tmp = new THREE.Color();
@@ -54,7 +56,7 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   // once packed into something smaller than an atom, so it begins as one tiny point of light, trembling, held back.
   // Then it bursts and the light floods the whole view: we are inside it. Glowing matter rushes away on every side,
   // fast at first and then gently slowing, cooling from white to gold to red, every speck moving away from every
-  // other (seen from anywhere, that is what expansion looks like) until it fades into the dark before the first light.
+  // other (seen from anywhere, that is what expansion looks like) until it fades into the dark before light breaks free.
   stages.bang = () => {
     const r = rng(31), g = new THREE.Group(), LOOP = 12, BURST = 2, CAM = V(0, 0, 60);
     /* the point: a core, a halo that tightens, a four-way flare and slow ripples, all trembling */
@@ -63,8 +65,7 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     for (let k = 0; k < 3; k++) { const ring = mesh(new THREE.RingGeometry(0.96, 1, 64), B('#ffe8c8', { transparent: true, opacity: 0, blending: add, depthWrite: false, side: THREE.DoubleSide, fog: false })); ring.userData.ph = k / 3; ripples.push(ring); g.add(ring); }
     g.add(halo, flare, core);
     /* the flash that floods the view: a sheet just in front of the camera */
-    /* its own softer glow, fading like a bell curve, so even huge it has no visible edge */
-    const soft = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 128, 128); const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64); [[0, '#ffffff'], [0.12, '#f2f2f2'], [0.3, '#a8a8a8'], [0.5, '#525252'], [0.7, '#1a1a1a'], [0.88, '#050505'], [1, '#000000']].forEach(([k, c2]) => gr.addColorStop(k, c2)); x.fillStyle = gr; x.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(c); t.premultiplyAlpha = false; return t; })();
+    const soft = softTex; /* fades like a bell curve, so even huge it shows no edge */
     const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: soft, color: C('#fffaf0'), blending: add, transparent: true, opacity: 0, depthWrite: false, fog: false })); flash.position.set(0, 0, 10); g.add(flash); /* it bursts out from the point, then fills the view */
     /* the matter: specks spread through all space round the viewer, carried apart as space stretches */
     const N = 7000, base = new Float32Array(N * 3), pos = new Float32Array(N * 3), col = new Float32Array(N * 3), tc = new THREE.Color();
@@ -99,9 +100,74 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
       for (const s of haze) { const u = s.userData; s.position.copy(u.d).multiplyScalar(u.rr * a); s.scale.setScalar(u.sz * (0.4 + a)); s.material.color.copy(tint); s.material.opacity = e < 0 ? 0 : 0.07 * sm(0.4, 1, e) * (1 - sm(3.5, 7, e)); }
     } };
   };
-  stages.cmb = () => { const c = document.createElement('canvas'); c.width = 1024; c.height = 512; const x = c.getContext('2d'), r = rng(9); x.fillStyle = '#3a1206'; x.fillRect(0, 0, 1024, 512); for (let i = 0; i < 700; i++) { const px = r() * 1024, py = r() * 512, rad = 8 + r() * 46, hot = r() > 0.5, g = x.createRadialGradient(px, py, 0, px, py, rad); g.addColorStop(0, hot ? 'rgba(255,140,50,.5)' : 'rgba(80,50,170,.5)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(px - rad, py - rad, rad * 2, rad * 2); } const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-    const sph = new THREE.Mesh(new THREE.SphereGeometry(600, 48, 32), new THREE.MeshBasicMaterial({ map: t, side: THREE.BackSide, fog: false })); const g = new THREE.Group(); g.add(sph);
-    return { group: g, pose: { pos: V(0, 0, 0), look: V(0, 0, -100) }, fog: ['#140604', 3000, 6000], update(t2) { sph.rotation.y = t2 * 0.012; } }; };
+  // 1 Jan, 00:14: light breaks free, 380,000 years after the Big Bang, as a 14-second loop. Until now the universe was
+  // a glowing fog of loose electrons and atomic nuclei, and light could not get anywhere: it kept bouncing off the
+  // electrons. Cooled to about 3,000 °C, the electrons join the nuclei to make the first atoms, the fog clears and the
+  // light shoots off in straight lines. The glow left behind surrounds us as a distant shell, the edge of what we can
+  // see. Space has stretched about 1,100 times since, stretching that orange glow into invisible microwaves, and the
+  // last moment shows the same light as the Planck satellite maps it today (a false-colour map of differences of
+  // about 1 part in 100,000, drawn here in its style, not copied).
+  stages.cmb = () => {
+    const r = rng(9), g = new THREE.Group(), LOOP = 14;
+    /* a smooth random field on the sky, wrapping round in longitude: the pattern of slightly warmer and cooler spots */
+    const W = 1024, H = 512, field = new Float32Array(W * H);
+    for (const [cells, amp] of [[24, 0.5], [48, 1], [96, 0.6], [192, 0.3]]) { const cw = cells, ch = cells / 2, lat = Array.from({ length: (cw) * (ch + 1) }, () => r() * 2 - 1);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const fx = x / W * cw, fy = y / H * ch, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+        const v = (i, j) => lat[((j) * cw) + ((i % cw + cw) % cw)]; const a = v(x0, y0) + (v(x0 + 1, y0) - v(x0, y0)) * sx, b = v(x0, y0 + 1) + (v(x0 + 1, y0 + 1) - v(x0, y0 + 1)) * sx; field[y * W + x] += (a + (b - a) * sy) * amp; } }
+    const skyMap = paint => { const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), img = x.createImageData(W, H); for (let i = 0; i < W * H; i++) { const [cr, cg, cb] = paint(Math.max(-1, Math.min(1, field[i] / 1.4))); img.data.set([cr, cg, cb, 255], i * 4); } x.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; return t; };
+    /* the real glow: nearly even orange, the spots barely there */
+    const glowMap = skyMap(v => [255 * (0.93 + v * 0.05), 150 * (0.92 + v * 0.06), 70 * (0.9 + v * 0.08)]);
+    /* the Planck style: the same spots exaggerated, deep blue (cooler) through white to red (warmer) */
+    const stops = [[-1, [16, 32, 110]], [-0.45, [40, 110, 200]], [-0.1, [170, 210, 235]], [0.1, [245, 230, 190]], [0.45, [240, 150, 60]], [1, [170, 30, 20]]];
+    const planckMap = skyMap(v => { let k = 0; while (k < stops.length - 2 && v > stops[k + 1][0]) k++; const [a0, c0] = stops[k], [a1, c1] = stops[k + 1], f = Math.min(1, Math.max(0, (v - a0) / (a1 - a0))); return c0.map((c, i) => c + (c1[i] - c) * f); });
+    const shellM = new THREE.MeshBasicMaterial({ map: glowMap, side: THREE.BackSide, fog: false, transparent: true, opacity: 0, color: C('#ffffff') }), planckM = new THREE.MeshBasicMaterial({ map: planckMap, side: THREE.BackSide, fog: false, transparent: true, opacity: 0 });
+    const shell = mesh(new THREE.SphereGeometry(600, 64, 32), shellM), planck = mesh(new THREE.SphereGeometry(590, 64, 32), planckM); shell.renderOrder = -2; planck.renderOrder = -1; g.add(shell, planck); /* drawn first: they surround the camera, so depth sorting would put them over everything */
+    /* the fog: a glowing orange sheet over the whole view, and drifting puffs for depth */
+    const sheet = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex, color: C('#d8601e'), blending: add, transparent: true, opacity: 0, depthWrite: false, fog: false })); sheet.position.set(0, 0, -6); sheet.scale.setScalar(70); g.add(sheet);
+    const puffs = []; for (let k = 0; k < 40; k++) { const d = sphereDir(r), p = glow(k % 3 ? '#c85a20' : '#e07a30', 10 + r() * 26, 0); p.userData = { base: V(d[0], d[1], d[2] * 0.6 - 0.8).multiplyScalar(8 + r() * 40), ph: r() * 6 }; puffs.push(p); g.add(p); }
+    /* electrons (blue) and nuclei (red), loose in the fog; they pair up into atoms */
+    const NA = 360, pairs = [], ePos = new Float32Array(NA * 3), nPos = new Float32Array(NA * 3), nCol = new Float32Array(NA * 3);
+    for (let i = 0; i < NA; i++) { const n = V((r() - 0.5) * 50, (r() - 0.5) * 60, -6 - r() * 50), e = n.clone().add(V((r() - 0.5) * 8, (r() - 0.5) * 8, (r() - 0.5) * 8)); pairs.push({ n, e, ph: r() * 6.283, sp: 1.5 + r() * 2, late: r() * 1.6 }); }
+    const ptsMat = (size, color) => new THREE.PointsMaterial({ size, map: dot, color: C(color), transparent: true, opacity: 0, blending: add, depthWrite: false, fog: false });
+    const eg = new THREE.BufferGeometry(); eg.setAttribute('position', new THREE.BufferAttribute(ePos, 3)); const electrons = new THREE.Points(eg, ptsMat(0.5, '#7ab8ff'));
+    const ng = new THREE.BufferGeometry(); ng.setAttribute('position', new THREE.BufferAttribute(nPos, 3)); ng.setAttribute('color', new THREE.BufferAttribute(nCol, 3)); const nmat = ptsMat(0.9, '#ffffff'); nmat.vertexColors = true; const nuclei = new THREE.Points(ng, nmat);
+    electrons.frustumCulled = nuclei.frustumCulled = false; g.add(electrons, nuclei);
+    /* light: short bright streaks, zigzagging in the fog, then flying straight out */
+    const NL = 160, lp = new Float32Array(NL * 6), lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(lp, 3));
+    const light = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: C('#fff4d8'), transparent: true, opacity: 0, blending: add, depthWrite: false, fog: false })); light.frustumCulled = false; g.add(light);
+    const rays = []; for (let i = 0; i < NL; i++) rays.push({ p: V(), d: V(), next: 0 });
+    const resetRays = () => { for (const q of rays) { q.p.set((r() - 0.5) * 40, (r() - 0.5) * 50, -8 - r() * 40); q.d.set(...sphereDir(r)); q.next = 0; } };
+    resetRays();
+    /* the label for the last moment */
+    const label = (() => { const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 120; const x = cv.getContext('2d'); x.fillStyle = 'rgba(6,8,20,0.82)'; x.beginPath(); x.roundRect(150, 4, 724, 112, 30); x.fill(); x.fillStyle = '#f3c887'; x.font = '600 46px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('the same light today,', 512, 36); x.fillStyle = '#e8e2d2'; x.font = '400 40px system-ui, sans-serif'; x.fillText('mapped by the Planck satellite', 512, 88); const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, opacity: 0, fog: false, depthWrite: false })); sp.scale.set(34, 4, 1); sp.position.set(0, 9, -60); return sp; })(); g.add(label);
+    const nucRed = C('#ff6a50'), atomPale = C('#ffe8c8'), orange = C('#ffffff'), deep = C('#8a2010'), tc = new THREE.Color();
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    let lastT = 0;
+    return { group: g, fit: 1, pose: { pos: V(0, 0, 0), look: V(0, 0, -100) }, fog: ['#0a0406', 3000, 6000], update(t) {
+      const T = reduced() ? 6.5 : t % LOOP; if (T < lastT) resetRays(); const dt = Math.min(0.1, Math.max(0, T - lastT)); lastT = T;
+      const fogIn = sm(0, 0.8, T), bind = sm(4, 7, T), clear = sm(4.5, 7.5, T), fog = fogIn * (1 - clear), free = sm(5, 5.8, T);
+      sheet.material.opacity = 0.55 * fog; for (const p of puffs) { const u = p.userData; p.position.copy(u.base).multiplyScalar(1 + 0.04 * Math.sin(t * 0.4 + u.ph)); p.material.opacity = 0.14 * fog; }
+      /* the shell: the leftover glow all round, then reddening and fading as it stretches; then the Planck map */
+      shellM.opacity = 0.45 * sm(5.5, 8, T) * (1 - sm(10, 12, T)); shellM.color.copy(orange).lerp(deep, sm(9, 11.5, T)); shell.rotation.y = planck.rotation.y = t * 0.01;
+      const map = sm(11.2, 12.4, T) * (1 - sm(13.4, 14, T)); planckM.opacity = map; label.material.opacity = map;
+      /* electrons and nuclei: jostling, then each electron settles round its nucleus */
+      const loose = fogIn * (1 - sm(9, 11, T));
+      for (let i = 0; i < NA; i++) { const q = pairs[i], k = sm(4 + q.late, 5.6 + q.late, T), j = 1 - k, a = q.ph + t * q.sp * 3;
+        const ex = q.e.x + Math.sin(t * 7 + q.ph) * 1.2 * j, ey = q.e.y + Math.cos(t * 6 + q.ph * 2) * 1.2 * j, ez = q.e.z + Math.sin(t * 5 + q.ph * 3) * j;
+        ePos[i * 3] = ex + (q.n.x + Math.cos(a) * 0.45 - ex) * k; ePos[i * 3 + 1] = ey + (q.n.y + Math.sin(a) * 0.45 - ey) * k; ePos[i * 3 + 2] = ez + (q.n.z - ez) * k;
+        nPos[i * 3] = q.n.x + Math.sin(t * 3 + q.ph) * 0.3 * j; nPos[i * 3 + 1] = q.n.y + Math.cos(t * 2.6 + q.ph) * 0.3 * j; nPos[i * 3 + 2] = q.n.z;
+        tc.copy(nucRed).lerp(atomPale, k); nCol.set([tc.r, tc.g, tc.b], i * 3); }
+      eg.attributes.position.needsUpdate = ng.attributes.position.needsUpdate = ng.attributes.color.needsUpdate = true;
+      electrons.material.opacity = 0.9 * loose; nuclei.material.opacity = 0.9 * loose;
+      /* light: bounces at random while the fog is thick; once free, flies straight away from us */
+      for (let i = 0; i < NL; i++) { const q = rays[i];
+        if (free < 0.5) { q.next -= dt; if (q.next <= 0) { q.d.set(...sphereDir(r)); q.next = 0.12 + r() * 0.25; } q.p.addScaledVector(q.d, dt * 14); }
+        else { if (q.free !== true) { q.d.set(...sphereDir(r)); q.d.z *= 0.4; q.d.normalize(); q.free = true; } q.p.addScaledVector(q.d, dt * 40); } /* free: each flies on in a straight line */
+        if (free < 0.5) q.free = false;
+        const len = free < 0.5 ? 1.2 : 6; lp.set([q.p.x, q.p.y, q.p.z, q.p.x - q.d.x * len, q.p.y - q.d.y * len, q.p.z - q.d.z * len], i * 6); }
+      lg.attributes.position.needsUpdate = true; light.material.opacity = fogIn * (1 - sm(7, 9, T));
+    } };
+  };
   stages.disk = () => { const r = rng(13), g = new THREE.Group(), pts = cloud(11000, (i, c) => { const rr = Math.pow(r(), 0.75) * 330, arm = r() < 0.5 ? 0 : Math.PI, th = arm + rr / 330 * 4.4 + gauss(r) * (0.25 + rr / 900), y = gauss(r) * (14 * (1 - rr / 420)); c.setHSL(0.1 + (rr / 330) * 0.5, 0.55, 0.62 + r() * 0.3); return [Math.cos(th) * rr, y, Math.sin(th) * rr]; }, { size: 2.6 }), core = glow('#ffe2a8', 190, 0.9); g.add(pts, core);
     return { group: g, pose: { pos: V(0, 230, 380), look: V(0, 0, 0) }, fog: ['#02030a', 900, 2200], update(t) { pts.rotation.y = t * 0.035; } }; };
   // 3 Sep: Earth and the Moon, the giant impact, played as an 18-second loop. A young Earth, still with no continents,
