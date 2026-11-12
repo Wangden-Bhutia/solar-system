@@ -142,7 +142,73 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     } };
   };
   const planet = (o, pose, fogc, extra) => () => { const g = new THREE.Group(), e = earth(o); g.add(e); const ex = extra?.(g, e); return { group: g, pose, fog: fogc, update(t) { e.rotation.y = t * 0.05; if (e.userData.clouds) e.userData.clouds.rotation.y = t * 0.012; ex?.update?.(t, e); } }; };
-  stages.oxygen = planet({ tint: '#a8c8ff', glowColor: '#6ab4ff', clouds: 0.7 }, { pos: V(-40, 20, 340), look: V(0, 0, 0) }, ['#041428', 1000, 2600]);
+  // 29 Oct: oxygen fills the air (the Great Oxidation Event, about 2.4 billion years ago), played as a 20-second loop
+  // in a shallow sea. Mounds of blue-green microbes (stromatolites) give off oxygen in streams of tiny bubbles. The
+  // oxygen first rusts the iron dissolved in the sea: red flakes drift down and the sea floor and the shore cliff
+  // gain rust-red bands (banded iron formations), and the greenish water turns blue. Then the methane haze clears from
+  // the sky, the bare rock reddens, and, with less methane to keep it warm, Earth slides into an ice age.
+  stages.oxygen = () => {
+    const r = rng(61), g = new THREE.Group(), LOOP = 20, WATER = 0.6;
+    const sky = skyDome('#b07040', '#e2a868', '#7a6a50', 2400, { dir: [0.6, 0.35, -1], col: '#fff2d0' }), light = hemi('#ffd8a8', '#4a4030', 1.2);
+    g.add(sky, light, ground(M('#8a7e62', { map: groundTex('#7e7258', ['#6a5e46', '#9a8e70', '#5a5040'], 23, 60) })));
+    /* rust bands over the sea floor, fading in as the iron settles out */
+    const bandTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 256; const x = c.getContext('2d'); for (let y = 0; y < 256; y += 8) { x.fillStyle = (y / 8) % 2 ? '#c0582e' : '#9a9690'; x.fillRect(0, y, 64, 4 + (y % 24 === 0 ? 4 : 0)); x.fillStyle = (y / 8) % 2 ? '#d86a38' : '#aaa69e'; x.fillRect(0, y + 4, 64, 4); } const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; })();
+    const rustFloor = mesh(new THREE.CircleGeometry(60, 40), new THREE.MeshStandardMaterial({ color: C('#b0502a'), roughness: 1, transparent: true, opacity: 0, depthWrite: false }), 0, 0.02, -20); rustFloor.rotation.x = -Math.PI / 2; g.add(rustFloor);
+    /* a low cliff on the shore, banded grey and rust-red: the rock record of this event */
+    const cliffT = bandTex.clone(); cliffT.needsUpdate = true; cliffT.repeat.set(3, 2);
+    const cliff = mesh(new THREE.BoxGeometry(16, 3.6, 4), new THREE.MeshStandardMaterial({ map: cliffT, roughness: 0.95, color: C('#c8c4bc') }), 7, 1.5, -22); cliff.rotation.y = -0.22; g.add(cliff);
+    const rockM = M('#7a7670', { flatShading: true, roughness: 0.95 }), rocks = [];
+    for (let k = 0; k < 16; k++) { const s = 0.3 + r() * 0.9, m = mesh(rockGeo(s, 700 + k, 1, 0.6), rockM, 4 + r() * 8, s * 0.2, -4 - r() * 12); m.rotation.y = r() * 6; rocks.push(m); g.add(m); }
+    /* stromatolites: layered domes built by microbial mats, most just under the water, a few breaking the surface */
+    const mats = M('#2e6a46', { roughness: 0.6, emissive: C('#0a3018'), emissiveIntensity: 0.6 }), rockS = M('#8a7c5e', { roughness: 0.95 });
+    const prof = []; for (let k = 0; k <= 14; k++) { const y = k / 14; prof.push(new THREE.Vector2(y < 0.7 ? 1 - 0.05 * Math.sin(y * 48) - y * 0.1 : 0.9 * Math.sqrt(Math.max(0, 1 - ((y - 0.7) / 0.3) ** 2)), y)); }
+    const moundG = new THREE.LatheGeometry(prof, 20), capG = new THREE.SphereGeometry(1, 20, 10, 0, 6.283, 0, Math.PI / 2), sources = [];
+    for (let k = 0; k < 34; k++) { const x = (r() - 0.6) * 12, z = -0.5 - r() * 14, w = 0.3 + r() * 0.45, h = k < 6 ? 0.7 + r() * 0.35 : 0.25 + r() * 0.3, m = mesh(moundG, rockS, x, 0, z); m.scale.set(w, h, w * (0.8 + r() * 0.4)); const cap = mesh(capG, mats, x, h * 0.86, z); cap.scale.set(w * 0.86, h * 0.2 + 0.03, w * 0.86 * m.scale.z / w); g.add(m, cap); if (h < WATER - 0.02) sources.push([x, h, z, w]); }
+    /* the sea: a shallow, clear sheet whose colour shifts from iron-green to blue (and frosts over at the end) */
+    const waterM = new THREE.MeshStandardMaterial({ color: C('#4a8a6a'), transparent: true, opacity: 0.55, roughness: 0.12, metalness: 0.25, depthWrite: false });
+    const water = mesh(new THREE.PlaneGeometry(400, 400), waterM, 0, WATER, -150); water.rotation.x = -Math.PI / 2; g.add(water);
+    /* oxygen bubbles rising from the mats */
+    const NB = 1100, bpos = new Float32Array(NB * 3), bub = []; for (let i = 0; i < NB; i++) { const s = sources[i % sources.length]; bub.push({ s, ox: (r() - 0.5) * s[3], oz: (r() - 0.5) * s[3], ph: r(), sp: 0.12 + r() * 0.2 }); }
+    const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.BufferAttribute(bpos, 3));
+    const bubbles = new THREE.Points(bg, new THREE.PointsMaterial({ size: 0.045, map: dot, color: C('#e8fff8'), transparent: true, opacity: 0.9, blending: add, depthWrite: false })); bubbles.frustumCulled = false; g.add(bubbles);
+    /* rust flakes settling through the water; later, snow */
+    const NF = 500, fpos = new Float32Array(NF * 3), fl = []; for (let i = 0; i < NF; i++) fl.push({ x: (r() - 0.5) * 8, z: 1.5 - r() * 9, ph: r(), sp: 0.05 + r() * 0.06 });
+    const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.BufferAttribute(fpos, 3));
+    const flakes = new THREE.Points(fg, new THREE.PointsMaterial({ size: 0.05, color: C('#c0502a'), alphaMap: dot, transparent: true, opacity: 0, depthWrite: false })); flakes.frustumCulled = false; g.add(flakes);
+    const NS = 700, spos = new Float32Array(NS * 3), sn = []; for (let i = 0; i < NS; i++) sn.push({ x: (r() - 0.5) * 14, z: 3 - r() * 16, ph: r(), sp: 0.12 + r() * 0.12 });
+    const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(spos, 3));
+    const snow = new THREE.Points(sg, new THREE.PointsMaterial({ size: 0.05, color: C('#ffffff'), alphaMap: dot, transparent: true, opacity: 0, depthWrite: false })); snow.frustumCulled = false; g.add(snow);
+    /* a lens on one mat: cyanobacteria, chains of cells, giving off bubbles of oxygen (magnified about 1,000 times) */
+    const lens = new THREE.Group(), lensR = 1.55, flat = o => ({ fog: false, ...o }), lb = [];
+    lens.add(mesh(new THREE.CircleGeometry(lensR, 48), B('#0c2a24', flat({ transparent: true, opacity: 0.94 }))), mesh(new THREE.TorusGeometry(lensR, 0.05, 8, 64), B('#f3c887', flat())));
+    const cellM = new THREE.MeshStandardMaterial({ color: C('#4ab88a'), emissive: C('#1a6a48'), emissiveIntensity: 0.5, roughness: 0.4, fog: false }), cellG = new THREE.SphereGeometry(0.1, 12, 10);
+    for (let f = 0; f < 6; f++) { const y0 = -1 + f * 0.38, n = 9 + Math.floor(r() * 5), x0 = -1.1 + r() * 0.3; for (let k = 0; k < n; k++) { const c = mesh(cellG, cellM, x0 + k * 0.19, y0 + Math.sin(k * 0.6 + f) * 0.08, 0.1); c.scale.set(1, 0.85, 0.85); if ((x0 + k * 0.19) ** 2 + y0 ** 2 < (lensR - 0.15) ** 2) lens.add(c); } }
+    const bubG = new THREE.SphereGeometry(0.045, 10, 8), bubM = new THREE.MeshStandardMaterial({ color: C('#e8fff8'), emissive: C('#9ad8c8'), emissiveIntensity: 0.6, transparent: true, opacity: 0.85, fog: false });
+    for (let k = 0; k < 18; k++) { const b = mesh(bubG, bubM, (r() - 0.5) * 2.2, 0, 0.2); b.userData = { x: b.position.x, ph: r(), sp: 0.15 + r() * 0.2 }; lb.push(b); lens.add(b); }
+    const tag = (() => { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const x = cv.getContext('2d'); x.fillStyle = '#0c2a24'; x.fillRect(0, 0, 256, 64); x.fillStyle = '#f3c887'; x.font = '600 30px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('× 1,000', 128, 34); const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, fog: false })); sp.scale.set(2, 0.5, 1); sp.position.set(0, -lensR - 0.42, 0); return sp; })();
+    lens.add(tag); lens.scale.setScalar(0.27); g.add(lens);
+    const lensAt = V(-0.22, 2.3, 3.2), lensTo = V(-0.9, 0.7, -1.2); lens.position.copy(lensAt); lens.lookAt(0, 2.2, 7.5);
+    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(lensAt.x, lensAt.y - lensR * 0.27 - 0.12, lensAt.z), lensTo]), new THREE.LineBasicMaterial({ color: C('#f3c887'), transparent: true, opacity: 0.55, fog: false })));
+    /* colours at the start and end of the change */
+    const skyA = [C('#b07040'), C('#e2a868')], skyB = [C('#3a78c8'), C('#d0e4f2')], waterA = C('#4a8a6a'), waterB = C('#2a6aa8'), ice = C('#d8ecf4'), rockA = C('#7a7670'), rockB = C('#9a5034'), frost = C('#e8eef4'), hA = C('#ffd8a8'), hB = C('#d8ecff'), tmp = new THREE.Color();
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    return { group: g, fit: 1, sun: 1.6, amb: 0.4, sunDir: [3, 4, 2], pose: { pos: V(0, 2.2, 7.5), look: V(0, 0.7, -6) }, fog: ['#c8a880', 30, 400], update(t) {
+      const T = t % LOOP, back = 1 - sm(18.6, 19.8, T); /* everything eases back to the start for the next loop */
+      const o2 = sm(1, 4, T) * back, rust = sm(3, 8, T) * back, clear = sm(8, 14, T) * back, cold = sm(14, 17, T) * back;
+      sky.material.uniforms.a.value.copy(skyA[0]).lerp(skyB[0], clear).lerp(C('#8ab0d8'), cold * 0.4); sky.material.uniforms.b.value.copy(skyA[1]).lerp(skyB[1], clear).lerp(ice, cold * 0.5);
+      light.color.copy(hA).lerp(hB, clear);
+      waterM.color.copy(waterA).lerp(waterB, sm(6, 12, T) * back).lerp(ice, cold * 0.8); waterM.opacity = 0.55 + cold * 0.35;
+      rustFloor.material.opacity = 0.35 * rust; cliff.material.color.copy(C('#c8c4bc')).lerp(C('#ffffff'), rust * 0.5).lerp(frost, cold * 0.5);
+      rockM.color.copy(rockA).lerp(rockB, sm(9, 14, T) * back).lerp(frost, cold * 0.7);
+      for (let i = 0; i < NB; i++) { const b = bub[i], s = b.s, u = (T * b.sp + b.ph) % 1, top = s[1] + 0.03, y = top + u * (WATER - top); bpos[i * 3] = s[0] + b.ox + Math.sin(u * 9 + i) * 0.02; bpos[i * 3 + 1] = y; bpos[i * 3 + 2] = s[2] + b.oz; }
+      bg.attributes.position.needsUpdate = true; bubbles.material.opacity = 0.9 * o2 * (1 - cold * 0.7);
+      for (let i = 0; i < NF; i++) { const f = fl[i], u = (T * f.sp + f.ph) % 1; fpos[i * 3] = f.x + Math.sin(T * 0.5 + i) * 0.05; fpos[i * 3 + 1] = WATER - u * WATER; fpos[i * 3 + 2] = f.z; }
+      fg.attributes.position.needsUpdate = true; flakes.material.opacity = 0.9 * rust * (1 - sm(11, 14, T));
+      for (let i = 0; i < NS; i++) { const f = sn[i], u = (T * f.sp + f.ph) % 1; spos[i * 3] = f.x + Math.sin(T * 0.7 + i) * 0.15; spos[i * 3 + 1] = 4.5 - u * 4.2; spos[i * 3 + 2] = f.z; }
+      sg.attributes.position.needsUpdate = true; snow.material.opacity = 0.9 * cold;
+      for (const b of lb) { const u = (T * b.userData.sp + b.userData.ph) % 1; b.position.y = -1.2 + u * 2.4; b.position.x = b.userData.x + Math.sin(u * 8) * 0.05; b.visible = b.position.x ** 2 + b.position.y ** 2 < (lensR - 0.1) ** 2 && o2 > 0.1; }
+    } };
+  };
   stages.cells = () => { const r = rng(19), g = new THREE.Group(), cells = []; for (let i = 0; i < 70; i++) { const rad = 6 + r() * 18, c = new THREE.Group(); c.add(new THREE.Mesh(new THREE.SphereGeometry(rad, 24, 16), new THREE.MeshStandardMaterial({ color: C('#7fe8d0'), transparent: true, opacity: 0.28, roughness: 0.3, emissive: C('#0a4a44') })), new THREE.Mesh(new THREE.SphereGeometry(rad * 0.34, 16, 12), new THREE.MeshStandardMaterial({ color: C('#d8ffe8'), emissive: C('#3a9a80'), roughness: 0.5 }))); c.position.set((r() - 0.5) * 420, (r() - 0.5) * 300, (r() - 0.5) * 300 - 60); c.userData = { a: r() * 9, b: 0.2 + r() * 0.5 }; cells.push(c); g.add(c); }
     return { group: g, pose: { pos: V(0, 0, 230), look: V(0, 0, 0) }, fog: ['#031a1c', 300, 900], update(t) { for (const c of cells) { c.position.y += Math.sin(t * c.userData.b + c.userData.a) * 0.06; c.position.x += Math.cos(t * c.userData.b * 0.7 + c.userData.a) * 0.05; c.rotation.y = t * 0.2; } } }; };
   stages.impact = planet({ tint: '#d8c8b8', glowColor: '#ff7a30', clouds: 0.35 }, { pos: V(0, 20, 330), look: V(0, 0, 0) }, ['#050408', 1000, 2600], g => { const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(9, 1), new THREE.MeshStandardMaterial({ color: C('#6a5a4a'), roughness: 1, emissive: C('#ff5a10'), emissiveIntensity: 0.6 })), tail = glow('#ffd28a', 70, 1), flash = glow('#fff0d0', 10, 0); g.add(rock, tail, flash); const tgt = ll(18, -90, 101);
