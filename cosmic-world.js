@@ -49,24 +49,54 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
 
   // The 18 stages. Each returns { group, pose: { pos, look }, fog: [colour, near, far], update(t) }.
   const R = rng(5), stages = {};
-  // The Big Bang: a blinding flash, then a fireball and debris flying outward fast and slowing, cooling white to orange to red.
-  // Each stage's clock starts when the camera arrives; until then the Big Bang waits as one bright point. It plays once, fades to dark, then repeats.
+  // The Big Bang, as a 12-second loop. The Big Bang was not an explosion at one place in empty space: space itself
+  // began stretching, everywhere at once, so there is no outside to watch it from. Everything we can see today was
+  // once packed into something smaller than an atom, so it begins as one tiny point of light, trembling, held back.
+  // Then it bursts and the light floods the whole view: we are inside it. Glowing matter rushes away on every side,
+  // fast at first and then gently slowing, cooling from white to gold to red, every speck moving away from every
+  // other (seen from anywhere, that is what expansion looks like) until it fades into the dark before the first light.
   stages.bang = () => {
-    const r = rng(31), g = new THREE.Group(), RAD = 430;
-    const debris = cloud(4600, (i, c) => { const d = sphereDir(r), v = Math.pow(r(), 0.45); c.setHSL(0.08 + r() * 0.06, 0.5 + r() * 0.5, 0.62 + r() * 0.38); return [d[0] * v * RAD, d[1] * v * RAD, d[2] * v * RAD]; }, { size: 3.6, fog: false });
-    const front = cloud(1100, (i, c) => { const d = sphereDir(r), v = 0.94 + r() * 0.06; c.setRGB(1, 1, 1); return [d[0] * v * RAD, d[1] * v * RAD, d[2] * v * RAD]; }, { size: 5.5, fog: false });
-    const shell = new THREE.Mesh(new THREE.SphereGeometry(RAD, 48, 32), new THREE.ShaderMaterial({ transparent: true, blending: add, depthWrite: false, uniforms: { c: { value: C('#ffb060') }, a: { value: 1 } }, vertexShader: 'varying vec3 n,v;void main(){n=normalize(normalMatrix*normal);vec4 p=modelViewMatrix*vec4(position,1.);v=normalize(-p.xyz);gl_Position=projectionMatrix*p;}', fragmentShader: 'uniform vec3 c;uniform float a;varying vec3 n,v;void main(){float f=pow(1.-abs(dot(n,v)),2.2);gl_FragColor=vec4(c,f*a);}' }));
-    const fire = glow('#ffc070', 1, 1), flash = glow('#ffffff', 1, 1); g.add(fire, debris, front, shell, flash);
-    const white = C('#ffffff'), hot = C('#ffe0a0'), warm = C('#ff7a30'), deep = C('#b03050'), tint = new THREE.Color();
-    return { group: g, pose: { pos: V(0, 0, 330), look: V(0, 0, 0) }, fog: ['#07050a', 900, 2400], update(t) {
-      const T = 12, p = (t % T) / 6.5, on = p <= 1, q = Math.min(1, p), e = 1 - Math.pow(1 - q, 3);
-      const fade = q < 0.55 ? 1 : 1 - (q - 0.55) / 0.45;
-      if (q < 0.12) tint.copy(white).lerp(hot, q / 0.12); else if (q < 0.5) tint.copy(hot).lerp(warm, (q - 0.12) / 0.38); else tint.copy(warm).lerp(deep, (q - 0.5) / 0.5);
-      debris.scale.setScalar(0.01 + e); debris.material.color.copy(tint); debris.material.opacity = on ? fade : 0; debris.rotation.y = t * 0.03;
-      front.scale.setScalar(0.01 + e * 1.03); front.material.opacity = on ? Math.max(0, 1 - q * 1.3) : 0;
-      shell.scale.setScalar(0.01 + e * 1.05); shell.material.uniforms.a.value = on ? 0.6 * Math.max(0, 1 - q * 1.15) : 0; shell.material.uniforms.c.value.copy(tint);
-      fire.scale.setScalar(40 + 760 * e); fire.material.color.copy(tint); fire.material.opacity = on ? 0.9 * Math.max(0, 1 - q * 1.1) : 0;
-      const f = q / 0.07; flash.scale.setScalar(q < 0.07 ? 60 + 2200 * f : 2260 + 600 * (q - 0.07)); flash.material.opacity = on ? (q < 0.07 ? 1 : Math.max(0, 1 - (q - 0.07) / 0.22)) : 0;
+    const r = rng(31), g = new THREE.Group(), LOOP = 12, BURST = 2, CAM = V(0, 0, 60);
+    /* the point: a core, a halo that tightens, a four-way flare and slow ripples, all trembling */
+    const core = glow('#ffffff', 1.2, 1), halo = glow('#ffe2b0', 8, 0.5), flare = new THREE.Group(), ripples = [];
+    for (let k = 0; k < 4; k++) { const ray = mesh(new THREE.PlaneGeometry(9, 0.07), B('#fff0d8', { transparent: true, opacity: 0.6, blending: add, depthWrite: false, fog: false })); ray.rotation.z = k * Math.PI / 4; flare.add(ray); }
+    for (let k = 0; k < 3; k++) { const ring = mesh(new THREE.RingGeometry(0.96, 1, 64), B('#ffe8c8', { transparent: true, opacity: 0, blending: add, depthWrite: false, side: THREE.DoubleSide, fog: false })); ring.userData.ph = k / 3; ripples.push(ring); g.add(ring); }
+    g.add(halo, flare, core);
+    /* the flash that floods the view: a sheet just in front of the camera */
+    /* its own softer glow, fading like a bell curve, so even huge it has no visible edge */
+    const soft = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 128, 128); const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64); [[0, '#ffffff'], [0.12, '#f2f2f2'], [0.3, '#a8a8a8'], [0.5, '#525252'], [0.7, '#1a1a1a'], [0.88, '#050505'], [1, '#000000']].forEach(([k, c2]) => gr.addColorStop(k, c2)); x.fillStyle = gr; x.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(c); t.premultiplyAlpha = false; return t; })();
+    const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: soft, color: C('#fffaf0'), blending: add, transparent: true, opacity: 0, depthWrite: false, fog: false })); flash.position.set(0, 0, 10); g.add(flash); /* it bursts out from the point, then fills the view */
+    /* the matter: specks spread through all space round the viewer, carried apart as space stretches */
+    const N = 7000, base = new Float32Array(N * 3), pos = new Float32Array(N * 3), col = new Float32Array(N * 3), tc = new THREE.Color();
+    for (let i = 0; i < N; i++) { const d = sphereDir(r), rr = 30 + Math.pow(r(), 0.6) * 900; base.set([d[0] * rr, d[1] * rr, d[2] * rr], i * 3); tc.setHSL(0.08 + r() * 0.06, 0.4 + r() * 0.5, 0.7 + r() * 0.3); col.set([tc.r, tc.g, tc.b], i * 3); }
+    const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); pg.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const matter = new THREE.Points(pg, new THREE.PointsMaterial({ size: 4.5, map: dot, vertexColors: true, transparent: true, opacity: 0, blending: add, depthWrite: false, sizeAttenuation: true, fog: false })); matter.frustumCulled = false; g.add(matter);
+    /* a hot haze that fills the space between, thinning as it spreads */
+    const haze = []; for (let k = 0; k < 26; k++) { const d = sphereDir(r), s = glow('#ffb060', 1, 0); s.userData = { d: V(...d), rr: 120 + r() * 600, sz: 260 + r() * 400 }; haze.push(s); g.add(s); }
+    const white = C('#fff8ec'), gold = C('#ffc860'), orange = C('#ff7a30'), red = C('#a02838'), tint = new THREE.Color();
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    return { group: g, pose: { pos: CAM.clone(), look: V(0, 0, 0) }, fit: 1, fog: ['#000000', 6000, 9000], update(t) {
+      /* with reduced motion, hold on the moment inside the fireball */
+      const T = reduced() ? 4 : t % LOOP, e = T - BURST;
+      /* before: the point trembles, its halo tightening, ripples creeping outwards */
+      const pre = e < 0, appear = sm(0, 0.6, T), tense = sm(0, BURST, T);
+      core.visible = halo.visible = flare.visible = pre;
+      if (pre) {
+        const shimmer = 1 + 0.35 * Math.sin(T * 31) + 0.25 * Math.sin(T * 47 + 1) + 0.2 * Math.sin(T * 13);
+        core.scale.setScalar((1 + tense * 0.8) * shimmer); core.material.opacity = appear;
+        halo.scale.setScalar(9 - tense * 4.5 + Math.sin(T * 23) * 0.6); halo.material.opacity = appear * (0.3 + tense * 0.4);
+        flare.rotation.z = T * 0.15; flare.scale.set((0.3 + tense * 0.7) * shimmer, 1, 1); flare.children.forEach((ray, k) => { ray.material.opacity = appear * (0.25 + 0.35 * tense) * (0.7 + 0.3 * Math.sin(T * 19 + k * 2)); });
+      }
+      for (const ring of ripples) { const u = (T * 0.55 + ring.userData.ph) % 1; ring.scale.setScalar(1.5 + u * 7); ring.material.opacity = pre ? appear * 0.3 * (1 - u) * tense : 0; }
+      /* the bang: the flash eases in over a third of a second, then fades slowly */
+      flash.material.opacity = e < 0 ? 0 : 1 - sm(0.45, 1.7, e); flash.scale.setScalar(4 + 2200 * Math.pow(sm(0, 0.26, e), 2)); flash.material.color.copy(white).lerp(gold, sm(0.4, 1.4, e));
+      /* expansion: fast, then gently slowing; the matter cools and fades into the dark */
+      const a = e < 0 ? 0 : 0.02 + 1.6 * (1 - Math.exp(-e * 0.42));
+      for (let i = 0; i < N * 3; i++) pos[i] = base[i] * a;
+      pg.attributes.position.needsUpdate = true;
+      tint.copy(white).lerp(gold, sm(0.6, 2.2, e)).lerp(orange, sm(2, 4.2, e)).lerp(red, sm(4, 7, e));
+      matter.material.color.copy(tint); matter.material.opacity = e < 0 ? 0 : sm(0.35, 0.9, e) * (1 - sm(6.5, 9, e));
+      for (const s of haze) { const u = s.userData; s.position.copy(u.d).multiplyScalar(u.rr * a); s.scale.setScalar(u.sz * (0.4 + a)); s.material.color.copy(tint); s.material.opacity = e < 0 ? 0 : 0.07 * sm(0.4, 1, e) * (1 - sm(3.5, 7, e)); }
     } };
   };
   stages.cmb = () => { const c = document.createElement('canvas'); c.width = 1024; c.height = 512; const x = c.getContext('2d'), r = rng(9); x.fillStyle = '#3a1206'; x.fillRect(0, 0, 1024, 512); for (let i = 0; i < 700; i++) { const px = r() * 1024, py = r() * 512, rad = 8 + r() * 46, hot = r() > 0.5, g = x.createRadialGradient(px, py, 0, px, py, rad); g.addColorStop(0, hot ? 'rgba(255,140,50,.5)' : 'rgba(80,50,170,.5)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(px - rad, py - rad, rad * 2, rad * 2); } const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
