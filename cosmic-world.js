@@ -463,7 +463,35 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
       body.emissive.set('#ff4010'); body.emissiveIntensity = a > 0 ? 0.08 * (1 - sm(0.5, 3, a)) : 0;
     } };
   };
-  stages.now = planet({ tint: '#9aa4c0', glowColor: '#7aa0ff', clouds: 0.35, lights: 4200, marker: true }, { pos: V(0, 10, 760), look: V(0, 0, 0) }, ['#01020a', 2000, 4000], g => { const r = rng(29), s = cloud(1100, (i, c) => { const d = sphereDir(r); c.setHSL(0.6, 0.3, 0.7 + r() * 0.3); return [d[0] * 2600, d[1] * 2600, d[2] * 2600]; }, { size: 6, fog: false }); g.add(s); return { update(t, e) { const m = e.userData.marker; if (m) { m.scale.setScalar(20 + 12 * Math.sin(t * 2.2)); m.material.opacity = 0.75 + 0.25 * Math.sin(t * 2.2); } } }; });
+  // Midnight, now: an 18-second loop that pulls back from Earth until it is the Pale Blue Dot, a single pale pixel in a
+  // band of scattered sunlight, as Voyager 1 photographed it in 1990 from about 6 billion km away: a mote in a sunbeam.
+  stages.now = () => {
+    const g = new THREE.Group(), r = rng(29), LOOP = 18;
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const far = new THREE.Group(); g.add(far);
+    const e = earth({ tint: '#9aa4c0', glowColor: '#7aa0ff', clouds: 0.35, lights: 3200, marker: true, r0: 100 }); far.add(e);
+    const moon = mesh(new THREE.SphereGeometry(27, 32, 24), M('#b0aaa0')); moon.position.set(-260, 90, -180); far.add(moon);
+    g.add(cloud(1100, (i, c) => { const d = sphereDir(r); c.setHSL(0.6, 0.3, 0.7 + r() * 0.3); return [d[0] * 2600, d[1] * 2600, d[2] * 2600]; }, { size: 6, fog: false }));
+    /* the dot itself: once Earth is too small to draw, one pale blue pixel of light */
+    const dotE = new THREE.Sprite(new THREE.SpriteMaterial({ map: dot, color: C('#bcd8ff'), transparent: true, opacity: 0, depthWrite: false, fog: false, sizeAttenuation: false })); dotE.scale.setScalar(0.012); g.add(dotE);
+    /* the sunbeams: bands of scattered sunlight across the view, as in Voyager's photograph */
+    const beamTex = (() => { const c = document.createElement('canvas'); c.width = 256; c.height = 8; const x = c.getContext('2d'), gr = x.createLinearGradient(0, 0, 256, 0); [[0, '#000'], [0.35, '#3a2a1c'], [0.5, '#8a6a4a'], [0.65, '#3a2a1c'], [1, '#000']].forEach(([k, col]) => gr.addColorStop(k, col)); x.fillStyle = gr; x.fillRect(0, 0, 256, 8); return new THREE.CanvasTexture(c); })();
+    const beams = [[0, 1, 200, '#c89a6a'], [-110, 0.55, 150, '#8aa0c8'], [100, 0.5, 120, '#c8a070']].map(([x, o, w, col]) => { const b = mesh(new THREE.PlaneGeometry(w, 2400), B(col, { map: beamTex, transparent: true, opacity: 0, blending: add, depthWrite: false, fog: false })); b.position.set(x, 0, -600); b.rotation.z = 0.22; b.userData.o = o; g.add(b); return b; });
+    const label = (() => { const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 170; const x = cv.getContext('2d'); x.textAlign = 'center'; x.fillStyle = '#f3c887'; x.font = '600 54px system-ui, sans-serif'; x.fillText('Earth, from Voyager 1, 1990:', 512, 66); x.fillStyle = '#e8e2d2'; x.font = '400 54px system-ui, sans-serif'; x.fillText('a mote in a sunbeam', 512, 140); const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; return new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false, fog: false })); })();
+    label.scale.set(300, 50, 1); label.position.set(0, 150, -200); g.add(label);
+    const ring = new THREE.Sprite(new THREE.SpriteMaterial({ map: (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); x.strokeStyle = '#f3c887'; x.lineWidth = 5; x.beginPath(); x.arc(64, 64, 54, 0, 6.283); x.stroke(); return new THREE.CanvasTexture(c); })(), transparent: true, opacity: 0, depthWrite: false, fog: false, sizeAttenuation: false })); ring.scale.setScalar(0.09); g.add(ring);
+    const P = V();
+    return { group: g, fit: 1, pose: { pos: V(0, 10, 760), look: V(0, -40, 0) }, fog: ['#01020a', 6000, 90000], update(t) {
+      const T = reduced() ? 13 : t % LOOP, away = sm(3, 11, T), back = sm(17.2, 18, T), k = away * (1 - back);
+      e.rotation.y = t * 0.05; const m = e.userData.marker; if (m) { m.scale.setScalar(20 + 12 * Math.sin(t * 2.2)); m.material.opacity = (0.75 + 0.25 * Math.sin(t * 2.2)) * (1 - sm(2.5, 4, T)); }
+      /* pulling back: Earth (and the Moon) recede along the view, far beyond the Moon's orbit */
+      far.position.set(0, 50 * k, -k * 5000); far.scale.setScalar(1 - 0.975 * Math.pow(k, 0.7)); far.updateMatrixWorld(); e.getWorldPosition(P); P.sub(g.position);
+      dotE.position.copy(P); ring.position.copy(P);
+      const tiny = sm(7.5, 10, T) * (1 - back); dotE.material.opacity = tiny; e.visible = k < 0.99; moon.visible = k < 0.6;
+      for (const b of beams) b.material.opacity = 0.55 * b.userData.o * sm(8, 11, T) * (1 - back);
+      const lab = sm(10.5, 11.5, T) * (1 - sm(16.6, 17.2, T)); label.material.opacity = lab; ring.material.opacity = lab;
+    } };
+  };
 
   // ---- building blocks for the scenes that show their subject: sky, ground, people, plants, animals, buildings, spacecraft ----
   const M = (color, o = {}) => new THREE.MeshStandardMaterial({ color: C(color), roughness: 0.9, metalness: 0, ...o });
@@ -909,10 +937,10 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   // 23:59:32: farming, about 12,000 years ago in the Fertile Crescent: wheat and barley fields, sheep and goats penned, round mud-brick houses
   stages.farming = () => {
     const r = rng(67), g = new THREE.Group(), mud = M('#a87a52'), thatch = M('#c8a868', { roughness: 1 }), wood = M('#6a4a2a'), clay = M('#a8603a', { roughness: 0.8 }), stoneM = M('#8a8274');
-    g.add(skyDome('#2c3e70', '#ffc890', '#5a4026', 2400, { dir: [-0.35, 0.05, -1], col: '#fff0c8' }), ground(M('#6a5030', { roughness: 1 })), hemi('#ffe0b8', '#5a4026', 1.3));
+    g.add(skyDome('#4a7ac0', '#ffe0b0', '#8a6a44', 2400, { dir: [-0.6, 0.22, -1], col: '#fff6dc' }), ground(M('#8a6a40', { roughness: 1, map: groundTex('#86663e', ['#6a5030', '#9a7a4a', '#7a5a34'], 67, 90) })), hemi('#fff0d8', '#6a5030', 1.6));
     // fields: crop rows with furrows between them, edged by low dry-stone walls
-    const fields = [[-20, -10, 16, 10, '#e2c062', 0.85], [-2, -16, 14, 12, '#8ab040', 0.7], [-22, -26, 18, 12, '#d8b452', 1]];
-    for (const [fx, fz, w, d, col, ht] of fields) { const list = []; for (let row = 0; row < d / 0.6; row++) for (let k = 0; k < w / 0.18; k++) list.push([fx + k * 0.18 + (r() - 0.5) * 0.06, 0.45 * ht, fz - row * 0.6 + (r() - 0.5) * 0.1, r() * 3, (r() - 0.5) * 0.2, (r() - 0.5) * 0.2, [1, ht * (0.75 + r() * 0.4), 1]]); g.add(instanced(new THREE.ConeGeometry(0.05, 0.95, 4), M(col, { roughness: 0.8 }), list));
+    const fields = [[-20, -10, 16, 10, '#e2c062', 0.85], [-2, -16, 14, 12, '#8ab040', 0.7], [-22, -26, 18, 12, '#d8b452', 1]], crops = [];
+    for (const [fx, fz, w, d, col, ht] of fields) { const list = []; for (let row = 0; row < d / 0.6; row++) for (let k = 0; k < w / 0.18; k++) list.push([fx + k * 0.18 + (r() - 0.5) * 0.06, 0.45 * ht, fz - row * 0.6 + (r() - 0.5) * 0.1, r() * 3, (r() - 0.5) * 0.2, (r() - 0.5) * 0.2, [1, ht * (0.75 + r() * 0.4), 1]]); const cm = instanced(new THREE.ConeGeometry(0.05, 0.95, 4), M(col, { roughness: 0.8 }), list); crops.push({ m: cm, lag: crops.length * 0.6, fx, fz, w, d }); g.add(cm);
       const furrow = mesh(new THREE.PlaneGeometry(w, d), M('#4a3420', { roughness: 1 }), fx + w / 2, 0.01, fz - d / 2 + 0.3); furrow.rotation.x = -Math.PI / 2; g.add(furrow);
       const wall = []; for (let k = 0; k <= w; k += 0.5) wall.push([fx + k, 0.15, fz + 0.8, r() * 3, r(), r(), 0.28 + r() * 0.1]); g.add(instanced(new THREE.DodecahedronGeometry(0.5, 0), stoneM, wall)); }
     // the village: round mud-brick houses with thatched roofs and dark doorways, storage jars, a hearth
@@ -927,6 +955,13 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     const skin = ['#7a4e34', '#6a4430', '#8a5a3c'], cloth = ['#c8b48a', '#a8885a', '#d8c8a0'];
     const reaper = (x, z, ry, seed) => { const h = human({ skin: skin[seed % 3], cloth: cloth[seed % 3], seed, pose: { lean: 0.7, hips: [-0.6, -0.2], knees: [0.7, 0.4], arms: [[-1.0, 0.2], [-1.4, 0.15]], elbows: [-0.4, -0.2], head: [0.3] } }); h.position.set(x, 0, z); h.rotation.y = ry; h.userData.arms[1].wr.add(sickle(M('#5a4a3a'))); g.add(h); return h; };
     const reapers = [reaper(-14, -11, 0.4, 41), reaper(-9, -13, -0.3, 42)];
+    /* a sower walking the bare field, scattering seed */
+    const sower = human({ skin: skin[1], cloth: cloth[0], seed: 46, pose: { arms: [[-0.2, 0.2], [-1.1, 0.3]], elbows: [-0.3, -0.3] } }); sower.rotation.y = Math.PI / 2; g.add(sower);
+    const NSd = 160, sdp = new Float32Array(NSd * 3), seedsF = []; for (let i = 0; i < NSd; i++) seedsF.push({ ph: r(), dx: (r() - 0.5) * 1.2, dz: (r() - 0.5) * 1.2 });
+    const sdg = new THREE.BufferGeometry(); sdg.setAttribute('position', new THREE.BufferAttribute(sdp, 3)); const seedPts = new THREE.Points(sdg, new THREE.PointsMaterial({ size: 0.06, color: C('#e8d8a0'), transparent: true, opacity: 0 })); seedPts.frustumCulled = false; g.add(seedPts);
+    /* sheaves of cut grain standing in the stubble */
+    const shv = []; for (const c of crops) for (let k = 0; k < 7; k++) shv.push([c.fx + 1 + r() * (c.w - 2), 0.35, c.fz - 1 - r() * (c.d - 2), 0, r() * 3, 0, [1, 1, 1]]);
+    const sheaves = instanced(new THREE.ConeGeometry(0.25, 0.75, 7), M('#e2c062', { roughness: 0.9 }), shv); g.add(sheaves);
     const carrier = human({ skin: skin[1], cloth: '#b84a2a', female: true, seed: 43, pose: { arms: [[-0.05, 0.5], [-3.0, 0.15]], elbows: [-0.05, -0.3] } }); carrier.position.set(3, 0, -10); carrier.rotation.y = 0.9; const basket = mesh(new THREE.CylinderGeometry(0.26, 0.2, 0.22, 14), M('#b8945a')); basket.position.y = 0.2; carrier.userData.headJ.add(basket); g.add(carrier);
     const grinder = human({ skin: skin[2], cloth: '#d8c8a0', female: true, seed: 44, pose: { lean: 0.85, hips: [-1.6, -1.6], knees: [2.7, 2.7], arms: [[-1.2, 0.15], [-1.2, 0.15]], elbows: [-0.25, -0.25], head: [0.2], y: 0.36 } }); grinder.position.set(5, 0, -11); grinder.rotation.y = -2.4; g.add(grinder);
     const quern = mesh(new THREE.BoxGeometry(0.9, 0.18, 0.5), stoneM, 5 - 0.55, 0.09, -11 + 0.45); quern.rotation.y = -2.4; g.add(quern, mesh(new THREE.SphereGeometry(0.1, 10, 8), stoneM, 5 - 0.5, 0.25, -11 + 0.45));
@@ -934,7 +969,17 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     for (const [x, z, s] of [[26, -6, 1.3], [30, -24, 1.6], [24, -40, 1.4], [-30, -36, 1.5]]) { const p = palm(M('#2a3a1a'), s); p.position.set(x, 0, z); g.add(p); }
     const river = mesh(new THREE.PlaneGeometry(10, 500), M('#5a8ab0', { metalness: 0.3, roughness: 0.25 }), 34, 0.03, -120); river.rotation.x = -Math.PI / 2; river.rotation.z = 0.3; g.add(river);
     const smoke = cloud(60, () => [9 + gauss(r) * 0.25 + r() * r() * 2, 3.2 + r() * 6, -19 + gauss(r) * 0.25], { size: 1.4, opacity: 0.1 }); smoke.material.color.set('#3a3632'); g.add(smoke);
-    return { group: g, fit: 1.25, pose: { pos: V(-3, 6.5, 13), look: V(-1.5, 1.2, -14) }, fog: ['#e8b888', 30, 380], update(t) {
+    const green = C('#7ab03a'), gold = C('#e2c062'), sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    return { group: g, fit: 1, sun: 2.2, amb: 0.45, sunDir: [-3, 3, 2], pose: { pos: V(-6, 9, 13), look: V(-4, 0, -17) }, fog: ['#f0d0a8', 30, 380], update(t) {
+      /* one farming year in 20 seconds: sow, sprout, ripen, harvest, grind */
+      const T = reduced() ? 10.5 : t % 20, sowing = T < 3.6;
+      for (const c of crops) { const u = T - c.lag, grow = sm(3, 8.5, u), ripe = sm(8.5, 11, u), cut = sm(12.2, 16, u), back = 1 - sm(19.2, 20, T); c.m.scale.y = 0.03 + 0.97 * grow * (1 - 0.86 * cut) * back; c.m.material.color.copy(green).lerp(gold, ripe); c.m.visible = grow * back > 0.01; }
+      sower.visible = sowing; sower.position.set(-19 + (T / 3.6) * 14, 0, -11.5); sower.userData.arms[1].sh.rotation.x = -1.1 + Math.sin(T * 6) * 0.5;
+      for (let i = 0; i < NSd; i++) { const q = seedsF[i], u = (T * 2 + q.ph) % 1; sdp.set([sower.position.x + 0.3 + q.dx * u, 1.3 * (1 - u), sower.position.z + q.dz * u], i * 3); }
+      sdg.attributes.position.needsUpdate = true; seedPts.material.opacity = sowing ? 0.9 : 0;
+      const harvest = T > 11.8 && T < 17.5; reapers.forEach(h => { h.visible = harvest; });
+      sheaves.visible = T > 13.5 && T < 19.6; sheaves.scale.setScalar(sm(13.5, 15.5, T));
+      carrier.visible = T > 14.5 && T < 19.6;
       for (const b of herd) if (b.userData.graze) b.userData.neck.rotation.z = -1.6 + Math.sin(t * 0.8 + (b.userData.a || 0)) * 0.12;
       reapers.forEach((h, k) => { h.userData.arms[1].sh.rotation.x = -1.4 + Math.sin(t * 2.2 + k) * 0.35; });
       grinder.userData.spine.rotation.x = 0.85 + Math.sin(t * 2) * 0.1; smoke.rotation.y = t * 0.05; } };
@@ -981,16 +1026,55 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
       boat.position.z = -40 + Math.sin(t * 0.05) * 30;
       haulers.forEach(h => { const k = h.userData.k, sw = Math.sin(t * 2.4 + k * 0.8); h.userData.spine.rotation.x = 0.55 + sw * 0.06; h.children[0].children[0].rotation.x = -0.5 + sw * 0.15; }); } };
   };
-  // 23:59:58: telescopes to spaceflight: a space station, Hubble and satellites orbiting a city-lit Earth
+  // 23:59:58: telescopes to spaceflight, the last 500 years in an 18-second loop. The night side of Earth, a year counter
+  // and a caption: Galileo's telescope (1609); electric light from the 1880s, city lights spreading from a few points to
+  // today's web; the first aeroplane (1903); the first satellite (1957), then more and more of them as tiny moving glints
+  // (true size: far too small to see from here); people on the Moon (1969); the first photograph of the whole Earth
+  // (1972), shown as a framed illustration; and today.
   stages.modern = () => {
-    const g = new THREE.Group(), r = rng(73), e = earth({ tint: '#7a86a8', glowColor: '#7aa0ff', clouds: 0.3, lights: 4200 }); g.add(e, stars(900, 2200, 74));
-    const iss = station(); iss.scale.setScalar(2.2); g.add(iss); const hst = hubble(); hst.scale.setScalar(2.4); g.add(hst);
-    const sats = []; for (let k = 0; k < 36; k++) { const s = satellite(0.9 + r() * 0.6), orbit = new THREE.Group(); orbit.rotation.set(r() * 3, r() * 3, 0); s.position.x = 112 + r() * 60; orbit.add(s); orbit.userData.sp = 0.03 + r() * 0.05; orbit.userData.ph = r() * 6.28; sats.push(orbit); g.add(orbit); }
-    const moon = mesh(new THREE.SphereGeometry(18, 32, 24), M('#b0aaa0')); moon.position.set(-300, 120, -500); g.add(moon);
-    return { group: g, pose: { pos: V(10, 30, 260), look: V(0, 10, 0) }, fog: ['#01020a', 2000, 4000], update(t) {
-      e.rotation.y = t * 0.03; const a = t * 0.08; iss.position.set(28 + Math.sin(a) * 14, 48 + Math.cos(a * 0.7) * 5, 150); iss.rotation.set(0.3, a * 0.5, 0.15);
-      hst.position.set(-46 + Math.sin(a * 0.8) * 6, -8, 170); hst.rotation.set(0.2, a * 0.7 + 1, 0.3);
-      for (const o of sats) o.rotation.y = o.userData.ph + t * o.userData.sp; } };
+    const g = new THREE.Group(), r = rng(73), LOOP = 18, R = 100;
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const e = earth({ glowColor: '#7aa0ff', clouds: 0.25, r0: R }); e.rotation.y = -2.1; /* Europe, Africa and Asia face us */ g.add(e, stars(900, 2200, 74));
+    /* city lights, each with the year it switches on: a few early centres first, then everywhere */
+    const NL = 3600, lp = new Float32Array(NL * 3), lc = new Float32Array(NL * 3), born = new Float32Array(NL), nrm = [];
+    const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(lp, 3)); lg.setAttribute('color', new THREE.BufferAttribute(lc, 3));
+    const lights = new THREE.Points(lg, new THREE.PointsMaterial({ size: 1.5, map: dot, vertexColors: true, transparent: true, blending: add, depthWrite: false, fog: false })); lights.frustumCulled = false; e.add(lights);
+    const placeLights = () => { if (!land) return; const seeds = Array.from({ length: 300 }, () => land[Math.floor(r() * land.length)]);
+      for (let i = 0; i < NL; i++) { const s = seeds[i % seeds.length], u = s[0] + gauss(r) * 0.016, v = s[1] + gauss(r) * 0.011, lat = 90 - v * 180, lon = u * 360 - 180, p = ll(lat, lon, R * 1.004); lp.set([p.x, p.y, p.z], i * 3); nrm.push(p.clone().normalize());
+        const early = (lat > 35 && lat < 60 && lon > -10 && lon < 30) || (lat > 30 && lat < 47 && lon > -90 && lon < -70); born[i] = 1880 + (early ? r() * 50 : 30 + Math.pow(r(), 0.7) * 110); }
+      lg.attributes.position.needsUpdate = true; };
+    if (land) placeLights(); else landReady.push(placeLights);
+    /* satellites: glints on tilted orbits, each launched in its year */
+    const NS = 420, sp = new Float32Array(NS * 3), sats = []; for (let i = 0; i < NS; i++) { const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 3, r() * 3, 0)); sats.push({ q, R: R * (1.08 + Math.pow(r(), 2) * 0.6), w: 0.6 + r() * 0.5, ph: r() * 6.28, year: i === 0 ? 1957 : 1958 + Math.pow(i / NS, 0.55) * 67 }); }
+    const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+    const satPts = new THREE.Points(sg, new THREE.PointsMaterial({ size: 1.8, map: dot, color: C('#e8f0ff'), transparent: true, blending: add, depthWrite: false, fog: false })); satPts.frustumCulled = false; g.add(satPts);
+    const moon = mesh(new THREE.SphereGeometry(27, 32, 24), M('#b0aaa0')); moon.position.set(-230, 150, -420); g.add(moon);
+    /* the year and what happened, drawn as a caption above Earth */
+    const cap = (() => { const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 190; const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; const s2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, depthWrite: false, fog: false })); s2.scale.set(200, 37.1, 1); s2.position.set(0, 140, 40); s2.userData = { cv, tx, last: '' }; return s2; })(); g.add(cap);
+    const say = (year, line) => { const key = year + line; if (cap.userData.last === key) return; cap.userData.last = key; const x = cap.userData.cv.getContext('2d'); x.clearRect(0, 0, 1024, 190); x.textAlign = 'center'; x.fillStyle = '#f3c887'; x.font = '600 76px system-ui, sans-serif'; x.fillText(year, 512, 78); x.fillStyle = '#e8e2d2'; x.font = '400 46px system-ui, sans-serif'; x.fillText(line, 512, 160); cap.userData.tx.needsUpdate = true; };
+    const KEYS = [[0, 1500], [1.6, 1609], [4.5, 1880], [6, 1903], [8, 1957], [9.4, 1969], [10.2, 1972], [13.9, 1972], [16.2, 2026]] /* holds on 1972 while the photograph shows */;
+    const yearAt = T => { let k = 0; while (k < KEYS.length - 2 && T > KEYS[k + 1][0]) k++; const [t0, y0] = KEYS[k], [t1, y1] = KEYS[k + 1]; return Math.round(y0 + (y1 - y0) * Math.min(1, Math.max(0, (T - t0) / (t1 - t0)))); };
+    const EVENTS_M = [[1609, 'Galileo turns a telescope to the sky'], [1880, 'electric light'], [1903, 'the first aeroplane'], [1957, 'the first satellite'], [1969, 'people walk on the Moon'], [1972, 'the whole Earth, photographed from space'], [2026, 'today: thousands of satellites']];
+    /* the first photograph of the whole Earth, painted once from the app's own Earth map, centred on Africa */
+    const photoFrame = (() => { const cv = document.createElement('canvas'); cv.width = 400; cv.height = 470; const x = cv.getContext('2d'); x.fillStyle = '#05060c'; x.fillRect(0, 0, 400, 400); x.strokeStyle = '#f3c887'; x.lineWidth = 6; x.strokeRect(3, 3, 394, 394); x.fillStyle = '#f3c887'; x.font = '600 32px system-ui, sans-serif'; x.textAlign = 'center'; x.fillText('1972 (illustration)', 200, 448);
+      const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; const img = new Image(); img.onload = () => { const s0 = document.createElement('canvas'); s0.width = 512; s0.height = 256; const y0 = s0.getContext('2d'); y0.drawImage(img, 0, 0, 512, 256); const src = y0.getImageData(0, 0, 512, 256).data, out = x.getImageData(40, 40, 320, 320);
+          for (let py = 0; py < 320; py++) for (let px = 0; px < 320; px++) { const nx = (px - 160) / 155, ny = (py - 160) / 155, rr = nx * nx + ny * ny; if (rr > 1) continue; const nz = Math.sqrt(1 - rr), lat = Math.asin(-ny) * 180 / Math.PI, lon = 20 + Math.atan2(nx, nz) * 180 / Math.PI;
+            const u = Math.floor(((lon + 180) / 360 % 1 + 1) % 1 * 511), v = Math.floor((90 - lat) / 180 * 255), k = (v * 512 + u) * 4, o = (py * 320 + px) * 4, shade = 0.55 + 0.45 * nz; out.data[o] = src[k] * shade; out.data[o + 1] = src[k + 1] * shade; out.data[o + 2] = src[k + 2] * shade; out.data[o + 3] = 255; }
+          x.putImageData(out, 40, 40); tx.needsUpdate = true; }; img.src = 'textures/earth.webp';
+      const s2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false, fog: false })); s2.scale.set(80, 94, 1); s2.position.set(0, 22, 150); return s2; })(); g.add(photoFrame);
+    const dimmer = new THREE.Sprite(new THREE.SpriteMaterial({ color: C('#000000'), transparent: true, opacity: 0, depthWrite: false, fog: false })); dimmer.position.set(0, 0, 120); dimmer.scale.set(900, 900, 1); g.add(dimmer);
+    const Q = V(), S = V(4, 1.5, -3).normalize(), W = V();
+    return { group: g, fit: 1, sun: 1.6, amb: 0.08, sunDir: [4, 1.5, -3], pose: { pos: V(0, 40, 640), look: V(0, 24, 0) }, fog: ['#01020a', 2000, 4000], update(t) {
+      const T = reduced() ? 16.5 : t % LOOP, year = yearAt(T), fade = 1 - sm(17.4, 18, T);
+      e.rotation.y = -2.1 + t * 0.01;
+      /* lights: on once their year has come, and only on the night side */
+      for (let i = 0; i < nrm.length; i++) { W.copy(nrm[i]).applyQuaternion(e.quaternion); const night = sm(0.05, -0.2, W.dot(S)), on = year >= born[i] ? Math.min(1, (year - born[i]) / 12) : 0, b = on * night * fade; lc[i * 3] = 1 * b; lc[i * 3 + 1] = 0.84 * b; lc[i * 3 + 2] = 0.54 * b; }
+      lg.attributes.color.needsUpdate = true;
+      for (let i = 0; i < NS; i++) { const q = sats[i], up = year >= q.year, a = q.ph + t * q.w * 0.4; Q.set(Math.cos(a) * q.R, 0, Math.sin(a) * q.R).applyQuaternion(q.q); if (!up) Q.set(0, 0, 0); sp.set([Q.x, Q.y, Q.z], i * 3); }
+      sg.attributes.position.needsUpdate = true; satPts.material.opacity = 0.9 * fade;
+      let line = ''; for (const [y, l] of EVENTS_M) if (year >= y) line = l; say(String(year), line); cap.material.opacity = sm(0.3, 1, T) * fade;
+      const pic = sm(10.3, 10.9, T) * (1 - sm(13.6, 14.2, T)); photoFrame.material.opacity = pic; dimmer.material.opacity = 0.75 * pic;
+    } };
   };
 
   const built = EVENTS.map((e, i) => { const s = stages[e.id]?.(); if (!s) return null; s.group.position.set(0, 0, -i * STAGE_GAP); scene.add(s.group); s.group.visible = i < 2; return s; });

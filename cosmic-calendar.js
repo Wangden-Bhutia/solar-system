@@ -23,10 +23,10 @@ export const EVENTS = [
   { id: 'dinos', ago: 0.23e9, title: 'The dinosaurs', text: 'The first dinosaurs appear and go on to rule the land for over 150 million years.', src: [wiki('Dinosaur')] },
   { id: 'impact', ago: 66e6, title: 'The asteroid', text: 'An asteroid about 10 km wide strikes what is now Mexico, leaving a crater 180 km wide. Soot and dust darken the sky for years; about three-quarters of all species die out, including every dinosaur except the birds. Mammals inherit the world.', src: [wiki('Cretaceous–Paleogene extinction event')] },
   { id: 'humans', ago: 0.2e6, title: 'Our species', text: 'Anatomically modern humans appear in Africa.', note: 'estimates run from about 200,000 to 300,000 years ago', src: [wiki('Homo sapiens')] },
-  { id: 'farming', ago: 12000, title: 'Farming', text: 'People begin growing crops and keeping animals, and settle in villages.', src: [wiki('Neolithic Revolution')] },
+  { id: 'farming', ago: 12000, title: 'Farming', text: 'People begin growing crops and keeping animals, first in the Middle East and then, separately, in China, the Americas, New Guinea and Africa. Villages grow up beside the fields.', src: [wiki('Neolithic Revolution')] },
   { id: 'writing', ago: 5000, title: 'Writing and the first cities', text: 'Egypt, Mesopotamia and the Indus valley build cities and begin to write. Everything anyone has ever written down is inside this stretch.', src: [CAL, wiki('History of writing')] },
-  { id: 'modern', ago: 500, title: 'Telescopes to spaceflight', text: 'Modern science, electricity, aeroplanes, computers, spaceflight and the first photographs of Earth from space: all of it in the last second of the year.', src: [CAL] },
-  { id: 'now', ago: 0, title: 'Now', text: 'This is the stroke of midnight on 31 December. You are here.', src: [CAL] },
+  { id: 'modern', ago: 500, title: 'Telescopes to spaceflight', text: 'The telescope (1609), modern science, electricity, aeroplanes, computers and spaceflight: all in the last second or so of the year. The first photograph of the whole Earth from space was taken about an eighth of a second ago.', src: [CAL] },
+  { id: 'now', ago: 0, title: 'Now', text: 'Midnight on 31 December: now. All of written history fits into the last 11 seconds of this year, and all of it happened on one small planet: a mote in a sunbeam. You are here.', src: [CAL] },
 ];
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
