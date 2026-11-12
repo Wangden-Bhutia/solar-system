@@ -10,6 +10,15 @@ export function seasonGeometry(orbit, tilt = TILT) {
   const declination = Math.asin(Math.sin(t) * Math.cos(a)) * 180 / Math.PI;
   return { sun, north, declination };
 }
+// Earth's distance from the Sun along the lab's orbit (orbit zero = June solstice). The orbit is an ellipse so close to a
+// circle (eccentricity 0.0167) that drawn to scale it looks round: about 147.1 million km at its closest, around
+// 3 January, and 152.1 million km at its farthest, in early July. Closest comes in northern winter, so distance does not
+// make the seasons. The closest point sits about 193° round from the June solstice (≈ 196 days later).
+export const EARTH_ORBIT = { a: 149.598e6, e: 0.0167086, perihelion: 193.2 };
+export function earthSunDistance(orbit) {
+  const { a, e, perihelion } = EARTH_ORBIT, nu = rad(wrap(orbit) - perihelion);
+  return a * (1 - e * e) / (1 + e * Math.cos(nu)); // km
+}
 export function daylightHours(latitude, declination) {
   if (!Number.isFinite(latitude) || Math.abs(latitude) > 90) throw Error('latitude must be −90…90°');
   if (Math.abs(declination)<1e-10) return 12;
