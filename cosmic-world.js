@@ -411,8 +411,58 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
       nuc.rotation.y = t * 0.05;
     } };
   };
-  stages.impact = planet({ tint: '#d8c8b8', glowColor: '#ff7a30', clouds: 0.35 }, { pos: V(0, 20, 330), look: V(0, 0, 0) }, ['#050408', 1000, 2600], g => { const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(9, 1), new THREE.MeshStandardMaterial({ color: C('#6a5a4a'), roughness: 1, emissive: C('#ff5a10'), emissiveIntensity: 0.6 })), tail = glow('#ffd28a', 70, 1), flash = glow('#fff0d0', 10, 0); g.add(rock, tail, flash); const tgt = ll(18, -90, 101);
-    return { update(t, e) { const p = (t % 7) / 7, k = Math.min(1, p / 0.7), pos = V(300, 220, 100).lerp(tgt, ease(k) * 0.9 + k * 0.1); rock.position.copy(pos); tail.position.copy(pos); rock.visible = k < 1; tail.visible = k < 1; const hit = Math.max(0, (p - 0.7) / 0.3); flash.position.copy(tgt); flash.scale.setScalar(10 + 240 * hit); flash.material.opacity = hit > 0 ? 1 - hit : 0; e.userData.body.material.emissive.set(hit > 0 ? '#ff4a10' : '#000000'); e.userData.body.material.emissiveIntensity = hit > 0 ? 0.6 * (1 - hit) : 0; } }; });
+  // 30 Dec: the asteroid, 66 million years ago, as a 16-second loop. Earth as it was then (no land bridge at Panama,
+  // so South America was an island continent, and northern Yucatán under a shallow sea). An asteroid about 10 km wide
+  // streaks in and strikes the Yucatán coast at Chicxulub. A shock ring spreads from the impact; a plume of glowing
+  // debris rises above the atmosphere and fans out round the whole planet, falling back as burning rain; then soot and
+  // dust spread until the whole Earth is dim and grey: years of darkness and cold.
+  stages.impact = () => {
+    const r = rng(23), g = new THREE.Group(), LOOP = 16, R = 100, HIT = 3.2;
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    /* the map, 66 million years ago: open sea at Panama, a shallow sea over northern Yucatán */
+    const paleo = new THREE.CanvasTexture(document.createElement('canvas')); paleo.colorSpace = THREE.SRGBColorSpace;
+    const e = earth({ glowColor: '#6ab0ff', clouds: 0.45, r0: R }); g.add(e);
+    { const img = new Image(); img.onload = () => { const c = paleo.image; c.width = img.width; c.height = img.height; const x = c.getContext('2d'); x.drawImage(img, 0, 0);
+        const px = (lat, lon) => [(lon + 180) / 360 * c.width, (90 - lat) / 180 * c.height], sea = x.getImageData(...px(5, -86).map(Math.round), 1, 1).data;
+        x.fillStyle = `rgb(${sea[0]},${sea[1]},${sea[2]})`; x.beginPath(); [[9.8, -84], [9.8, -77], [6.8, -76.6], [6.8, -84]].forEach((p, k) => { const [u, v] = px(...p); if (k) x.lineTo(u, v); else x.moveTo(u, v); }); x.fill();
+        x.fillStyle = 'rgba(60,140,160,0.75)'; const [cu, cv] = px(20.6, -89); x.beginPath(); x.ellipse(cu, cv, 3.4 / 360 * c.width, 1.7 / 180 * c.height, 0, 0, 6.283); x.fill();
+        paleo.needsUpdate = true; e.userData.body.material.map = paleo; e.userData.body.material.needsUpdate = true; }; img.src = 'textures/earth.webp'; }
+    const body = e.userData.body.material, cloudsM = e.userData.clouds.material, halo = e.userData.halo.material;
+    /* where it hits, and a frame round that point on the surface */
+    const P = ll(21.3, -89.5, R), n = P.clone().normalize(), e1 = V().crossVectors(n, V(0, 1, 0)).normalize(), e2 = V().crossVectors(n, e1).normalize();
+    const camDir = ll(22, -84, 1).normalize().add(V(0, 0.18, 0)).normalize();
+    /* the asteroid, coming in at a slant with a glowing trail */
+    const rock = mesh(rockGeo(2.2, 3, 1, 0.9), new THREE.MeshStandardMaterial({ color: C('#5a4a3e'), emissive: C('#ff5a10'), emissiveIntensity: 0.8, roughness: 1, flatShading: true })); g.add(rock);
+    const inDir = n.clone().multiplyScalar(0.55).add(e1.clone().multiplyScalar(-0.75)).add(e2.clone().multiplyScalar(-0.35)).normalize(), from = P.clone().addScaledVector(inDir, 260);
+    const trail = []; for (let k = 0; k < 14; k++) { const s = glow(k < 3 ? '#fff4d8' : '#ffb060', 1, 0); trail.push(s); g.add(s); }
+    const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex, color: C('#fff6e0'), blending: add, transparent: true, opacity: 0, depthWrite: false, fog: false })); flash.position.copy(n).multiplyScalar(R * 1.03); g.add(flash);
+    /* the shock ring, flat on the surface round the impact */
+    const ring = mesh(new THREE.RingGeometry(0.85, 1, 64), B('#ffd8a0', { transparent: true, opacity: 0, blending: add, depthWrite: false, side: THREE.DoubleSide })); ring.position.copy(n).multiplyScalar(R * 1.01); ring.lookAt(n.clone().multiplyScalar(R * 2)); g.add(ring);
+    /* the plume: debris thrown up and out along great circles, rising above the air and falling back all round the globe */
+    const ND = 2600, dp = new Float32Array(ND * 3), deb = []; for (let i = 0; i < ND; i++) deb.push({ az: r() * 6.283, reach: 0.15 + Math.pow(r(), 0.7) * 2.9, hmax: 6 + r() * 34, sp: 0.6 + r() * 0.8 });
+    const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(dp, 3));
+    const debris = new THREE.Points(dg, new THREE.PointsMaterial({ size: 2.2, map: dot, color: C('#ffc070'), transparent: true, opacity: 0, blending: add, depthWrite: false })); debris.frustumCulled = false; g.add(debris);
+    /* soot: a dark shroud thickening over the whole planet */
+    const sootM = new THREE.MeshStandardMaterial({ map: cloudMap, color: C('#1e1a18'), transparent: true, opacity: 0, depthWrite: false, roughness: 1 }), soot = mesh(new THREE.SphereGeometry(R * 1.02, 64, 48), sootM); g.add(soot);
+    const D = V(), Q = V(), white = C('#ffffff'), grey = C('#5a5652'), hot = C('#ffb050'), red = C('#d8401a');
+    return { group: g, fit: 1, sun: 2.2, amb: 0.35, sunDir: [2, 1.5, 3], pose: { pos: camDir.clone().multiplyScalar(560), look: V(0, -8, 0) }, fog: ['#050408', 2000, 4000], update(t) {
+      const T = reduced() ? 9 : t % LOOP, a = T - HIT, fade = 1 - sm(15.3, 16, T);
+      e.rotation.y = Math.sin(t * 0.05) * 0.04; soot.rotation.y = t * 0.01;
+      /* the approach */
+      const k = Math.min(1, Math.max(0, T / HIT)), u = Math.pow(k, 1.6); rock.visible = a < 0; rock.position.lerpVectors(from, P, u); rock.rotation.set(t, t * 0.7, 0);
+      trail.forEach((s, j) => { const back = Math.min(1, u + 0) - j * 0.018; s.position.lerpVectors(from, P, Math.max(0, back)); s.scale.setScalar((j < 3 ? 8 : 14) * (1 - j / 16)); s.material.opacity = a < 0 && u > 0.05 ? (0.9 - j * 0.055) * Math.min(1, u * 4) : 0; });
+      /* impact flash and shock ring */
+      flash.material.opacity = a > 0 ? Math.pow(Math.max(0, 1 - a / 1.6), 1.4) : 0; flash.scale.setScalar(a > 0 ? 14 + 110 * sm(0, 0.45, a) : 1);
+      const rs = sm(0, 4, a); ring.scale.setScalar(4 + 70 * rs); ring.material.opacity = a > 0 ? 0.7 * (1 - rs) : 0;
+      /* debris arcs */
+      for (let i = 0; i < ND; i++) { const d = deb[i], s = Math.min(d.reach, Math.max(0, a) * d.sp * 0.55), f = d.reach > 0 ? s / d.reach : 0, h = Math.sin(Math.PI * f) * d.hmax;
+        D.copy(e1).multiplyScalar(Math.cos(d.az)).addScaledVector(e2, Math.sin(d.az)); Q.copy(n).multiplyScalar(Math.cos(s)).addScaledVector(D, Math.sin(s)).multiplyScalar(R * 1.01 + h); dp.set([Q.x, Q.y, Q.z], i * 3); }
+      dg.attributes.position.needsUpdate = true; debris.material.opacity = a > 0 ? sm(0, 0.4, a) * (1 - sm(6, 9, a)) * fade : 0; debris.material.color.copy(hot).lerp(red, sm(1, 5, a)); debris.material.blending = THREE.NormalBlending;
+      /* darkness: soot spreads, the planet dims and greys */
+      const dark = sm(2.5, 7.5, a) * fade; sootM.opacity = 0.92 * dark; body.color.copy(white).lerp(grey, dark); cloudsM.opacity = 0.45 * (1 - dark); halo.opacity = 0.28 * (1 - 0.8 * dark);
+      body.emissive.set('#ff4010'); body.emissiveIntensity = a > 0 ? 0.08 * (1 - sm(0.5, 3, a)) : 0;
+    } };
+  };
   stages.now = planet({ tint: '#9aa4c0', glowColor: '#7aa0ff', clouds: 0.35, lights: 4200, marker: true }, { pos: V(0, 10, 760), look: V(0, 0, 0) }, ['#01020a', 2000, 4000], g => { const r = rng(29), s = cloud(1100, (i, c) => { const d = sphereDir(r); c.setHSL(0.6, 0.3, 0.7 + r() * 0.3); return [d[0] * 2600, d[1] * 2600, d[2] * 2600]; }, { size: 6, fog: false }); g.add(s); return { update(t, e) { const m = e.userData.marker; if (m) { m.scale.setScalar(20 + 12 * Math.sin(t * 2.2)); m.material.opacity = 0.75 + 0.25 * Math.sin(t * 2.2); } } }; });
 
   // ---- building blocks for the scenes that show their subject: sky, ground, people, plants, animals, buildings, spacecraft ----
@@ -639,37 +689,54 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
       for (const c of cells) { const u = c.userData, a = u.a + t * u.sp * 0.3; c.position.x = Math.cos(a) * u.d; c.position.y = Math.sin(a) * u.d; c.rotation.z += 0.004 * u.sp2; c.rotation.x += 0.003 * u.sp2; }
     } };
   };
-  // 14 Dec: the first animals we can see as fossils: the Ediacaran sea floor, about 570 million years ago. Soft-bodied
-  // life on a carpet of microbial mat: fern-like fronds (Charnia), ribbed ovals (Dickinsonia), three-armed discs
-  // (Tribrachidium), the slug-like Kimberella and small vase sponges. Almost nothing swam yet; jellyfish are later.
+  // 14 Dec: the first animals we can see as fossils: the Ediacaran sea floor, about 570 million years ago, on a carpet of
+  // microbial mat. Charnia, flat leaf-like fronds with fine quilted bands on short stalks, sway in the current. Ribbed
+  // Dickinsonia glide a short way and rest, leaving faint oval marks where they fed (found as fossils). Kimberella, a low
+  // slug-like oval, grazes, scratching trails in the mat (also found as fossils). Small Spriggina crawl. Almost nothing
+  // swam yet; their colours are unknown (only impressions in rock survive), so soft living tones keep them apart.
   stages.animals = () => {
-    const r = rng(47), g = new THREE.Group(), fronds = [], crawlers = [];
+    const r = rng(47), g = new THREE.Group(), fronds = [], gliders = [], grazers = [], crawlers = [];
     g.add(skyDome('#6cc4e4', '#1a5a80', '#0c3048', 400), ground(M('#6a7058', { map: groundTex('#5e6a50', ['#4a5a40', '#7a805e', '#56604a'], 9, 60, ['#3e4a34', '#8a9070']) })), hemi('#c0ecff', '#3a4030', 1.35));
-    /* their real colours are unknown (only impressions in rock survive); soft, living tones keep them apart from the mat */
-    const tissue = (c, e) => M(c, { roughness: 0.55, emissive: C(e), emissiveIntensity: 0.35 });
-    const peach = tissue('#ffb08a', '#5a2410'), tan = tissue('#e8907a', '#4a1a10'), sand = tissue('#ffd2a0', '#4a3010'), pale = tissue('#ffc8c8', '#4a2020');
-    /* Charnia: a holdfast disc, a short stalk and a leaf-like frond of paired branches, smaller towards the tip */
-    const branch = new THREE.SphereGeometry(1, 10, 8);
-    const frond = (h, m) => { const f = new THREE.Group(); f.add(mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.06, 14), tan), mesh(new THREE.CylinderGeometry(0.035, 0.045, h * 0.22, 6), tan, 0, h * 0.11, 0), mesh(new THREE.CylinderGeometry(0.02, 0.035, h * 0.8, 6), m, 0, h * 0.6, 0));
-      for (let j = 0; j < 16; j++) { const t = j / 16, w = 0.42 * Math.sin(Math.PI * (0.15 + t * 0.85)) + 0.05; for (const side of [-1, 1]) { const b = mesh(branch, m, side * w * 0.5, h * (0.24 + t * 0.72), 0); b.scale.set(w * 0.55, h * 0.022, 0.06); b.rotation.z = side * -0.5; f.add(b); } }
-      return f; };
-    for (let k = 0; k < 22; k++) { const near = k < 7, h = near ? 2.2 + r() * 1.6 : 1.2 + r() * 2.4, f = frond(h, k % 3 ? peach : pale); f.position.set(near ? (k - 3) * 1.6 + (r() - 0.5) * 0.6 : (r() - 0.5) * 20, 0, near ? -2.5 - r() * 3 : -5 - r() * 12); f.rotation.y = r() * 3; f.userData.a = r() * 9; fronds.push(f); g.add(f); }
-    /* Dickinsonia: a flat oval, ribbed across from a midline */
-    for (let k = 0; k < 9; k++) { const d = new THREE.Group(), L = 0.6 + r() * 0.8, body = mesh(new THREE.SphereGeometry(1, 20, 10), tan); body.scale.set(L, 0.04, L * 0.72); d.add(body);
-      for (let j = -9; j <= 9; j++) { const x = j / 10 * L, w = L * 0.72 * Math.sqrt(1 - (j / 10) ** 2); d.add(mesh(new THREE.BoxGeometry(L * 0.025, 0.055, w * 1.9), sand, x, 0.02, 0)); }
-      d.add(mesh(new THREE.BoxGeometry(L * 1.9, 0.06, 0.03), sand)); d.position.set((r() - 0.5) * 7, 0.02, -0.6 - r() * 5); d.rotation.y = r() * 3; g.add(d); }
-    /* Tribrachidium: a low disc with three curved arms */
-    for (let k = 0; k < 7; k++) { const tb = new THREE.Group(), s = 0.25 + r() * 0.2, dome = mesh(new THREE.SphereGeometry(s, 16, 8, 0, 6.283, 0, Math.PI / 2), pale); dome.scale.y = 0.35; tb.add(dome); for (let a = 0; a < 3; a++) { const arm = sweep([[0, 0, 0], [s * 0.5, s * 0.1, 0], [s * 0.85, s * 0.08, 0.3 * s]], t => s * 0.09 * (1 - t * 0.5), sand, { seg: 8, ring: 6 }); arm.rotation.y = a * 2.094; tb.add(arm); } tb.position.set((r() - 0.5) * 6, 0, -0.5 - r() * 4); g.add(tb); }
-    /* Kimberella: a slug-like dome with a frilled edge, grazing the mat (slowly) */
-    for (let k = 0; k < 4; k++) { const kb = new THREE.Group(), body = mesh(new THREE.SphereGeometry(0.5, 18, 10), peach); body.scale.set(1, 0.32, 0.6); body.position.y = 0.08; const frill = mesh(new THREE.TorusGeometry(0.5, 0.06, 6, 24), sand, 0, 0.04, 0); frill.rotation.x = Math.PI / 2; frill.scale.set(1.05, 0.66, 1); kb.add(body, frill); kb.position.set((r() - 0.5) * 6, 0, -1 - r() * 4); kb.rotation.y = r() * 6; kb.userData = { x: kb.position.x, z: kb.position.z, a: r() * 6 }; crawlers.push(kb); g.add(kb); }
-    /* small vase sponges */
-    for (let k = 0; k < 9; k++) { const h = 0.5 + r() * 0.9, sp = sweep([[0, 0, 0], [0, h * 0.5, 0], [0, h, 0]], t => 0.12 + 0.16 * Math.sin(t * 2.4), M('#f0d060', { roughness: 0.8, side: THREE.DoubleSide, emissive: C('#4a3a08') }), { seg: 10, ring: 12 }); sp.position.set((r() - 0.5) * 18, 0, -r() * 14); g.add(sp); }
-    const snow = cloud(500, () => [(r() - 0.5) * 26, r() * 10, -r() * 22 + 4], { size: 0.05, opacity: 0.35 }); g.add(snow);
+    const tissue = (c, e) => M(c, { roughness: 0.6, emissive: C(e), emissiveIntensity: 0.35, side: THREE.DoubleSide });
+    const peach = tissue('#ffb08a', '#5a2410'), rose = tissue('#ffc0b8', '#4a2020'), tan = tissue('#e8907a', '#4a1a10'), sand = tissue('#ffd2a0', '#4a3010');
+    /* a quilted texture: fine bands across, a midline down, the look of Charnia's frond */
+    const quilt = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 256; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 256); x.strokeStyle = '#b87a64'; x.lineWidth = 2;
+      for (let y = 4; y < 256; y += 9) { x.beginPath(); x.moveTo(32, y); x.quadraticCurveTo(16, y + 3, 0, y + 7); x.moveTo(32, y); x.quadraticCurveTo(48, y + 3, 64, y + 7); x.stroke(); } x.fillStyle = '#a86a54'; x.fillRect(30, 0, 4, 256); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+    const frondShape = (() => { const s = new THREE.Shape(); s.moveTo(0, 0); s.bezierCurveTo(0.55, 0.15, 0.6, 0.7, 0, 1); s.bezierCurveTo(-0.6, 0.7, -0.55, 0.15, 0, 0); const geo = new THREE.ShapeGeometry(s, 24); const p = geo.attributes.position, uv = geo.attributes.uv; for (let k = 0; k < p.count; k++) { uv.setXY(k, p.getX(k) + 0.5, p.getY(k)); p.setZ(k, -0.12 * p.getX(k) ** 2 * 4); } geo.computeVertexNormals(); return geo; })();
+    for (let k = 0; k < 16; k++) { const near = k < 6, h = near ? 1.6 + r() * 1 : 1 + r() * 1.8, f = new THREE.Group(), m = (k % 2 ? peach : rose).clone(); m.map = quilt;
+      const leaf = mesh(frondShape, m, 0, h * 0.12, 0); leaf.scale.set(h * 0.42, h * 0.88, h * 0.42); f.add(mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.05, 14), tan), mesh(new THREE.CylinderGeometry(0.025, 0.035, h * 0.14, 6), tan, 0, h * 0.07, 0), leaf);
+      f.position.set(near ? (k - 2.5) * 1.5 + (r() - 0.5) * 0.5 : (r() - 0.5) * 18, 0, near ? -3 - r() * 2.5 : -5.5 - r() * 11); f.rotation.y = (r() - 0.5) * 1.2; f.userData.a = r() * 9; fronds.push(f); g.add(f); }
+    /* trace marks pressed into the mat: a small dark disc, laid flat */
+    const markM = new THREE.MeshBasicMaterial({ color: C('#3e4a34'), transparent: true, opacity: 0, depthWrite: false });
+    /* Dickinsonia: a flat oval with ribs across a midline; glides, rests, leaves a mark */
+    for (let k = 0; k < 5; k++) { const d = new THREE.Group(), L = 0.45 + r() * 0.4, body = mesh(new THREE.SphereGeometry(1, 20, 10), tan); body.scale.set(L, 0.04, L * 0.7); d.add(body);
+      for (let j = -9; j <= 9; j++) { const x = j / 10 * L, w = L * 0.7 * Math.sqrt(1 - (j / 10) ** 2); const rib = mesh(new THREE.BoxGeometry(L * 0.03, 0.012, w * 1.6), sand, x, 0.03 * Math.sqrt(1 - (j / 10) ** 2), 0); d.add(rib); }
+      const x0 = (r() - 0.5) * 5, z0 = -0.8 - r() * 2.2, ang = r() * 6.283, marks = [0, 1, 2].map(() => { const mk = mesh(new THREE.CircleGeometry(1, 24), markM.clone()); mk.rotation.x = -Math.PI / 2; mk.scale.set(L, L * 0.7, 1); mk.position.y = 0.012; g.add(mk); return mk; });
+      d.userData = { x0, z0, ang, L, marks, ph: r() * 3 }; d.position.set(x0, 0.02, z0); d.rotation.y = -ang; gliders.push(d); g.add(d); }
+    /* Kimberella: a low slug-like oval with a soft frilled rim, grazing and leaving fan-shaped scratch trails */
+    const scratchM = new THREE.LineBasicMaterial({ color: C('#2e3a28'), transparent: true, opacity: 0.85 });
+    for (let k = 0; k < 3; k++) { const kb = new THREE.Group(), body = mesh(new THREE.SphereGeometry(0.42, 22, 12), peach); body.scale.set(1, 0.22, 0.55); body.position.y = 0.05; const rim = mesh(new THREE.SphereGeometry(0.44, 22, 6), sand); rim.scale.set(1, 0.06, 0.6); rim.position.y = 0.025; kb.add(rim, body);
+      const NS = 60, sp = new Float32Array(NS * 6), sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3)); sg.setDrawRange(0, 0); const scr = new THREE.LineSegments(sg, scratchM); g.add(scr);
+      kb.userData = { x0: (r() - 0.5) * 4, z0: -1.2 - r() * 2, a: r() * 6, sp, sg, n: 0, next: 0 }; grazers.push(kb); g.add(kb); }
+    /* Spriggina: small, segmented, with a horseshoe-shaped head; crawls */
+    for (let k = 0; k < 6; k++) { const s = new THREE.Group(), L = 0.18 + r() * 0.1; for (let j = 0; j < 8; j++) s.add(mesh(new THREE.BoxGeometry(L * 0.12, 0.03, L * (0.5 - j * 0.035)), sand, L * 0.6 - j * L * 0.15, 0.02, 0)); const head = mesh(new THREE.TorusGeometry(L * 0.22, L * 0.06, 4, 12, Math.PI), rose, L * 0.72, 0.02, 0); head.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); s.add(head);
+      s.userData = { x0: (r() - 0.5) * 4, z0: -2.2 - r() * 2.5, a: r() * 6, sp: 0.08 + r() * 0.06 }; crawlers.push(s); g.add(s); }
+    /* small vase sponges, further back */
+    for (let k = 0; k < 7; k++) { const h = 0.4 + r() * 0.7, sp = sweep([[0, 0, 0], [0, h * 0.5, 0], [0, h, 0]], t => 0.1 + 0.13 * Math.sin(t * 2.4), M('#f0d060', { roughness: 0.8, side: THREE.DoubleSide, emissive: C('#4a3a08') }), { seg: 10, ring: 12 }); sp.position.set((r() - 0.5) * 16, 0, -6 - r() * 10); g.add(sp); }
+    /* a drifting current */
+    const drift = cloud(700, () => [(r() - 0.5) * 26, r() * 8, -r() * 20 + 3], { size: 0.045, opacity: 0.4 }); g.add(drift);
     shafts(g, 6, 11, 2.2, 26, 22, '#c8f2ff', 0.045);
-    return { group: g, sun: 1.6, amb: 0.45, sunDir: [2, 5, 3], fit: 1, pose: { pos: V(0, 1.5, 4.2), look: V(0, 1.4, -4) }, fog: ['#1a5a80', 5, 44], update(t) {
-      for (const f of fronds) { f.rotation.z = Math.sin(t * 0.5 + f.userData.a) * 0.07; f.rotation.x = Math.sin(t * 0.37 + f.userData.a) * 0.04; }
-      for (const c of crawlers) { const u = t * 0.02 + c.userData.a; c.position.x = c.userData.x + Math.cos(u) * 0.8; c.position.z = c.userData.z + Math.sin(u) * 0.5; c.rotation.y = -u; }
-      snow.position.y = -((t * 0.08) % 1) * 0.6;
+    return { group: g, sun: 1.6, amb: 0.45, sunDir: [2, 5, 3], fit: 1, pose: { pos: V(0, 2.1, 4.4), look: V(0, 0.45, -4) }, fog: ['#1a5a80', 5, 44], update(t) {
+      for (const f of fronds) { const a = f.userData.a; f.rotation.z = Math.sin(t * 0.55 + a) * 0.09; f.rotation.x = Math.sin(t * 0.4 + a) * 0.06 - 0.04; }
+      /* Dickinsonia: glide 2 s, rest 4 s, a new mark where it rested */
+      for (const d of gliders) { const u = d.userData, c = (t + u.ph) / 6, step = Math.floor(c), f = c - step, move = Math.min(1, f / 0.33), dist = (step + (move < 1 ? move * move * (3 - 2 * move) : 1)) * u.L * 1.3 % (u.L * 1.3 * 4);
+        d.position.x = u.x0 + Math.cos(u.ang) * dist; d.position.z = u.z0 + Math.sin(u.ang) * dist;
+        u.marks.forEach((mk, j) => { const back = Math.floor(dist / (u.L * 1.3)) - j - 1; mk.visible = back >= 0; mk.position.x = u.x0 + Math.cos(u.ang) * back * u.L * 1.3; mk.position.z = u.z0 + Math.sin(u.ang) * back * u.L * 1.3; mk.material.opacity = 0.35 - j * 0.1; }); }
+      /* Kimberella: slow loops, scratching fans behind it */
+      for (const kb of grazers) { const u = kb.userData, a = u.a + t * 0.04, x = u.x0 + Math.cos(a) * 0.9, z = u.z0 + Math.sin(a * 1.3) * 0.5; kb.position.set(x, 0, z); kb.rotation.y = -Math.atan2(Math.cos(a * 1.3) * 0.65, -Math.sin(a) * 0.9);
+        if (t > u.next) { u.next = t + 0.35; const k = u.n % 60, back = V(-Math.cos(kb.rotation.y), 0, Math.sin(kb.rotation.y)), side = V(back.z, 0, -back.x), sw = Math.sin(t * 3) * 0.12; u.sp.set([x + back.x * 0.35 + side.x * sw, 0.015, z + back.z * 0.35 + side.z * sw, x + back.x * 0.5 + side.x * sw * 1.6, 0.015, z + back.z * 0.5 + side.z * sw * 1.6], k * 6); u.n++; u.sg.setDrawRange(0, Math.min(u.n, 60) * 2); u.sg.attributes.position.needsUpdate = true; } }
+      for (const s of crawlers) { const u = s.userData, a = u.a + t * u.sp; s.position.set(u.x0 + Math.cos(a) * 1.2, 0, u.z0 + Math.sin(a) * 0.7); s.rotation.y = -Math.atan2(Math.cos(a) * 0.7, -Math.sin(a) * 1.2); }
+      drift.position.x = ((t * 0.15) % 4) - 2; drift.position.y = Math.sin(t * 0.2) * 0.1;
     } };
   };
   // 20 Dec: plants reach the land, about 450 to 470 million years ago. The first land plants were tiny and low, like
