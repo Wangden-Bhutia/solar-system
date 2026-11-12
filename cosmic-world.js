@@ -991,46 +991,63 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
       grinder.userData.spine.rotation.x = 0.85 + Math.sin(t * 2) * 0.1; smoke.rotation.y = t * 0.05; } };
   };
 
-  // 23:59:48: writing and the first cities, about 5,000 years ago: Egypt's pyramids (one still being built), an obelisk, a Sumerian ziggurat,
-  // an Indus brick city, workers hauling a stone block, a scribe, and the first writing: a cuneiform tablet, a papyrus, an Indus seal
+  // 23:59:48: the first writing, about 5,200 years ago, in Uruk, Mesopotamia: a mud-brick city by a canal, with the White
+  // Temple on its raised platform (a forerunner of the ziggurats). In front, a scribe draws picture-signs with a reed and
+  // presses round number marks into a wet clay tablet: the first writing kept accounts of grain, sheep and beer. A lens
+  // shows the tablet filling, sign by sign. (Wedge-shaped cuneiform came centuries later; the record is an illustration.)
   stages.writing = () => {
-    const r = rng(71), g = new THREE.Group(), lime = M('#e4d0a2', { roughness: 0.85 }), sandstone = M('#c8a46a'), brick = M('#b07a4a'), gold = M('#f0c860', { metalness: 0.85, roughness: 0.3 }), wood = M('#6a4a2a'), linen = '#ece4d0';
-    g.add(skyDome('#3a4a7a', '#ffb070', '#8a6a40', 2400, { dir: [0.45, 0.06, -1], col: '#fff0c8' }), ground(M('#c8a46a', { roughness: 1 })), hemi('#ffe4c0', '#8a6a40', 1.25));
-    // Giza: true proportions (height about 0.64 of the base side), white casing and gilded capstones
-    const pyr = (side, x, z, cap = true) => { const h = side * 0.636, p = mesh(new THREE.ConeGeometry(side / Math.SQRT2, h, 4), lime, x, h / 2, z); p.rotation.y = Math.PI / 4; g.add(p); if (cap) { const c = mesh(new THREE.ConeGeometry(side * 0.06 / Math.SQRT2, side * 0.06 * 0.636, 4), gold, x, h - side * 0.019, z); c.rotation.y = Math.PI / 4; g.add(c); } };
-    pyr(46, -34, -110); pyr(43, -4, -128); pyr(22, 18, -140);
-    // a pyramid still going up: stepped core, a mud-brick ramp, blocks waiting
-    const ux = 13, uz = -50; for (let k = 0; k < 5; k++) { const s = 24 - k * 4.2; g.add(mesh(new THREE.BoxGeometry(s, 2.2, s), sandstone, ux, 1.1 + k * 2.2, uz)); }
-    const ramp = mesh(new THREE.BoxGeometry(4, 1, 34), M('#9a7448'), ux - 4, 3.4, uz + 26); ramp.rotation.x = 0.36; g.add(ramp);
-    g.add(instanced(new THREE.BoxGeometry(1.4, 0.9, 1.2), sandstone, Array.from({ length: 16 }, () => [ux - 14 + r() * 10, 0.45, uz + 18 + r() * 10, r() * 0.5])));
-    // workers in linen kilts hauling a block on a wooden sledge; one pours water to wet the sand, an overseer with a staff
-    const sled = new THREE.Group(); sled.add(mesh(new THREE.BoxGeometry(1.8, 1.2, 1.6), sandstone, 0, 0.82, 0)); for (const z of [-0.6, 0.6]) { const runner = mesh(new THREE.BoxGeometry(2.6, 0.18, 0.18), wood, 0, 0.12, z); g.add(runner); sled.add(runner); } sled.position.set(-1, 0, -13); sled.rotation.y = 0.5; g.add(sled);
-    const haulers = []; for (let k = 0; k < 8; k++) { const row = Math.floor(k / 2), side = k % 2 ? 1 : -1, h = human({ skin: ['#7a4a2e', '#8a5636', '#6a3e26'][k % 3], cloth: linen, seed: 60 + k, pose: { lean: 0.55, hips: [-0.5, 0.25], knees: [0.4, 0.1], arms: [[-1.5, 0.1], [-1.4, 0.1]], elbows: [-0.2, -0.2], head: [-0.2] } });
-      const ox = -1 + Math.cos(0.5) * (2.4 + row * 1.3) - Math.sin(0.5) * side * 0.55, oz = -13 - Math.sin(0.5) * (2.4 + row * 1.3) - Math.cos(0.5) * side * 0.55; h.position.set(ox, 0, oz); h.rotation.y = 0.5 + Math.PI / 2; h.userData.k = k; haulers.push(h); g.add(h); }
-    for (const z of [-0.45, 0.45]) { const rope = tube([[1.3, 0.6, z], [4, 1.0, z], [7.5, 1.1, z]], 0.025, M('#a89060')); sled.add(rope); }
-    const pourer = human({ skin: '#7a4a2e', cloth: linen, seed: 70, pose: { lean: 0.35, arms: [[-1.2, 0.2], [-1.0, 0.25]], elbows: [-0.6, -0.8], head: [0.4] } }); pourer.position.set(0.8, 0, -11.4); pourer.rotation.y = 0.5 + Math.PI / 2; pourer.userData.arms[0].wr.add(jar(M('#a8603a'), 0.45)); g.add(pourer);
-    const boss = human({ skin: '#6a3e26', cloth: '#f4ecd8', seed: 71, pose: { arms: [[-0.25, 0.15], [-0.05, 0.1]], elbows: [-1.3, -0.1], head: [0, -0.5] } }); boss.position.set(-3.8, 0, -9.6); boss.rotation.y = -0.6; boss.userData.arms[0].wr.add(mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.7, 5).translate(0, -0.1, 0), wood)); g.add(boss);
-    // an obelisk with a gilded tip
-    g.add(mesh(new THREE.CylinderGeometry(0.55 / Math.SQRT2 * 1.4, 1.0, 11, 4), M('#d0a878'), -20, 5.5, -44)); g.children.at(-1).rotation.y = Math.PI / 4; const tip = mesh(new THREE.ConeGeometry(0.55, 1, 4), gold, -20, 11.5, -44); tip.rotation.y = Math.PI / 4; g.add(tip);
-    // Sumer: a ziggurat with three converging stairways and a shrine on top
-    const zx = 34, zz = -112; for (const [w, d, y] of [[30, 24, 2.5], [21, 16, 7.5], [12, 9, 12]]) g.add(mesh(new THREE.BoxGeometry(w, 5, d), brick, zx, y, zz)); g.add(mesh(new THREE.BoxGeometry(6, 3.4, 5), M('#d8b080'), zx, 16.2, zz));
-    for (const [dx, ry] of [[0, 0], [-6, 0.35], [6, -0.35]]) { const st = mesh(new THREE.BoxGeometry(3.2, 1, 20), M('#9a6a40'), zx + dx, 5.6, zz + 17); st.rotation.set(-0.5, ry, 0); g.add(st); }
-    // the Indus: a grid of flat-roofed brick houses along straight streets
-    const homes = []; for (let a = 0; a < 7; a++) for (let b = 0; b < 6; b++) if (r() > 0.15) { const h = 1.8 + r() * 1.4; homes.push([22 + a * 3.6, h / 2, -66 - b * 3.6, 0, 0, 0, [1, h, 1]]); } g.add(instanced(new THREE.BoxGeometry(2.8, 1, 2.8), M('#b8784a'), homes));
-    // the Nile, with a sailing boat
-    const river = mesh(new THREE.PlaneGeometry(14, 600), M('#5a8ab0', { metalness: 0.35, roughness: 0.2 }), -30, 0.03, -100); river.rotation.x = -Math.PI / 2; river.rotation.z = -0.08; g.add(river);
-    const boat = new THREE.Group(), hull = mesh(new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), M('#6a4a2a', { side: THREE.DoubleSide }), 0, 0.5, 0); hull.scale.set(3, 0.7, 0.9); const sail = mesh(new THREE.PlaneGeometry(2.2, 3.4), M('#f4ecd8', { side: THREE.DoubleSide }), 0.2, 2.6, 0); boat.add(hull, sail, mesh(new THREE.CylinderGeometry(0.05, 0.05, 4.2), wood, 0, 2.4, 0)); boat.position.set(-30, 0, -40); boat.rotation.y = Math.PI / 2; g.add(boat);
-    for (const [x, z, s] of [[-22, -18, 1.4], [-38, -24, 1.7], [-24, -60, 1.6], [-40, -80, 1.8], [-20, -36, 1.2]]) { const p = palm(M('#2a3a1a'), s); p.position.set(x, 0, z); g.add(p); }
-    // the first writing, set out on a low table: a scribe with a papyrus, a cuneiform tablet, an Indus seal, ink pot and jars
-    const tx = -3.5, tz = -5.5, table = mesh(new THREE.BoxGeometry(2.2, 0.5, 1.1), M('#7a5634'), tx, 0.25, tz); g.add(table);
-    const scribe = human({ skin: '#7a4a2e', cloth: linen, seed: 72, pose: { lean: 0.35, hips: [-1.5, -1.5], knees: [2.6, 2.6], spread: 0.5, arms: [[-0.9, 0.2], [-0.9, 0.25]], elbows: [-0.9, -0.9], head: [0.45], y: 0.3 } }); scribe.position.set(tx - 1.7, 0, tz + 0.2); scribe.rotation.y = Math.PI / 2; g.add(scribe);
-    const scroll = new THREE.Group(); scroll.add(mesh(new THREE.BoxGeometry(0.9, 0.01, 0.4), M('#e8d8a8'))); for (const x of [-0.47, 0.47]) { const rl = mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.42, 10), M('#d8c48a'), x, 0.04, 0); rl.rotation.x = Math.PI / 2; scroll.add(rl); } for (let k = 0; k < 5; k++) scroll.add(mesh(new THREE.BoxGeometry(0.6, 0.012, 0.02), M('#3a2a1a'), 0, 0.011, -0.12 + k * 0.06)); scroll.position.set(tx - 0.5, 0.51, tz); g.add(scroll);
-    const tablet = mesh(new THREE.BoxGeometry(0.5, 0.1, 0.36), M('#b8865a'), tx + 0.45, 0.55, tz); g.add(tablet); for (let k = 0; k < 4; k++) for (let w = 0; w < 6; w++) { const wedge = mesh(new THREE.ConeGeometry(0.018, 0.05, 3), M('#6a4a2a'), tx + 0.27 + w * 0.07, 0.605, tz - 0.12 + k * 0.08); wedge.rotation.z = Math.PI / 2; g.add(wedge); }
-    const seal = mesh(new THREE.BoxGeometry(0.16, 0.06, 0.16), M('#e8dcc0'), tx + 0.85, 0.53, tz - 0.25); g.add(seal); g.add(mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.08, 10), M('#2a1a10'), tx + 0.8, 0.54, tz + 0.25));
-    for (const [x, z, s, w] of [[tx + 1.5, tz + 0.6, 1.3, 0.8], [tx + 1.9, tz - 0.2, 1.0, 1], [tx + 1.3, tz - 0.8, 1.6, 0.7]]) { const j = jar(M('#a8603a', { roughness: 0.8 }), s, w); j.position.set(x, 0, z); g.add(j); }
-    return { group: g, fit: 1.25, pose: { pos: V(-2, 7, 15), look: V(1, 5, -32) }, fog: ['#e8b888', 70, 600], update(t) {
-      boat.position.z = -40 + Math.sin(t * 0.05) * 30;
-      haulers.forEach(h => { const k = h.userData.k, sw = Math.sin(t * 2.4 + k * 0.8); h.userData.spine.rotation.x = 0.55 + sw * 0.06; h.children[0].children[0].rotation.x = -0.5 + sw * 0.15; }); } };
+    const r = rng(71), g = new THREE.Group(), LOOP = 16;
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    g.add(skyDome('#5a8ad0', '#f6e2b8', '#b09670', 2400, { dir: [0.7, 0.35, -1], col: '#fff8e0' }), hemi('#fff4dc', '#9a7e5a', 2.1));
+    g.add(ground(M('#b89a6c', { map: groundTex('#b09468', ['#9a7e56', '#c8aa7c', '#a48a5e'], 71, 80) })));
+    const mud = M('#c8a478', { roughness: 0.95 }), mudDark = M('#a88458', { roughness: 0.95 }), white = M('#efe8d8', { roughness: 0.8 }), wood = M('#6a4a2a');
+    /* the White Temple: a stepped platform of mud brick, its sides buttressed, with a whitewashed temple on top and a stair */
+    const plat = new THREE.Group(); plat.position.set(4, 0, -34);
+    plat.add(mesh(new THREE.BoxGeometry(22, 7, 18), mud, 0, 3.5, 0), mesh(new THREE.BoxGeometry(17, 3, 13), mudDark, 0, 8.5, 0));
+    for (let k = -5; k <= 5; k++) plat.add(mesh(new THREE.BoxGeometry(0.7, 7, 0.5), mudDark, k * 2, 3.5, 9.1));
+    const temple = new THREE.Group(); temple.add(mesh(new THREE.BoxGeometry(12, 3.6, 7), white, 0, 1.8, 0)); for (let k = -5; k <= 5; k++) temple.add(mesh(new THREE.BoxGeometry(0.45, 3.6, 0.3), M('#e2dac8'), k * 1.1, 1.8, 3.55)); temple.add(mesh(new THREE.BoxGeometry(1.3, 2.2, 0.1), M('#3a2a1a'), 0, 1.1, 3.6)); temple.position.y = 10; plat.add(temple);
+    const stair = mesh(new THREE.BoxGeometry(3, 0.5, 13), mud, 0, 0, 0); stair.position.set(0, 3.6, 14); stair.rotation.x = -0.55; plat.add(stair); g.add(plat);
+    /* the city: flat-roofed mud-brick houses with doorways, close together */
+    const homes = []; for (let k = 0; k < 70; k++) { const x = (r() - 0.5) * 70, z = -14 - r() * 45; if (Math.abs(x - 4) < 14 && z < -22) continue; const h = 2.2 + r() * 1.6, w = 3 + r() * 2.5; homes.push([x, h / 2, z, 0, r() * 0.3, 0, [w, h, w * (0.8 + r() * 0.4)]]); }
+    g.add(instanced(new THREE.BoxGeometry(1, 1, 1), mud, homes));
+    const doors = homes.filter((_, k) => k % 2 === 0).map(([x, h2, z, , , , s]) => [x, 0.75, z + s[2] / 2 + 0.02, 0, 0, 0, [0.9, 1.5, 0.05]]); g.add(instanced(new THREE.BoxGeometry(1, 1, 1), M('#3a2a1a'), doors));
+    /* the canal, palms along it, a reed boat */
+    const canal = mesh(new THREE.PlaneGeometry(600, 7), M('#5a90b0', { metalness: 0.3, roughness: 0.2 }), 0, 0.04, -9); canal.rotation.x = -Math.PI / 2; g.add(canal);
+    for (let k = 0; k < 10; k++) { const x = -34 + k * 7.4 + (r() - 0.5) * 2; if (Math.abs(x - 3) < 11) continue; /* keep the temple in view */ const p = palm(M('#3a5a22'), 1.3 + r() * 0.6); p.position.set(x, 0, -12.8 - r() * 1.5); g.add(p); }
+    const boat = mesh(new THREE.SphereGeometry(1, 14, 6, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), M('#c8a860', { side: THREE.DoubleSide }), 0, 0.35, -9); boat.scale.set(2.4, 0.5, 0.7); g.add(boat);
+    /* in front: a reed mat, a scribe kneeling, a tablet, a lump of clay and jars */
+    const mat = mesh(new THREE.PlaneGeometry(2.6, 1.8), M('#c8b070'), 0, 0.02, 1.2); mat.rotation.x = -Math.PI / 2; g.add(mat);
+    const scribe = human({ skin: '#8a5a3a', cloth: '#eee4cc', seed: 72, pose: { lean: 0.5, hips: [-1.5, -1.5], knees: [2.6, 2.6], spread: 0.35, arms: [[-1.0, 0.25], [-1.05, 0.2]], elbows: [-0.7, -0.6], head: [0.55], y: 0.3 } });
+    scribe.position.set(-0.55, 0, 1.25); scribe.rotation.y = Math.PI / 2; g.add(scribe);
+    const reed = mesh(new THREE.CylinderGeometry(0.008, 0.01, 0.22, 5), M('#d8c070'), 0, -0.07, 0.02); reed.rotation.x = 0.6; scribe.userData.arms[1].wr.add(reed);
+    const tabletAt = V(0.05, 0.06, 1.25), tablet = mesh(new THREE.BoxGeometry(0.16, 0.04, 0.12), M('#a8805a', { roughness: 0.7 }), tabletAt.x, tabletAt.y, tabletAt.z); g.add(tablet);
+    g.add(mesh(rockGeo(0.09, 9, 1, 0.6), M('#9a7450', { roughness: 0.7 }), 0.35, 0.05, 1.55));
+    for (const [x, z, s] of [[1.7, -0.6, 0.9], [2.1, -0.2, 1.1], [-1.8, -0.4, 1]]) { const j = jar(M('#b06a3e', { roughness: 0.8 }), s); j.position.set(x, 0, z); g.add(j); }
+    /* the lens: the tablet magnified, drawn on a canvas that fills in sign by sign */
+    const cv = document.createElement('canvas'); cv.width = cv.height = 512; const lensTex = new THREE.CanvasTexture(cv); lensTex.colorSpace = THREE.SRGBColorSpace;
+    const lens = new THREE.Sprite(new THREE.SpriteMaterial({ map: lensTex, transparent: true, depthWrite: false, fog: false })); lens.scale.setScalar(1.35); lens.position.set(0.95, 1.95, 1.3); g.add(lens);
+    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(0.55, 1.3, 1.3), V(0.06, 0.1, 1.25)]), new THREE.LineBasicMaterial({ color: C('#f3c887'), transparent: true, opacity: 0.6, fog: false })));
+    /* the record: two rows, each a count in pressed marks then a picture-sign. Large round = 10, small notch = 1 (as on early tablets). */
+    const sign = { barley(x, cx, cy) { x.beginPath(); x.moveTo(cx, cy + 40); x.lineTo(cx, cy - 40); x.stroke(); for (let k = 0; k < 5; k++) { const y = cy - 32 + k * 14; x.beginPath(); x.moveTo(cx, y + 8); x.lineTo(cx - 16, y - 4); x.moveTo(cx, y + 8); x.lineTo(cx + 16, y - 4); x.stroke(); } },
+      sheep(x, cx, cy) { x.beginPath(); x.arc(cx, cy, 30, 0, 6.283); x.stroke(); x.beginPath(); x.moveTo(cx - 30, cy); x.lineTo(cx + 30, cy); x.moveTo(cx, cy - 30); x.lineTo(cx, cy + 30); x.stroke(); } };
+    const STEPS = [['ten', 0], ['ten', 0], ['ten', 0], ['one', 0], ['one', 0], ['sign', 0, 'barley'], ['ten', 1], ['one', 1], ['one', 1], ['one', 1], ['one', 1], ['sign', 1, 'sheep']]; /* 32 barley, 14 sheep */
+    let drawn = -1;
+    const paint = n => { if (n === drawn) return; drawn = n; const x = cv.getContext('2d');
+      x.clearRect(0, 0, 512, 512); x.save(); x.beginPath(); x.arc(256, 236, 222, 0, 6.283); x.clip();
+      x.fillStyle = '#b48a5e'; x.fillRect(0, 0, 512, 512); const gr = x.createRadialGradient(200, 160, 20, 256, 236, 260); gr.addColorStop(0, 'rgba(255,240,210,0.35)'); gr.addColorStop(1, 'rgba(60,30,10,0.35)'); x.fillStyle = gr; x.fillRect(0, 0, 512, 512);
+      x.strokeStyle = 'rgba(90,55,30,0.5)'; x.lineWidth = 3; x.beginPath(); x.moveTo(40, 236); x.lineTo(472, 236); x.stroke();
+      const slots = [0, 0]; for (let k = 0; k <= n && k < STEPS.length; k++) { const [kind, row, what] = STEPS[k], cy = row ? 330 : 140, cx = 78 + slots[row] * 52;
+        if (kind === 'sign') { x.strokeStyle = '#5a3820'; x.lineWidth = 9; x.lineCap = 'round'; sign[what](x, cx + 40, cy); slots[row] += 2; continue; }
+        x.fillStyle = '#6a4428'; x.beginPath(); if (kind === 'ten') x.arc(cx, cy, 22, 0, 6.283); else x.ellipse(cx, cy, 9, 22, 0.35, 0, 6.283); x.fill(); x.fillStyle = 'rgba(255,230,190,0.25)'; x.beginPath(); x.arc(cx - 4, cy - 6, kind === 'ten' ? 10 : 4, 0, 6.283); x.fill(); slots[row]++; }
+      x.restore(); x.strokeStyle = '#f3c887'; x.lineWidth = 10; x.beginPath(); x.arc(256, 236, 222, 0, 6.283); x.stroke();
+      x.fillStyle = '#f3c887'; x.font = '600 30px system-ui, sans-serif'; x.textAlign = 'center'; x.fillText(n >= STEPS.length - 1 ? '32 barley, 14 sheep' : 'a record of goods', 256, 492); x.font = '400 22px system-ui, sans-serif'; x.fillStyle = '#e8dcc4'; x.fillText('illustration', 256, 18); lensTex.needsUpdate = true; };
+    paint(-1);
+    return { group: g, sun: 2.6, amb: 0.7, sunDir: [3, 4, 3], fit: 1, pose: { pos: V(-0.2, 2.5, 8.8), look: V(0.3, 1.05, 0.8) }, fog: ['#ead8b8', 40, 500], update(t) {
+      const T = reduced() ? LOOP - 2 : t % LOOP, n = Math.floor(T / 1.05) - 1; paint(Math.min(STEPS.length - 1, n));
+      /* the writing hand: press, lift, move on */
+      const A = scribe.userData.arms[1], press = Math.max(0, Math.sin(T * 6)); A.el.rotation.x = -0.6 - press * 0.25; A.sh.rotation.z = 0.2 + Math.sin(T * 0.4) * 0.05;
+      boat.position.x = -30 + ((t * 1.2) % 60);
+    } };
   };
   // 23:59:58: telescopes to spaceflight, the last 500 years in an 18-second loop. The night side of Earth, a year counter
   // and a caption: Galileo's telescope (1609); electric light from the 1880s, city lights spreading from a few points to

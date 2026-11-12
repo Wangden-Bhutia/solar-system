@@ -28,7 +28,7 @@ export function createCosmicYear({ onOpen, onClose } = {}) {
     root.addEventListener('keydown', e => { if (e.key === 'Escape') close(); else if (e.key === 'ArrowRight' && e.target !== ageIn) nav(i + 1); else if (e.key === 'ArrowLeft' && e.target !== ageIn) nav(i - 1); });
     let x0 = null; root.addEventListener('pointerdown', e => { x0 = e.target.closest('button,input') ? null : e.clientX; }); root.addEventListener('pointerup', e => { if (x0 != null && Math.abs(e.clientX - x0) > 60) nav(i + (e.clientX < x0 ? 1 : -1)); x0 = null; });
   }
-  const paintAge = () => { const y = Math.max(0, Math.min(120, Number(ageIn.value) || 0)); ageOut.textContent = `A life of ${y} years lasts ${spanOnCalendar(y)} of this year. All of written history: ${spanOnCalendar(5000)}.`; };
+  const paintAge = () => { const y = Math.max(0, Math.min(120, Number(ageIn.value) || 0)); ageOut.textContent = `A life of ${y} years lasts ${spanOnCalendar(y)} of this year. All of written history: ${spanOnCalendar(5200)}.`; };
   const xOf = sec => (sec - (YEAR_SECONDS - S)) / S;
   function layout() {
     const ticks = bar.querySelectorAll('.cy-tick');
@@ -48,7 +48,7 @@ export function createCosmicYear({ onOpen, onClose } = {}) {
     if (e.id !== 'now') return;
     const years = Math.max(0, Math.min(120, Number(ageIn.value) || 0));
     gapEl.textContent = 'Blue: all written history. White: your life.';
-    for (const [label, y] of [['all written history', 5000], ['a life', years]]) { const sp = document.createElement('b'); sp.dataset.sec = y / AGE_YEARS * YEAR_SECONDS; sp.textContent = label; spansEl.appendChild(sp); }
+    for (const [label, y] of [['all written history', 5200], ['a life', years]]) { const sp = document.createElement('b'); sp.dataset.sec = y / AGE_YEARS * YEAR_SECONDS; sp.textContent = label; spansEl.appendChild(sp); }
     layout();
   }
   // Play the year: the date counter runs from one step to the next while the camera flies and the bar zooms, then the card appears.

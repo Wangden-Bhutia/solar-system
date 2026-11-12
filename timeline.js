@@ -36,7 +36,7 @@ const BEFORE = { cmb: 'before light broke free', galaxy: 'before the earliest ga
 const AFTER = { bang: 'just after the Big Bang', cmb: 'not long after light broke free', galaxy: 'after the first galaxies formed', disk: 'after the Milky Way’s disk formed',
   sun: 'after the Sun formed', earth: 'after Earth formed', life: 'after life began on Earth', oxygen: 'after oxygen filled the air', cells: 'after the first complex cells',
   animals: 'after the first animals', cambrian: 'after the Cambrian explosion', plants: 'after plants reached the land', ashore: 'after fish crawled onto land', dinos: 'in the age of the dinosaurs', impact: 'after the asteroid ended the dinosaurs',
-  ancestors: 'after our ancestors began walking upright', humans: 'after our species appeared', farming: 'after farming began', writing: 'after the first cities and writing' };
+  ancestors: 'after our ancestors began walking upright', humans: 'after our species appeared', farming: 'after farming began', writing: 'after writing began' };
 // Under 2,000 years the calendar says more than the cosmic year does ("in 1926", "around 1390").
 const RECENT = 2000;
 
