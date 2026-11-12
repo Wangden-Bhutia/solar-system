@@ -110,7 +110,7 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   stages.cmb = () => {
     const r = rng(9), g = new THREE.Group(), LOOP = 14;
     /* a smooth random field on the sky, wrapping round in longitude: the pattern of slightly warmer and cooler spots */
-    const W = 1024, H = 512, field = new Float32Array(W * H);
+    const W = 512, H = 256, field = new Float32Array(W * H); /* fine enough for a phone, a quarter of the work */
     for (const [cells, amp] of [[24, 0.5], [48, 1], [96, 0.6], [192, 0.3]]) { const cw = cells, ch = cells / 2, lat = Array.from({ length: (cw) * (ch + 1) }, () => r() * 2 - 1);
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const fx = x / W * cw, fy = y / H * ch, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
         const v = (i, j) => lat[((j) * cw) + ((i % cw + cw) % cw)]; const a = v(x0, y0) + (v(x0 + 1, y0) - v(x0, y0)) * sx, b = v(x0, y0 + 1) + (v(x0 + 1, y0 + 1) - v(x0, y0 + 1)) * sx; field[y * W + x] += (a + (b - a) * sy) * amp; } }
@@ -1217,7 +1217,27 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     } };
   };
 
-  const built = EVENTS.map((e, i) => { const s = stages[e.id]?.(); if (!s) return null; s.group.position.set(0, 0, -i * STAGE_GAP); scene.add(s.group); s.group.visible = i < 2; return s; });
+  // Scenes are built only when needed: the one being shown at once, its neighbours a moment later while the phone is idle,
+  // and any more than two steps away are taken apart again, so a phone never holds all of them (or waits for all of them).
+  const built = EVENTS.map(() => null), SHARED = new Set([dot, softTex, earthMap, cloudMap]);
+  function ensure(i) {
+    if (i < 0 || i >= EVENTS.length || built[i]) return built[i] || null;
+    const s = stages[EVENTS[i].id]?.(); if (!s) return null;
+    s.group.position.set(0, 0, -i * STAGE_GAP); s.group.visible = false; scene.add(s.group); built[i] = s; return s;
+  }
+  function unload(i) {
+    const s = built[i]; if (!s) return; built[i] = null; scene.remove(s.group);
+    s.group.traverse(o => { o.geometry?.dispose?.(); for (const m of [].concat(o.material || [])) { for (const k of ['map', 'alphaMap', 'emissiveMap']) { const tx = m[k]; if (tx && !SHARED.has(tx)) tx.dispose(); } m.dispose(); } });
+  }
+  let idleJob = 0; const idle = cb => (globalThis.requestIdleCallback ? requestIdleCallback(cb, { timeout: 1500 }) : setTimeout(cb, 120));
+  function prepareAround(i) {
+    for (let k = 0; k < built.length; k++) if (built[k] && Math.abs(k - i) > 2 && k !== cur && k !== prevIdx) unload(k);
+    const job = ++idleJob, queue = [i + 1, i - 1].filter(k => k >= 0 && k < EVENTS.length && !built[k]);
+    const step = () => { if (job !== idleJob || !queue.length) return; const k = queue.shift(), s = ensure(k);
+      /* compile its shaders now, quietly, so arriving there later does not stall */
+      if (s) { try { s.group.visible = true; renderer.compile(s.group, cam); } catch (e) { /* not essential */ } s.group.visible = k === cur || k === prevIdx; } idle(step); };
+    idle(step);
+  }
   const poseAt = (i, fitAuto) => { const s = built[i], fit = s.fit ?? fitAuto, z = -i * STAGE_GAP, look = s.pose.look.clone().add(V(0, 0, z)), pos = s.pose.pos.clone().add(V(0, 0, z)); pos.sub(look).multiplyScalar(fit).add(look); return { pos, look }; };
 
   // camera, flight and frame loop
@@ -1225,13 +1245,22 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
   const camPos = V(0, 0, 0), camLook = V(0, 0, 0), fogFrom = { c: C('#02040c'), n: 200, f: 1600 }, fogTo = { c: C('#02040c'), n: 200, f: 1600 }, tmpC = new THREE.Color();
   function size() { w = canvas.clientWidth || 412; h = canvas.clientHeight || 915; renderer.setSize(w, h, false); cam.aspect = w / h; fit = w / h < 1 ? Math.min(2.1, 0.92 / Math.max(0.42, w / h)) : 1; cam.setViewOffset(w, h, 0, h * 0.16, w, h); /* lift the subject into the empty space above the card */ cam.updateProjectionMatrix(); }
   function setTarget(i, instant) {
-    const a = built[i]; if (!a) return; const p = poseAt(i, fit); from = { pos: camPos.clone(), look: camLook.clone(), fog: { c: fogFrom.c.clone(), n: fogFrom.n, f: fogFrom.f } }; to = p; fogTo.c.set(a.fog[0]); fogTo.n = a.fog[1]; fogTo.f = a.fog[2];
+    const a = ensure(i); if (!a) return; const p = poseAt(i, fit); from = { pos: camPos.clone(), look: camLook.clone(), fog: { c: fogFrom.c.clone(), n: fogFrom.n, f: fogFrom.f } }; to = p; fogTo.c.set(a.fog[0]); fogTo.n = a.fog[1]; fogTo.f = a.fog[2];
     a.since = instant ? tNow : Infinity; sun.intensity = a.sun ?? 2.4; amb.intensity = a.amb ?? 0.55; sun.position.set(...(a.sunDir || [4, 1.5, 3])); sun.color.set(a.sunColor || '#fff1d8'); const prev = cur; cur = i; prevIdx = instant || prev === i ? -1 : prev; flight = instant ? 1 : 0; if (instant) { camPos.copy(p.pos); camLook.copy(p.look); fogFrom.c.copy(fogTo.c); fogFrom.n = fogTo.n; fogFrom.f = fogTo.f; }
     built.forEach((s, k) => { if (s) s.group.visible = k === i || k === prevIdx; });
+    if (flight >= 1) prepareAround(i);
+  }
+  // A phone that cannot keep up gets fewer pixels: if frames take over 40 ms for about two seconds after a scene has settled,
+  // the drawing resolution steps down (1.75 to 1.25 to 1). It never steps back up in a session, so it cannot flicker.
+  let slow = 0, settled = 0; const RATIOS = [1.75, 1.25, 1];
+  function adapt(dt) {
+    if (flight < 1 || dt <= 0 || dt > 0.5) { settled = 0; return; } if (++settled < 20) return;
+    slow = dt > 0.04 ? slow + 1 : Math.max(0, slow - 1); if (slow < 50) return; slow = 0;
+    const cur2 = renderer.getPixelRatio(), next2 = RATIOS.find(r2 => r2 < cur2 - 0.01); if (next2) { renderer.setPixelRatio(next2); size(); }
   }
   function render(now) {
-    const t = reduced() ? 0 : Math.max(0, now - t0) / 1000, dt = Math.min(0.6, (now - last) / 1000 || 0.016); last = now;
-    if (flight < 1) { flight = Math.min(1, flight + dt / 2.4); const k = ease(flight); camPos.lerpVectors(from.pos, to.pos, k); camLook.lerpVectors(from.look, to.look, k); fogFrom.c.lerp(fogTo.c, 0.06 + 0.1 * k); fogFrom.n += (fogTo.n - fogFrom.n) * 0.08; fogFrom.f += (fogTo.f - fogFrom.f) * 0.08; if (flight >= 1) { built.forEach((s, k2) => { if (s) s.group.visible = k2 === cur; }); prevIdx = -1; if (built[cur]) built[cur].since = t; } }
+    const t = reduced() ? 0 : Math.max(0, now - t0) / 1000, dt = Math.min(0.6, (now - last) / 1000 || 0.016); last = now; adapt(dt);
+    if (flight < 1) { flight = Math.min(1, flight + dt / 2.4); const k = ease(flight); camPos.lerpVectors(from.pos, to.pos, k); camLook.lerpVectors(from.look, to.look, k); fogFrom.c.lerp(fogTo.c, 0.06 + 0.1 * k); fogFrom.n += (fogTo.n - fogFrom.n) * 0.08; fogFrom.f += (fogTo.f - fogFrom.f) * 0.08; if (flight >= 1) { built.forEach((s, k2) => { if (s) s.group.visible = k2 === cur; }); prevIdx = -1; if (built[cur]) built[cur].since = t; prepareAround(cur); } }
     else { fogFrom.c.lerp(fogTo.c, 0.1); }
     scene.fog.color.copy(fogFrom.c); scene.fog.near = fogFrom.n; scene.fog.far = fogFrom.f; scene.background.copy(fogFrom.c);
     const wob = reduced() ? 0 : camPos.distanceTo(camLook) / 400; /* drift and parallax scale with the scene, so a ground-level camera never sinks below the ground */ cam.position.set(camPos.x + (Math.sin(t * 0.13) * 14 + px * 26) * wob, camPos.y + Math.max(-camPos.y * 0.5 / Math.max(wob, 1e-6), Math.cos(t * 0.1) * 8 - py * 16) * wob, camPos.z - drift * wob); cam.lookAt(camLook);
@@ -1246,5 +1275,6 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
     start() { size(); t0 = performance.now(); last = t0; tNow = 0; addEventListener('pointermove', move); addEventListener('resize', refit); if (reduced() || typeof requestAnimationFrame !== 'function') { render(t0); return; } cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); },
     stop() { if (raf) cancelAnimationFrame(raf); raf = 0; removeEventListener('pointermove', move); removeEventListener('resize', refit); },
     get index() { return cur; },
+    _builtCount: () => built.filter(Boolean).length, /* for tests and measurement */
   };
 }
