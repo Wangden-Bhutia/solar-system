@@ -209,8 +209,67 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
       for (const b of lb) { const u = (T * b.userData.sp + b.userData.ph) % 1; b.position.y = -1.2 + u * 2.4; b.position.x = b.userData.x + Math.sin(u * 8) * 0.05; b.visible = b.position.x ** 2 + b.position.y ** 2 < (lensR - 0.1) ** 2 && o2 > 0.1; }
     } };
   };
-  stages.cells = () => { const r = rng(19), g = new THREE.Group(), cells = []; for (let i = 0; i < 70; i++) { const rad = 6 + r() * 18, c = new THREE.Group(); c.add(new THREE.Mesh(new THREE.SphereGeometry(rad, 24, 16), new THREE.MeshStandardMaterial({ color: C('#7fe8d0'), transparent: true, opacity: 0.28, roughness: 0.3, emissive: C('#0a4a44') })), new THREE.Mesh(new THREE.SphereGeometry(rad * 0.34, 16, 12), new THREE.MeshStandardMaterial({ color: C('#d8ffe8'), emissive: C('#3a9a80'), roughness: 0.5 }))); c.position.set((r() - 0.5) * 420, (r() - 0.5) * 300, (r() - 0.5) * 300 - 60); c.userData = { a: r() * 9, b: 0.2 + r() * 0.5 }; cells.push(c); g.add(c); }
-    return { group: g, pose: { pos: V(0, 0, 230), look: V(0, 0, 0) }, fog: ['#031a1c', 300, 900], update(t) { for (const c of cells) { c.position.y += Math.sin(t * c.userData.b + c.userData.a) * 0.06; c.position.x += Math.cos(t * c.userData.b * 0.7 + c.userData.a) * 0.05; c.rotation.y = t * 0.2; } } }; };
+  // 9 Nov: complex cells, about 2 billion years ago, inside a drop of sea water magnified about 2,000 times. A complex
+  // (eukaryotic) cell, about ten times the width of a bacterium, with its DNA in a nucleus behind a double wall with
+  // pores, folded inner membranes, and mitochondria: power units that began as bacteria a larger cell swallowed and
+  // kept. Bacteria swim around it, and every 16 seconds the cell reaches out, wraps one inside and, over the loop, the
+  // captured bacterium becomes a new mitochondrion (the endosymbiosis that made complex life possible).
+  stages.cells = () => {
+    const r = rng(19), g = new THREE.Group(), RC = 3, LOOP = 16, flat = o => ({ ...o });
+    g.add(skyDome('#0f4a48', '#08262a', '#041418', 400), hemi('#bff0e8', '#10201c', 1.1));
+    /* the outer skin: a see-through shell with a bright rim, gently wobbling, and able to bulge into a cup */
+    const fres = (col, k = 1) => new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: add, side: THREE.FrontSide, uniforms: { c: { value: C(col) }, k: { value: k } },
+      vertexShader: 'varying vec3 n;varying vec3 v;void main(){vec4 mv=modelViewMatrix*vec4(position,1.);n=normalize(normalMatrix*normal);v=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}',
+      fragmentShader: 'uniform vec3 c;uniform float k;varying vec3 n;varying vec3 v;void main(){float f=pow(1.-abs(dot(n,v)),2.2);gl_FragColor=vec4(c*(f*1.4+0.06)*k,1.);}' });
+    const skinG = new THREE.SphereGeometry(RC, 64, 40), base = skinG.attributes.position.array.slice(), skin = mesh(skinG, fres('#9af0d8')); g.add(skin);
+    const inside = mesh(new THREE.SphereGeometry(RC * 0.985, 48, 32), new THREE.MeshStandardMaterial({ color: C('#2a6a60'), transparent: true, opacity: 0.22, roughness: 0.6, depthWrite: false })); g.add(inside);
+    /* the nucleus: a double wall with pores, and a darker nucleolus inside */
+    const nuc = new THREE.Group(); nuc.position.set(-0.55, 0.25, 0.2);
+    nuc.add(mesh(new THREE.SphereGeometry(1.05, 40, 28), new THREE.MeshStandardMaterial({ color: C('#e8a060'), emissive: C('#5a2a08'), emissiveIntensity: 0.6, roughness: 0.5, transparent: true, opacity: 0.85 })));
+    nuc.add(mesh(new THREE.SphereGeometry(1.13, 40, 28), fres('#ffc890', 0.8)), mesh(new THREE.SphereGeometry(0.38, 24, 16), M('#9a4a2a', { emissive: C('#3a1408') }), 0.25, 0.15, 0.55));
+    const pores = []; for (let k = 0; k < 40; k++) { const d = sphereDir(r); pores.push([d[0] * 1.12, d[1] * 1.12, d[2] * 1.12, 0, 0, 0, 1]); } nuc.add(instanced(new THREE.SphereGeometry(0.04, 6, 4), B('#5a2a10'), pores)); g.add(nuc);
+    /* folded inner membranes wrapped round the nucleus */
+    const erM = new THREE.MeshStandardMaterial({ color: C('#c8a8f0'), emissive: C('#3a2a5a'), emissiveIntensity: 0.5, roughness: 0.5, transparent: true, opacity: 0.75 });
+    for (let k = 0; k < 6; k++) { const arc = mesh(new THREE.TorusGeometry(1.35 + k * 0.16, 0.035, 6, 40, 2.2 + r() * 1.2), erM, nuc.position.x, nuc.position.y, nuc.position.z); arc.rotation.set(r() * 3, r() * 3, r() * 3); g.add(arc); }
+    /* mitochondria: orange beans with folded inner walls (striped) */
+    const stripes = (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 32; const x = c.getContext('2d'); x.fillStyle = '#ff9a4a'; x.fillRect(0, 0, 128, 32); x.strokeStyle = '#a84a1a'; x.lineWidth = 3; for (let i = 8; i < 128; i += 14) { x.beginPath(); x.moveTo(i, 4); x.quadraticCurveTo(i + 6, 16, i, 28); x.stroke(); } const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+    const mitoG = new THREE.CapsuleGeometry(0.2, 0.55, 8, 16), mitoM = new THREE.MeshStandardMaterial({ map: stripes, emissive: C('#5a2008'), emissiveIntensity: 0.5, roughness: 0.5 });
+    const mitos = []; for (const [x, y, z] of [[1.4, 1.2, 0.4], [1.7, -0.5, 0.6], [0.6, -1.5, 0.9], [-1.8, -1.2, 0.5], [-1.6, 1.6, -0.3], [0.8, 1.9, -0.6]]) { const m = mesh(mitoG, mitoM, x, y, z); m.rotation.set(r() * 3, r() * 3, r() * 3); m.userData.a = r() * 6; mitos.push(m); g.add(m); }
+    g.add(cloud(500, (i, c) => { c.setHSL(0.45, 0.4, 0.6); const d = sphereDir(r), rr = Math.cbrt(r()) * RC * 0.9; return [d[0] * rr, d[1] * rr, d[2] * rr]; }, { size: 0.04, opacity: 0.6 })); /* ribosomes */
+    /* bacteria: about a tenth of the cell's width, each with a whipping tail */
+    const bacM = new THREE.MeshStandardMaterial({ color: C('#5ad0a0'), emissive: C('#0e4a30'), emissiveIntensity: 0.6, roughness: 0.4 }), tailM = new THREE.LineBasicMaterial({ color: C('#8ae8c0'), transparent: true, opacity: 0.7 });
+    const bacterium = (m = bacM) => { const b = new THREE.Group(), body = mesh(new THREE.CapsuleGeometry(0.11, 0.26, 6, 12), m); body.rotation.z = Math.PI / 2; const tg = new THREE.BufferGeometry(), tp = new Float32Array(16 * 3); tg.setAttribute('position', new THREE.BufferAttribute(tp, 3)); const tail = new THREE.Line(tg, tailM.clone()); b.add(body, tail); b.userData = { tp, tg, tail, body }; return b; };
+    const wag = (b, t) => { const { tp, tg } = b.userData; for (let i = 0; i < 16; i++) { const u = i / 15; tp[i * 3] = -0.22 - u * 0.5; tp[i * 3 + 1] = Math.sin(t * 14 - u * 9) * 0.06 * u; tp[i * 3 + 2] = 0; } tg.attributes.position.needsUpdate = true; };
+    const swimmers = []; for (let k = 0; k < 16; k++) { const b = bacterium(); b.userData.o = { R: RC + 0.8 + r() * 2.6, a: r() * 6.283, sp: (0.12 + r() * 0.2) * (r() < 0.5 ? -1 : 1), z: (r() - 0.5) * 3, tilt: (r() - 0.5) * 0.8 }; swimmers.push(b); g.add(b); }
+    /* the one that is swallowed */
+    const preyM = bacM.clone(), prey = bacterium(preyM); g.add(prey);
+    const vesicle = mesh(new THREE.SphereGeometry(0.34, 20, 14), fres('#9af0d8', 0.9)); g.add(vesicle);
+    const dir = V(0.72, 0.55, 0.42).normalize(), out0 = dir.clone().multiplyScalar(RC + 3.2).add(V(1.2, 0.8, 0)), atSkin = dir.clone().multiplyScalar(RC + 0.25), inner = V(1.2, 0.2, 1.3);
+    const tag = (() => { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const x = cv.getContext('2d'); x.fillStyle = '#f3c887'; x.font = '600 28px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('× 2,000', 128, 32); const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true })); sp.scale.set(2.2, 0.55, 1); sp.position.set(-2.4, -RC - 0.45, 0); return sp; })(); g.add(tag);
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const teal = C('#5ad0a0'), orange = C('#ff9a4a'), P = V(), Q = V();
+    return { group: g, fit: 1, sun: 1.2, amb: 0.45, sunDir: [2, 3, 4], pose: { pos: V(0, 0.4, 15.5), look: V(0, 0, 0) }, fog: ['#08262a', 20, 60], update(t) {
+      const T = t % LOOP;
+      /* swimmers circle the cell */
+      for (const b of swimmers) { const o = b.userData.o, a = o.a + t * o.sp * 0.5; b.position.set(Math.cos(a) * o.R, Math.sin(a) * o.R * 0.75 + Math.sin(a * 2) * 0.3, o.z); b.rotation.set(o.tilt, 0, a + (o.sp > 0 ? Math.PI / 2 : -Math.PI / 2)); wag(b, t + o.a); }
+      /* the prey: swims in, is wrapped, carried inside, and becomes a mitochondrion */
+      const come = sm(0, 5, T), sink = sm(5.5, 8.5, T), carry = sm(8.5, 11, T), become = sm(10.5, 14, T), reset = sm(15.2, 16, T);
+      P.lerpVectors(out0, atSkin, come); P.lerp(Q.copy(dir).multiplyScalar(RC - 0.55), sink); P.lerp(inner, carry); prey.position.copy(P);
+      if (carry < 0.9) { prey.lookAt(T < 8.5 ? Q.copy(P).add(dir.clone().multiplyScalar(-1)) : inner); prey.rotateY(-Math.PI / 2); } else prey.rotation.set(0.3, 0.2, 0.6 + T * 0.02); /* once inside it lies side-on, like the other mitochondria */ wag(prey, t);
+      preyM.color.copy(teal).lerp(orange, become); preyM.map = become > 0.5 ? stripes : null; preyM.needsUpdate = become > 0.49 && become < 0.52;
+      prey.userData.body.scale.set(1 + become * 0.9, 1 + become * 1.1, 1 + become * 0.9); prey.userData.tail.material.opacity = 0.7 * (1 - sink);
+      prey.visible = reset < 0.5; prey.scale.setScalar(T < 0.6 ? T / 0.6 : 1);
+      vesicle.position.copy(P); vesicle.visible = sink > 0.6 && become < 0.9; vesicle.material.uniforms.k.value = 0.9 * (1 - become);
+      /* the skin: a slow wobble, and a raised cup that closes round the prey */
+      const cup = sm(4, 6.5, T) * (1 - sm(7.5, 9, T)), pos = skinG.attributes.position.array;
+      for (let i = 0; i < pos.length; i += 3) { const x = base[i], y = base[i + 1], z = base[i + 2], cosA = (x * dir.x + y * dir.y + z * dir.z) / RC, ang = Math.acos(Math.min(1, Math.max(-1, cosA)));
+        const k = 1 + 0.02 * Math.sin(t * 1.3 + x * 1.7 + y) + 0.015 * Math.sin(t * 0.9 + z * 2.1) + cup * (0.22 * Math.exp(-(((ang - 0.2) / 0.1) ** 2)) - 0.08 * Math.exp(-((ang / 0.12) ** 2)));
+        pos[i] = x * k; pos[i + 1] = y * k; pos[i + 2] = z * k; }
+      skinG.attributes.position.needsUpdate = true; skinG.computeVertexNormals();
+      for (const m of mitos) { m.rotation.y += 0.003; m.position.y += Math.sin(t * 0.6 + m.userData.a) * 0.0015; }
+      nuc.rotation.y = t * 0.05;
+    } };
+  };
   stages.impact = planet({ tint: '#d8c8b8', glowColor: '#ff7a30', clouds: 0.35 }, { pos: V(0, 20, 330), look: V(0, 0, 0) }, ['#050408', 1000, 2600], g => { const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(9, 1), new THREE.MeshStandardMaterial({ color: C('#6a5a4a'), roughness: 1, emissive: C('#ff5a10'), emissiveIntensity: 0.6 })), tail = glow('#ffd28a', 70, 1), flash = glow('#fff0d0', 10, 0); g.add(rock, tail, flash); const tgt = ll(18, -90, 101);
     return { update(t, e) { const p = (t % 7) / 7, k = Math.min(1, p / 0.7), pos = V(300, 220, 100).lerp(tgt, ease(k) * 0.9 + k * 0.1); rock.position.copy(pos); tail.position.copy(pos); rock.visible = k < 1; tail.visible = k < 1; const hit = Math.max(0, (p - 0.7) / 0.3); flash.position.copy(tgt); flash.scale.setScalar(10 + 240 * hit); flash.material.opacity = hit > 0 ? 1 - hit : 0; e.userData.body.material.emissive.set(hit > 0 ? '#ff4a10' : '#000000'); e.userData.body.material.emissiveIntensity = hit > 0 ? 0.6 * (1 - hit) : 0; } }; });
   stages.now = planet({ tint: '#9aa4c0', glowColor: '#7aa0ff', clouds: 0.35, lights: 4200, marker: true }, { pos: V(0, 10, 760), look: V(0, 0, 0) }, ['#01020a', 2000, 4000], g => { const r = rng(29), s = cloud(1100, (i, c) => { const d = sphereDir(r); c.setHSL(0.6, 0.3, 0.7 + r() * 0.3); return [d[0] * 2600, d[1] * 2600, d[2] * 2600]; }, { size: 6, fog: false }); g.add(s); return { update(t, e) { const m = e.userData.marker; if (m) { m.scale.setScalar(20 + 12 * Math.sin(t * 2.2)); m.material.opacity = 0.75 + 0.25 * Math.sin(t * 2.2); } } }; });
