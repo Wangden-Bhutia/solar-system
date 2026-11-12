@@ -168,8 +168,53 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
       lg.attributes.position.needsUpdate = true; light.material.opacity = fogIn * (1 - sm(7, 9, T));
     } };
   };
-  stages.disk = () => { const r = rng(13), g = new THREE.Group(), pts = cloud(11000, (i, c) => { const rr = Math.pow(r(), 0.75) * 330, arm = r() < 0.5 ? 0 : Math.PI, th = arm + rr / 330 * 4.4 + gauss(r) * (0.25 + rr / 900), y = gauss(r) * (14 * (1 - rr / 420)); c.setHSL(0.1 + (rr / 330) * 0.5, 0.55, 0.62 + r() * 0.3); return [Math.cos(th) * rr, y, Math.sin(th) * rr]; }, { size: 2.6 }), core = glow('#ffe2a8', 190, 0.9); g.add(pts, core);
-    return { group: g, pose: { pos: V(0, 230, 380), look: V(0, 0, 0) }, fog: ['#02030a', 900, 2200], update(t) { pts.rotation.y = t * 0.035; } }; };
+  // 13 May: the Milky Way's disk forms (8 to 10 billion years ago), as a 16-second loop seen at a slight tilt. The young
+  // galaxy is puffy and clumpy, its stars buzzing in all directions. A smaller galaxy, Gaia–Enceladus, falls in and is
+  // torn into long streams (its scattered stars are still around us today). Then the gas settles and flattens into a
+  // thin, spinning disk; a bar and spiral arms take shape, new blue stars light up along the arms, and a marker shows
+  // where the Sun will form, about 4 billion years later.
+  stages.disk = () => {
+    const r = rng(13), g = new THREE.Group(), LOOP = 16, N = 7000, NG = 1400, RMAX = 170;
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const spin = new THREE.Group(); g.add(spin);
+    /* each star: where it ends up in the disk (bar, arms or smooth disk), and where it starts in the puffy young galaxy */
+    const fin = new Float32Array(N * 3), start = new Float32Array(N * 3), jig = [], pos = new Float32Array(N * 3), col = new Float32Array(N * 3), kind = new Uint8Array(N);
+    const clumps = Array.from({ length: 9 }, () => { const d = sphereDir(r); return [d[0] * 70, d[1] * 45, d[2] * 70]; });
+    for (let i = 0; i < N; i++) { const u = r(); let x, y, z;
+      if (u < 0.18) { kind[i] = 0; x = gauss(r) * 55; z = gauss(r) * 14; y = gauss(r) * 6; } /* the bar */
+      else if (u < 0.62) { kind[i] = 1; const arm = Math.floor(r() * 4), R = 40 + Math.pow(r(), 0.8) * (RMAX - 40), th = arm * Math.PI / 2 + Math.log(R / 40) / 0.28 + gauss(r) * 0.16; x = Math.cos(th) * R; z = Math.sin(th) * R; y = gauss(r) * 3.5; } /* the arms */
+      else { kind[i] = 2; const R = Math.min(RMAX, -Math.log(1 - r() * 0.95) * 55), th = r() * 6.283; x = Math.cos(th) * R; z = Math.sin(th) * R; y = gauss(r) * 5; } /* the smooth disk */
+      fin.set([x, y, z], i * 3);
+      const c = r() < 0.6 ? clumps[Math.floor(r() * clumps.length)] : [0, 0, 0], d = sphereDir(r), rr = Math.pow(r(), 0.7) * (c === clumps[0] ? 40 : 95);
+      start.set([c[0] * 0.8 + d[0] * rr, c[1] * 0.8 + d[1] * rr * 0.8, c[2] * 0.8 + d[2] * rr], i * 3);
+      jig.push([r() * 6.283, 0.6 + r() * 1.6, sphereDir(r)]); }
+    const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); pg.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const stars = new THREE.Points(pg, new THREE.PointsMaterial({ size: 2.1, map: dot, vertexColors: true, transparent: true, opacity: 0, blending: add, depthWrite: false, fog: false })); stars.frustumCulled = false; spin.add(stars);
+    const bulge = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex, color: C('#ffd8a0'), blending: add, transparent: true, opacity: 0, depthWrite: false, fog: false })); bulge.scale.set(120, 120, 1); spin.add(bulge);
+    /* Gaia–Enceladus: a smaller galaxy on a plunging path, stretched into streams, its stars left scattered in a halo */
+    const gpos = new Float32Array(NG * 3), gs = []; for (let i = 0; i < NG; i++) { const d = sphereDir(r); gs.push({ lag: Math.pow(r(), 1.3), off: V(d[0], d[1], d[2]).multiplyScalar(Math.pow(r(), 0.6) * 16), halo: V(...sphereDir(r)).multiplyScalar(90 + r() * 160) }); }
+    const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.BufferAttribute(gpos, 3));
+    const gse = new THREE.Points(gg, new THREE.PointsMaterial({ size: 2.2, map: dot, color: C('#ffc890'), transparent: true, opacity: 0, blending: add, depthWrite: false, fog: false })); gse.frustumCulled = false; g.add(gse);
+    const path = new THREE.CatmullRomCurve3([V(300, 170, -160), V(180, 90, -60), V(60, 20, 20), V(-40, -10, 40), V(-90, 20, -40), V(-20, 10, -90), V(40, -5, -30)]), P = V();
+    /* where the Sun will form: a gold ring on an arm, and its label */
+    const sunAt = V(Math.cos(1.1) * 105, 0, Math.sin(1.1) * 105), mark = mesh(new THREE.RingGeometry(9, 10.5, 48), B('#f3c887', { transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, fog: false })); mark.rotation.x = -Math.PI / 2; mark.position.copy(sunAt); spin.add(mark);
+    const label = (() => { const cv = document.createElement('canvas'); cv.width = 640; cv.height = 96; const x = cv.getContext('2d'); x.fillStyle = 'rgba(6,8,20,0.75)'; x.beginPath(); x.roundRect(20, 8, 600, 80, 26); x.fill(); x.fillStyle = '#f3c887'; x.font = '600 40px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('the Sun forms here, much later', 320, 50); const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false, fog: false })); sp.scale.set(110, 16.5, 1); return sp; })(); g.add(label);
+    const old = C('#ffe2b0'), young = C('#9cc4ff'), barC = C('#ffcf90'), tc = new THREE.Color(), W = V();
+    return { group: g, fit: 1, pose: { pos: V(0, 270, 720), look: V(0, -10, 0) }, fog: ['#02030a', 2000, 4000], update(t) {
+      const T = reduced() ? 12.5 : t % LOOP, fade = sm(0, 0.8, T) * (1 - sm(15.4, 16, T)), flat = sm(5.5, 10.5, T), arms = sm(8, 12, T), puffy = 1 - flat;
+      spin.rotation.y = t * 0.06;
+      for (let i = 0; i < N; i++) { const j = jig[i], a = Math.sin(t * j[1] + j[0]) * 14 * puffy, k = i * 3;
+        pos[k] = start[k] + (fin[k] - start[k]) * flat + j[2][0] * a; pos[k + 1] = start[k + 1] + (fin[k + 1] - start[k + 1]) * flat + j[2][1] * a; pos[k + 2] = start[k + 2] + (fin[k + 2] - start[k + 2]) * flat + j[2][2] * a;
+        tc.copy(old); if (kind[i] === 1) tc.lerp(young, arms * 0.85); else if (kind[i] === 0) tc.lerp(barC, arms); col[k] = tc.r; col[k + 1] = tc.g; col[k + 2] = tc.b; }
+      pg.attributes.position.needsUpdate = pg.attributes.color.needsUpdate = true; stars.material.opacity = 0.95 * fade;
+      bulge.material.opacity = (0.35 + 0.25 * flat) * fade; bulge.scale.set(120 - 40 * flat, 120 - 70 * flat, 1);
+      /* the smaller galaxy: in along its path, smeared into a stream, then scattered */
+      const run = sm(1, 7, T), scatter = sm(6.5, 10, T);
+      for (let i = 0; i < NG; i++) { const s = gs[i], u = Math.max(0, Math.min(1, run * 1.15 - s.lag * 0.45 * sm(3, 6, T))); path.getPointAt(u, P); P.add(s.off); W.copy(s.halo); P.lerp(W, scatter); gpos.set([P.x, P.y, P.z], i * 3); }
+      gg.attributes.position.needsUpdate = true; gse.material.opacity = 0.9 * sm(0.8, 1.6, T) * (1 - 0.6 * scatter) * fade;
+      const m = sm(12.4, 13.2, T) * (1 - sm(15, 15.5, T)); mark.material.opacity = m; label.material.opacity = m; W.copy(sunAt).applyAxisAngle(V(0, 1, 0), spin.rotation.y); label.position.set(Math.max(-75, Math.min(75, W.x)), W.y + 26, W.z); /* kept on screen as the galaxy turns */
+    } };
+  };
   // 3 Sep: Earth and the Moon, the giant impact, played as an 18-second loop. A young Earth, still with no continents,
   // its crust thin and cracked over molten rock, is struck a glancing blow by Theia, a world about the size of Mars
   // (half Earth's width). The impact melts Earth's whole surface and throws out a spray of molten and vaporised rock;
@@ -512,14 +557,42 @@ export async function createWorld(canvas, { reduced = () => false } = {}) {
       const view = sm(10.6, 11.6, T) * (1 - sm(13.2, 13.8, T)); dim.material.opacity = 0.82 * view; webb.material.opacity = view;
     } };
   };
-  // 2 Sep: the Sun in a ringed disc of dust, with planets forming in the gaps
+  // 2 Sep: the Sun and its planets form (4.57 billion years ago), as a 16-second loop. A dark cloud of gas and dust falls
+  // inward and starts to spin; it flattens into a disk and its centre heats up and ignites as the young Sun, which
+  // shoots jets of gas from its poles. Rings and gaps open in the disk (as the ALMA telescope sees round young stars
+  // today), and in the gaps glowing clumps grow and clear their paths: planets forming, over millions of years.
   stages.sun = () => {
-    const r = rng(15), g = new THREE.Group(), BANDS = [[95, 140], [165, 225], [255, 320], [360, 470]];
-    const star = mesh(new THREE.SphereGeometry(34, 48, 32), new THREE.MeshBasicMaterial({ map: photo('sun'), color: C('#ffe6b8'), fog: false })), halo = glow('#ffa040', 260, 0.9);
-    const disc = cloud(15000, (i, c) => { const b = BANDS[Math.floor(r() * BANDS.length)], rr = b[0] + r() * (b[1] - b[0]), th = r() * 6.2832; c.setHSL(0.07 + r() * 0.05, 0.65, 0.35 + r() * 0.35 * (200 / rr)); return [Math.cos(th) * rr, gauss(r) * 3.5, Math.sin(th) * rr]; }, { size: 2.1 });
-    const planets = [[152, 5, '#9a8a7a'], [240, 7, '#5a8ac8'], [340, 15, '#d8b070'], [490, 11, '#8ab0c8']].map(([rr, rad, col], k) => { const p = mesh(new THREE.SphereGeometry(rad, 24, 16), M(col, { roughness: 0.7 })); p.userData = { rr, ph: k * 1.7, sp: 0.5 / Math.sqrt(rr / 100) }; if (k === 2) { const ring = mesh(new THREE.RingGeometry(rad * 1.5, rad * 2.4, 48), M('#c8a878', { side: THREE.DoubleSide, transparent: true, opacity: 0.7 })); ring.rotation.x = 1.2; p.add(ring); } g.add(p); return p; });
-    g.add(star, halo, disc);
-    return { group: g, pose: { pos: V(0, 230, 360), look: V(0, -20, 0) }, fog: ['#050304', 1200, 3000], update(t) { disc.rotation.y = t * 0.04; star.rotation.y = t * 0.05; for (const p of planets) { const a = p.userData.ph + t * p.userData.sp * 0.25; p.position.set(Math.cos(a) * p.userData.rr, 0, Math.sin(a) * p.userData.rr); p.rotation.y = t * 0.3; } } };
+    const r = rng(15), g = new THREE.Group(), LOOP = 16, N = 9000, BANDS = [[22, 48], [58, 80], [92, 118], [130, 150]], GAPS = [53, 86, 124];
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    /* each grain: a place in the far cloud, a smooth place in the young disk, and a place in a ring */
+    const cl = new Float32Array(N * 3), dR = new Float32Array(N), ringR = new Float32Array(N), th = new Float32Array(N), hy = new Float32Array(N), pos = new Float32Array(N * 3), col = new Float32Array(N * 3), tc = new THREE.Color();
+    for (let i = 0; i < N; i++) { const d = sphereDir(r), rr = Math.pow(r(), 0.6) * 160; cl.set([d[0] * rr, d[1] * rr * 0.75, d[2] * rr], i * 3); dR[i] = 18 + Math.pow(r(), 0.8) * 134; const b = BANDS.find(b2 => dR[i] <= b2[1]) || BANDS[3]; ringR[i] = Math.min(b[1], Math.max(b[0], dR[i])); th[i] = r() * 6.283; hy[i] = gauss(r) * 2.4;
+      tc.setHSL(0.05 + r() * 0.05, 0.45, 0.4 + r() * 0.35); col.set([tc.r, tc.g, tc.b], i * 3); }
+    const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); pg.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const dust = new THREE.Points(pg, new THREE.PointsMaterial({ size: 1.6, map: dot, vertexColors: true, transparent: true, opacity: 0, blending: add, depthWrite: false, fog: false })); dust.frustumCulled = false; g.add(dust);
+    /* the young Sun: a glowing ball that heats up, in a soft glow */
+    const sunM = new THREE.MeshBasicMaterial({ map: photo('sun'), color: C('#000000'), fog: false }), star = mesh(new THREE.SphereGeometry(11, 40, 28), sunM), halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex, color: C('#ffb060'), blending: add, transparent: true, opacity: 0, depthWrite: false, fog: false })); halo.scale.setScalar(70); g.add(star, halo);
+    const nebula = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex, color: C('#6a2a18'), blending: add, transparent: true, opacity: 0, depthWrite: false, fog: false })); nebula.scale.setScalar(420); g.add(nebula); /* the cloud's dim glow */
+    /* jets from the poles */
+    const NJ = 700, jp = new Float32Array(NJ * 3), jets = []; for (let i = 0; i < NJ; i++) jets.push({ ph: r(), side: i % 2 ? 1 : -1, a: r() * 6.283, w: r() });
+    const jg = new THREE.BufferGeometry(); jg.setAttribute('position', new THREE.BufferAttribute(jp, 3));
+    const jet = new THREE.Points(jg, new THREE.PointsMaterial({ size: 2, map: dot, color: C('#cfe0ff'), transparent: true, opacity: 0, blending: add, depthWrite: false, fog: false })); jet.frustumCulled = false; g.add(jet);
+    /* planets forming in the gaps: clumps that grow and glow */
+    const seeds = GAPS.map((R, k) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex, color: C(['#ffb070', '#ffc888', '#ff9a58'][k]), blending: add, transparent: true, opacity: 0, depthWrite: false, fog: false })); s.userData = { R, a: k * 2.1, w: 0.9 / Math.pow(R / 50, 1.5) }; g.add(s); return s; });
+    const cold = C('#8a5a44'), warmA = C('#d8783a'), hot = C('#ffd8a0');
+    return { group: g, fit: 1, pose: { pos: V(0, 270, 660), look: V(0, -55, 0) }, fog: ['#050304', 2000, 4000], update(t) {
+      const T = reduced() ? 12 : t % LOOP, fade = sm(0, 0.8, T) * (1 - sm(15.4, 16, T)), fall = sm(0.5, 5.5, T), flat = sm(3, 7, T), rings = sm(7.5, 10.5, T), ignite = sm(3.5, 6, T);
+      for (let i = 0; i < N; i++) { const R = dR[i] + (ringR[i] - dR[i]) * rings, w = 0.7 / Math.pow(Math.max(R, 15) / 40, 1.5), a = th[i] + t * w * (0.15 + 0.85 * fall), k = i * 3;
+        const dx = Math.cos(a) * R, dz = Math.sin(a) * R, dy = hy[i] * (1 + 14 * (1 - flat)) ;
+        pos[k] = cl[k] + (dx - cl[k]) * fall; pos[k + 1] = cl[k + 1] + (dy - cl[k + 1]) * fall; pos[k + 2] = cl[k + 2] + (dz - cl[k + 2]) * fall; }
+      pg.attributes.position.needsUpdate = true;
+      tc.copy(cold).lerp(warmA, sm(1.5, 6, T)); dust.material.color.copy(tc).lerp(hot, 0.15 * ignite); dust.material.opacity = (0.85 + 0.15 * fall) * fade; nebula.material.opacity = 0.6 * (1 - sm(2, 6, T)) * fade; nebula.scale.setScalar(420 - 200 * fall); dust.material.size = 2.4 - 0.8 * fall;
+      sunM.color.copy(C('#5a2010')).lerp(C('#ff8a40'), ignite).lerp(C('#ffd8a8'), sm(7, 10, T)); star.visible = ignite > 0.02; star.scale.setScalar(1.6 - 0.6 * ignite); star.rotation.y = t * 0.1;
+      halo.material.opacity = 0.75 * ignite * fade; halo.scale.setScalar(60 + 20 * Math.sin(t * 2) * ignite);
+      const jOn = sm(6, 7.2, T) * fade; for (let i = 0; i < NJ; i++) { const q = jets[i], u = (T * 0.35 + q.ph) % 1, h = 12 + u * (q.side > 0 ? 150 : 70), sp = 3 + u * 14 * q.w; /* the lower jet runs behind the disk and is cut shorter, clear of the card */ jp.set([Math.cos(q.a) * sp, q.side * h, Math.sin(q.a) * sp], i * 3); }
+      jg.attributes.position.needsUpdate = true; jet.material.opacity = 0.7 * jOn;
+      for (const s of seeds) { const u = s.userData, a = u.a + t * u.w * 0.6, grow = sm(9, 14, T); s.position.set(Math.cos(a) * u.R, 0, Math.sin(a) * u.R); s.scale.setScalar(5 + 12 * grow); s.material.opacity = grow * fade; }
+    } };
   };
   // 22 Sep: the first life. The oldest traces of life (3.7 to 4.1 billion years ago) are microscopic cells, and many
   // scientists think life began at vents on the dark sea floor, where hot, mineral-rich water rises through the rock.
