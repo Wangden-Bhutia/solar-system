@@ -21,7 +21,7 @@ export function travelYears(ly) {
   if (!(ly > 0)) return 0;
   if (ly < NEAR_LY) return ly;
   table ||= buildTable();
-  // at the edge (the microwave background) use the first light's own age, so this agrees with its cosmic-year card
+  // at the edge (the microwave background) use the age of the light that broke free then, so this agrees with its cosmic-year card
   if (ly >= table[table.length - 1][0]) return EVENTS.find(e => e.id === 'cmb').ago;
   let k = 1; while (table[k][0] < ly) k++;
   const [d0, t0] = table[k - 1], [d1, t1] = table[k], f = (ly - d0) / (d1 - d0);
@@ -29,11 +29,11 @@ export function travelYears(ly) {
 }
 
 // How each cosmic-year moment reads when the light set out shortly before or after it.
-const BEFORE = { cmb: 'before the first light', galaxy: 'before the earliest galaxy we have seen', disk: 'before the Milky Way’s disk formed',
+const BEFORE = { cmb: 'before light broke free', galaxy: 'before the earliest galaxy we have seen', disk: 'before the Milky Way’s disk formed',
   sun: 'before the Sun formed', earth: 'before Earth formed', life: 'before life began on Earth', oxygen: 'before Earth’s air had oxygen',
   cells: 'before the first complex cells', animals: 'before the first animals', plants: 'before plants reached the land', dinos: 'before the first dinosaurs',
   impact: 'before the asteroid that ended the dinosaurs', humans: 'before our species appeared', farming: 'before farming began', writing: 'before writing began' };
-const AFTER = { bang: 'just after the Big Bang', cmb: 'not long after the first light', galaxy: 'after the first galaxies formed', disk: 'after the Milky Way’s disk formed',
+const AFTER = { bang: 'just after the Big Bang', cmb: 'not long after light broke free', galaxy: 'after the first galaxies formed', disk: 'after the Milky Way’s disk formed',
   sun: 'after the Sun formed', earth: 'after Earth formed', life: 'after life began on Earth', oxygen: 'after oxygen filled the air', cells: 'after the first complex cells',
   animals: 'after the first animals', plants: 'after plants reached the land', dinos: 'in the age of the dinosaurs', impact: 'after the asteroid ended the dinosaurs',
   humans: 'after our species appeared', farming: 'after farming began', writing: 'after the first cities and writing' };
