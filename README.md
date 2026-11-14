@@ -64,7 +64,7 @@ KOKORO_MODEL=/path/kokoro-v1.0.onnx KOKORO_VOICES=/path/voices-v1.0.bin python t
 
 ## Fast start and offline use
 - **Faster start.** The app no longer paints procedural planet maps that the photographs replace a moment later: planets start in a plain colour until their photo arrives (the procedural map is used only if a photo fails). The labs' 3D scene and the two largest scales are built only when first opened. On a phone-speed simulation (CPU slowed 4×), the time until the Solar System is tappable fell from about 4.9 s to about 1.4 s.
-- **Offline.** A service worker (`sw.js`) keeps everything the app has loaded, so after one visit with a connection it opens without one. **Save for offline** (or installing the app) stores all of it at once (71 files, about 4.4 MB; `tools/stamp.mjs` writes the figure into the menu from `precache.json`), using `precache.json`, which `tools/stamp.mjs` writes at deploy. An installed app refreshes its saved copy on each launch, downloading only changed files. The page itself is fetched fresh when online, so new versions show at once.
+- **Offline.** A service worker (`sw.js`) keeps everything the app has loaded, so after one visit with a connection it opens without one. **Save for offline** (or installing the app) stores all of it at once (71 files, about 5.1 MB; `tools/stamp.mjs` writes the figure into the menu from `precache.json`), using `precache.json`, which `tools/stamp.mjs` writes at deploy. An installed app refreshes its saved copy on each launch, downloading only changed files. The page itself is fetched fresh when online, so new versions show at once.
 - **Install.** `manifest.webmanifest` and two icons let phones add the app to the home screen.
 
 ## Sources and what is real
@@ -85,7 +85,7 @@ Node 24 tests use linkedom (DOM emulation) and Node VM modules. They test scienc
 Beyond the Solar System the scale readout adds one line: **how long ago the light at the edge of the view set out**, set against the nearest moment in the cosmic year ("Light from the edge of view left 2.5 million years ago, before our species appeared."), with that moment's date. A tap opens the cosmic year there. Light younger than 2,000 years gives the calendar year instead ("in 1926"). Up to 10 million light-years a light-year is a year of travel; further out the time comes from the same Planck 2018 model as the observable-universe scale (`timeline.js`), so light from the edge, 46.5 billion light-years away now, left 13.8 billion years ago. The line is hidden in the Solar System (light crosses it in hours), in the tour and in the adventure.
 
 ## Explore, the tour and the top bar
-The top bar has three things: **▶ Tour** (gold), **✦ Explore** and the menu. The tour glides from Earth to the edge of the observable universe in 13 stops and ends with the quiet finale. **Explore** holds everything guided apart from the tour: the six Solar System journeys, **The cosmic year** and **My sky**, and, for young explorers, the Earth and Moon adventure. The menu holds settings only. The Voyage outward, which covered the same ground as the tour one zoom at a time, was folded into the tour.
+The top bar has three things: **▶ Tour** (gold), **✦ Explore** and the menu. The tour glides from Earth to the edge of the observable universe in 13 stops and ends with the quiet finale. **Explore** holds everything guided apart from the tour: the six Solar System journeys, **The cosmic year**, **Journey inward** and **My sky**, and, for young explorers, the Earth and Moon adventure. The menu holds settings only. The Voyage outward, which covered the same ground as the tour one zoom at a time, was folded into the tour.
 
 ## Earth–Moon adventure
 A guided story on top of free exploring: tap **🚀 Adventure** (top bar, next to Journeys). Four stops in the Solar System: **Earth → the Moon → Mars → Saturn**. At each stop a short narration asks the child to find a world; tapping it (or **Show me …** / **Visit Moon**) glides there and plays one fact. A wrong world gets “A different world! Let’s look together.” and the camera stays put. **Next** goes on, **Skip ›** moves on without finding, **▶ / ❚❚** plays or stops the narration (Pause restarts the clip from its start), **✕** ends the story at any time. At the end: **Replay** or **Explore freely**.
@@ -157,6 +157,12 @@ Menu → **My sky** shows the real sky above you: the Sun, Moon, five naked-eye 
 - **Aim phone:** the view follows the phone's compass and tilt, so you can hold it up and look through it. Phone compasses can be 5–15° off.
 - Drag to look around, pinch to zoom, tap anything for its direction and how long its light has travelled. A slider moves ±12 hours; in the daytime it opens on tonight (**Now** returns). A place picker is the fallback if location is not shared. **Leave Earth** zooms out to the star map.
 - Location is read once, on tap, and never stored or sent.
+
+## Journey inward
+
+Explore → Journey inward, or keep zooming in once you are at the Earth close-up. The journey goes the other way from the tour: from Earth down to one carbon atom in a little girl's hand, in 13 steps (Earth, a city, a park, the girl, her hand, her skin, its creases, the dead cells on top, a living cell, its nucleus, DNA on its spools, the double helix, one atom). Pinch, scroll or drag up and down to zoom; the arrows glide a step at a time and Play goes all the way, resting at each step. A readout gives the true width of view and compares it with a person. Zooming out past Earth returns to the app.
+
+It runs on its own 3D world (`inward-world.js`), measured in metres with every step centred on the next; steps are built only near the zoom and freed when far away. The girl, her hand and her skin are AI-made illustrations (`textures/inward-*.webp`), placed at their true sizes; everything else is drawn in code. The steps and their sources are in `inward-data.js`.
 
 ## The cosmic year
 

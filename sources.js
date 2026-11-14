@@ -17,6 +17,7 @@ import { STAR_FACTS } from './stars-data.js';
 import { VISITORS } from './star-motion.js';
 import { MILESTONES } from './galaxy-motion.js';
 import { EVENTS as COSMIC_EVENTS, eventDate } from './cosmic-calendar.js';
+import { RUNGS as INWARD_RUNGS } from './inward-data.js';
 
 export const CHECKED_ON = '10 November 2026';
 const nssdc = b => `https://nssdc.gsfc.nasa.gov/planetary/factsheet/${b}fact.html`;
@@ -275,6 +276,11 @@ function cosmicYear() {
     C('Dates are worked out from each event’s age, with the universe 13.787 billion years old; ages differ between sources, so dates can shift by a day or two. Carl Sagan first told the story this way, in 1977, with 15 billion years.', [key({ label: 'Wikipedia: Cosmic calendar', url: wikiUrl('Cosmic calendar') })]),
     ...COSMIC_EVENTS.map(e => C(`${eventDate(e).label}: ${e.title}. ${e.text}${e.note ? ` (${e.note})` : ''}`, e.src.map(key))) ] }];
 }
+// The journey inward: each step's fact, with its sources (steps that only say where we are have none).
+function inward() {
+  const key = r => { const k = `iw:${r.url}`; if (!REFS[k]) REFS[k] = { label: r.label, url: r.url, secondary: /wikipedia/i.test(r.url) }; return k; };
+  return [{ id: 'inward-steps', title: 'The steps', claims: INWARD_RUNGS.filter(r => r.src.length).map(r => C(`${r.label}: ${r.text}`, r.src.map(key))) }];
+}
 export function claimGroups() {
   return [
     { id: 'worlds', title: 'World cards', sections: worlds() },
@@ -285,6 +291,7 @@ export function claimGroups() {
     { id: 'beyond', title: 'Stars, galaxies and the universe', sections: beyond() },
     { id: 'scale', title: 'Scale readout', sections: scale() },
     { id: 'cosmicyear', title: 'The cosmic year', sections: cosmicYear() },
+    { id: 'inward', title: 'Journey inward', sections: inward() },
   ];
 }
 
@@ -309,6 +316,8 @@ export function illustrations() {
     { where: 'Laniakea', shown: 'Real galaxies, but redshift distances stretch clusters along our line of sight.', real: 'Every dot is a real catalogued galaxy.', src: ['openNGC'] },
     { where: 'Observable universe', shown: 'The cosmic web and the speckled CMB are illustrations of the pattern, not maps.', real: 'Distances of the look-back shells are computed from Planck 2018 cosmology.', src: ['planck2018'] },
     ...tourNotes,
+    { where: 'Journey inward', shown: 'The girl, her hand and her skin are AI-made illustrations, not photographs of a real person; the city and park are drawn, and so are the skin creases and cells.', real: 'Each step is drawn at its true size: the width of view in the readout is the real width at that step.', src: [wiki('Powers of Ten (film)')] },
+    { where: 'Journey inward', shown: 'Cells and the nucleus are coloured to be seen; the DNA spools and the double helix are models built from their measured sizes; the atom’s electron cloud is a picture of where its electrons are likely to be, and its nucleus is marked by a ring because it is far too small to draw.', real: 'Real cells are almost transparent; nothing at the scale of an atom has a colour.', src: [wiki('Nucleosome'), wiki('Nucleic acid double helix'), wiki('Atomic orbital')] },
   ];
 }
 
