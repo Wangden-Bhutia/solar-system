@@ -34,6 +34,7 @@ import * as solarApp from './app.js';
 import { hereLine, hereMore, FINALE } from './here.js';
 import { createMySky } from './my-sky.js';
 import { createCosmicYear } from './cosmic-year.js';
+import { createInward } from './inward.js';
 import { lightLeft } from './timeline.js';
 import { PREDICTIONS, judge, JOURNEYS, journey, canAdvance, eclipseGeometry, tideLabel, tideRange, scaleWalk, sizeLike, formatMetres, formatDuration, lightSeconds, sunlightTo, AU_KM, FOOTBALL_CM, MOON_INCLINATION } from './learn.js';
 let adventure=null; // the Earth–Moon guided story (adventure.js), set up below
@@ -54,7 +55,7 @@ let pendingPush=[];
 function pushLayer(name){if(!hist?.pushState||layers.includes(name))return;if(skipPops>0){if(!pendingPush.includes(name))pendingPush.push(name);return;}try{hist.pushState({solarLayer:name},'');layers.push(name);}catch{}}
 function dropLayer(name){const q=pendingPush.indexOf(name);if(q>=0){pendingPush.splice(q,1);return;}const i=layers.lastIndexOf(name);if(i<0)return;if(i<layers.length-1){layers.splice(i,1);return;}layers.pop();skipPops++;try{hist.back();}catch{skipPops--;}}
 globalThis.addEventListener?.('popstate',()=>{if(skipPops>0){skipPops--;if(!skipPops&&pendingPush.length){const q=pendingPush;pendingPush=[];for(const n of q)pushLayer(n);}return;}const top=layers.pop();
- if(top==='sources')sourcesUi?.close();else if(top==='explore')closeExplore();else if(top==='cyear')cYear?.close();else if(top==='mysky')mySky?.close();else if(top==='sheet'&&state.value.sheet!=='closed')$('close').onclick();});
+ if(top==='sources')sourcesUi?.close();else if(top==='explore')closeExplore();else if(top==='cyear')cYear?.close();else if(top==='inward')inward?.close();else if(top==='mysky')mySky?.close();else if(top==='sheet'&&state.value.sheet!=='closed')$('close').onclick();});
 let sheetLayerOpen=false;
 // ---- Beyond the Solar System: the nearby stars and their planets ----
 const SPACE=new Set(['stars','system','pair','galaxy','local','super','universe']);
@@ -275,9 +276,13 @@ function zoomBounds(){
  if(ck&&ck.time()!==0){if(pin){b.min=Math.max(b.min,SEAM_Z[pin][1]);b.gateIn=()=>ck.rewind();}if(pout){b.max=Math.min(b.max,SEAM_Z[pout][0]);b.gateOut=()=>ck.rewind();}}
  if(l==='galaxy'&&!b.gateIn&&!galaxyView.atSun()){b.min=Math.max(b.min,SEAM_Z[pin][1]);b.gateIn=()=>galaxyView.zoomToSun();}
  if(l==='local'&&!b.gateIn&&localView.zoomState().atSun===false){b.min=Math.max(b.min,SEAM_Z[pin][1]);b.gateIn=()=>localView.zoomBackIn();}
+ if(l==='solar'&&solarFocused?.()?.data?.name==='Earth')b.gateIn=pushInward;
  if(l==='solar'&&solarOffCentred()){b.max=Math.min(b.max,SEAM_Z[pout][0]);b.gateOut=()=>{if(solarFocused?.())unfocus(false);solarDrift?.(1e9);};}
  return b;
 }
+// At the Earth close-up, a zoom that keeps pushing in against the edge (for about a third of a second) carries on into the journey inward.
+let pushFrom=-1e9,pushLast=-1e9;
+function pushInward(){const t=globalThis.performance?.now?.()??Date.now();if(t-pushLast>300)pushFrom=t;pushLast=t;if(t-pushFrom>=350){pushLast=-1e9;openInward();}}
 function zoomTick(dt,instant){
  if(animating||!zoom.moving)return;
  if(!bridge){const z=zoomState();if(!z||z.busy){zoom.stop();return;}}
@@ -635,11 +640,11 @@ function buildExplore(){
  const card=(act,title,blurb,cls='')=>`<button type="button" class="experiment-card${cls}" data-act="${act}"${act.startsWith('journey:')?` data-journey="${act.slice(8)}"`:''}><strong>${title}</strong><span>${blurb}</span>${act.startsWith('journey:')?'<em class="ex-done" hidden>✓ Done</em>':''}</button>`;
  const list=exploreEl.querySelector('#journey-list');
  list.innerHTML='<p class="xsec">Journeys</p>'+JOURNEYS.map(x=>card('journey:'+x.id,x.title,`${x.blurb} · ${x.steps.length} stops`)).join('')
-  +'<p class="xsec">Time and the sky</p>'+card('cyear','The cosmic year','13.8 billion years squeezed into one calendar year.')+card('mysky','My sky','What is up over you tonight, and where to look.')
+  +'<p class="xsec">Time and the sky</p>'+card('cyear','The cosmic year','13.8 billion years squeezed into one calendar year.')+card('inward','Journey inward','From Earth down to one atom in a little girl’s hand, a power of ten at a time.')+card('mysky','My sky','What is up over you tonight, and where to look.')
   +'<p class="xsec">For young explorers</p>'+card('adventure','The Earth and Moon adventure','A short spoken story: find Earth, then fly to the Moon.');
  const startJourney=id=>{const start=()=>go({view:'journey',journey:id,step:0,experiment:null});if(levelOf(state.value.view)!=='solar')goLevel('solar',start);else start();};
  const acts={
-  cyear:()=>{closeExplore(true);openCosmicYear();},mysky:()=>{closeExplore(true);openMySky();},
+  cyear:()=>{closeExplore(true);openCosmicYear();},inward:()=>{closeExplore(true);openInward();},mysky:()=>{closeExplore(true);openMySky();},
   adventure:()=>{closeExplore(true);$('adventure').click();}};
  for(const b of list.querySelectorAll('button'))b.onclick=()=>{const a=b.dataset.act;if(a.startsWith('journey:')){closeExplore(true);startJourney(a.slice(8));}else acts[a]();};
  exploreEl.querySelector('.ex-x').onclick=()=>closeExplore();
@@ -1051,12 +1056,17 @@ const sourcesUi=mountSources(document,{
  onOpen:()=>{pushLayer('sources');if(tourRef?.active&&!tourRef.paused&&!tourRef.finished){tourRef.pause();sourcesPausedTour=true;}},
  onClose:()=>{dropLayer('sources');if(sourcesPausedTour&&tourRef?.active&&tourRef.paused)tourRef.resume();sourcesPausedTour=false;}});
 const mySky=createMySky({onLeave:()=>goLevel('stars'),onOpen:()=>{hooks.covered=true;pushLayer('mysky');},onClose:()=>{hooks.covered=false;dropLayer('mysky');}});
-function openMySky(){$('settings').open=false;hideFinale();cYear.close();mySky.open();}
+function openMySky(){$('settings').open=false;hideFinale();cYear.close();inward.close();mySky.open();}
 let cYearPausedTour=false;
 const cYear=createCosmicYear({
  onOpen:()=>{hooks.covered=true;pushLayer('cyear');if(tourRef?.active&&!tourRef.paused&&!tourRef.finished){tourRef.pause();cYearPausedTour=true;}},
  onClose:()=>{hooks.covered=false;dropLayer('cyear');if(cYearPausedTour&&tourRef?.active&&tourRef.paused)tourRef.resume();cYearPausedTour=false;}});
-function openCosmicYear(id){$('settings').open=false;hideFinale();mySky.close();if(id)cYear.openAt(id);else cYear.open();}
+let inwardPausedTour=false;
+const inward=createInward({
+ onOpen:()=>{hooks.covered=true;pushLayer('inward');if(tourRef?.active&&!tourRef.paused&&!tourRef.finished){tourRef.pause();inwardPausedTour=true;}},
+ onClose:()=>{hooks.covered=false;dropLayer('inward');if(inwardPausedTour&&tourRef?.active&&tourRef.paused)tourRef.resume();inwardPausedTour=false;}});
+function openInward(){$('settings').open=false;hideFinale();cYear.close();mySky.close();zoom.stop();inward.open();}
+function openCosmicYear(id){$('settings').open=false;hideFinale();mySky.close();inward.close();if(id)cYear.openAt(id);else cYear.open();}
 $('open-sources').onclick=()=>{$('settings').open=false;sourcesUi.open(null,$('settings').querySelector('summary'));};
 document.addEventListener('click',e=>{const b=e.target.closest?.('[data-sources]');if(!b)return;e.preventDefault();sourcesUi.open(b.dataset.sources,b);});
 // ---- Continue where you left off (resume.js) ----
@@ -1166,7 +1176,7 @@ const appleTouch=/iphone|ipad|ipod/i.test(nav.userAgent||'')||(/macintosh/i.test
 const savedBefore=()=>{try{return localStorage.getItem('offline-saved');}catch{return null;}};
 function saveOffline(){if(!sw)return;offline={done:0,total:0};paintOffline();sw.ready.then(reg=>reg.active?.postMessage({saveAll:true}));}
 // What Save for offline downloads: precache.json's total, written in here (and in index.html) by tools/stamp.mjs at deploy.
-const OFFLINE_SIZE='about 4.4 MB';
+const OFFLINE_SIZE='about 5.1 MB';
 function paintOffline(){
  $('install').hidden=!installEvent;$('save-offline').hidden=!sw;$('save-offline').disabled=!!offline&&!offline.finished&&!offline.error;
  const note=offline?.error?'Couldn’t save just now. Check the connection and try again.':offline&&!offline.finished?`Saving… ${offline.done} of ${offline.total||'…'} files`:offline?.finished?(offline.failed?`Saved, except ${offline.failed} files. Try again with a better connection.`:'Saved ✓ The whole app is on this device and opens even with no signal.'):savedBefore()?'Saved for offline ✓ New versions are saved as you use them.':!sw?'Offline use needs the secure (https) version of the site.':appleTouch&&!standalone()?'To install on iPhone or iPad: tap Share, then “Add to Home Screen”. Or save for offline here.':`Keeps the whole app (${OFFLINE_SIZE}) on this device so it opens fast, even with no signal.`;
