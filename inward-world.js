@@ -86,29 +86,12 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
     { const [u, v] = P(PARK[0], PARK[1]); x.fillStyle = '#5a7a2e'; x.fillRect(u, v, PARK[2] * s, PARK[3] * s); }
     for (const [wid, col] of [[420, '#c8b88a'], [300, '#4a7088']]) { x.strokeStyle = col; x.lineWidth = wid * s; x.lineJoin = 'round'; x.beginPath(); city.river.forEach(([rx, rz], k) => { const [u, v] = P(rx, rz); if (k) x.lineTo(u, v); else x.moveTo(u, v); }); x.stroke(); }
   }
-  /* the park itself, drawn in detail: mown lawn, paths, trees with their shadows, a pond; open lawn round the origin */
-  function drawPark(x, n, extent) {
-    drawCity(x, n, extent); const s = n / extent, P = (wx, wz) => [n / 2 + wx * s, n / 2 + wz * s], r = rng(23);
-    const [u0, v0] = P(PARK[0], PARK[1]); x.fillStyle = `rgb(${GRASS[0] + 6},${GRASS[1] + 10},${GRASS[2] + 8})`; x.fillRect(u0, v0, PARK[2] * s, PARK[3] * s);
-    for (let k = 0; k < PARK[2]; k += 6) { x.fillStyle = k % 12 ? 'rgba(255,255,220,0.05)' : 'rgba(0,30,0,0.05)'; x.fillRect(u0 + k * s, v0, 6 * s, PARK[3] * s); } /* mowing stripes */
-    x.strokeStyle = '#d8ccb0'; x.lineWidth = 3.5 * s; x.lineCap = 'round';
-    for (const path of [[[PARK[0], 60], [-60, 40], [40, 70], [PARK[0] + PARK[2], 40]], [[30, PARK[1]], [60, -20], [90, 80], [70, PARK[1] + PARK[3]]], [[PARK[0], -70], [-80, -40], [0, -60]]]) { x.beginPath(); path.forEach(([px, pz], k) => { const [u, v] = P(px, pz); if (k) x.lineTo(u, v); else x.moveTo(u, v); }); x.stroke(); }
-    { const [u, v] = P(150, -60); x.fillStyle = '#4a7a8a'; x.beginPath(); x.ellipse(u, v, 38 * s, 24 * s, 0.3, 0, 6.283); x.fill(); x.strokeStyle = '#8a8270'; x.lineWidth = 1.5 * s; x.stroke(); }
-    for (let k = 0; k < 170; k++) { const tx = PARK[0] + 8 + r() * (PARK[2] - 16), tz = PARK[1] + 8 + r() * (PARK[3] - 16), cr = 3 + r() * 5; if (Math.hypot(tx, tz) < 28 || Math.hypot(tx - 150, tz + 60) < 45) continue; const [u, v] = P(tx, tz);
-      x.fillStyle = 'rgba(20,30,10,0.4)'; x.beginPath(); x.arc(u + cr * 0.5 * s, v + cr * 0.6 * s, cr * s, 0, 6.283); x.fill();
-      const g2 = x.createRadialGradient(u - cr * 0.3 * s, v - cr * 0.3 * s, 0, u, v, cr * s); g2.addColorStop(0, '#6a9a3a'); g2.addColorStop(1, '#2e5418'); x.fillStyle = g2; x.beginPath(); x.arc(u, v, cr * s, 0, 6.283); x.fill(); }
-    /* the girl, from far above: a dot of yellow on the grass */
-    const [gu, gv] = P(0.05, -0.25); x.fillStyle = '#f0c840'; x.beginPath(); x.ellipse(gu, gv, Math.max(1, 0.22 * s), Math.max(1.5, 0.4 * s), 0, 0, 6.283); x.fill();
-  }
   layer('region', 9e5, 3e5, 8e3, 4e3, () => flat(canvasTex(2048, (x, n) => drawCity(x, n, 140000)), 140000, 140000, 0, 0, 0.18, true));
   layer('metro', 1.2e5, 6e4, 2.5e3, 1.2e3, () => flat(canvasTex(2048, (x, n) => drawCity(x, n, 30000)), 30000, 30000, 0, 0, 0.2, true));
   layer('district', 1.4e4, 6e3, 260, 120, () => flat(canvasTex(2048, (x, n) => drawCity(x, n, 6000)), 6000, 6000, 0, 0, 0.2, true));
-  layer('park', 1.4e3, 600, 9, 3.5, () => flat(canvasTex(2048, (x, n) => drawPark(x, n, 600)), 600, 600, 0, 0, 0.2, true));
+  layer('park', 600, 300, 40, 25, () => photo('textures/inward-park.webp', 300, 941, 1672, 470, 836, 0.12)); /* the park: its open lawn at the centre, about 300 m wide */
   // the lawn round the girl: grass blades and a few daisies, close to the photograph's own grass
-  layer('lawn', 60, 22, 2.5, 1.2, () => flat(canvasTex(2048, (x, n) => {
-    const r = rng(31); x.fillStyle = `rgb(${GRASS.join(',')})`; x.fillRect(0, 0, n, n);
-    const img = x.getImageData(0, 0, n, n), d = img.data; for (let i = 0; i < d.length; i += 4) { const l = r(), k = l < 0.3 ? -38 : l < 0.75 ? 4 : 40; d[i] += k * 0.8; d[i + 1] += k; d[i + 2] += k * 0.35; } x.putImageData(img, 0, 0);
-  }), 40, 40, 0, 0, 0.2, true));
+  layer('lawn', 50, 25, 3, 1.8, () => photo('textures/inward-lawn.webp', 30, 941, 1672, 470, 836, 0.12)); /* the lawn, about 30 m wide: plain grass at the centre, where the girl lies */
   // the turf close round her: a tile of grass 40 cm square, repeated, so it stays sharp from 6 m down to 1 cm. Tapered
   // blades 2-4 mm wide and 3-8 cm long in the photographs' greens (sampled from them).
   layer('turf', 6, 2.5, 0.02, 0.01, () => { const T = 0.4, map = canvasTex(1024, (x, n) => {
