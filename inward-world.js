@@ -88,7 +88,11 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   }
   layer('region', 9e5, 3e5, 8e3, 4e3, () => flat(canvasTex(2048, (x, n) => drawCity(x, n, 140000)), 140000, 140000, 0, 0, 0.18, true));
   layer('metro', 1.2e5, 6e4, 2.5e3, 1.2e3, () => flat(canvasTex(2048, (x, n) => drawCity(x, n, 30000)), 30000, 30000, 0, 0, 0.2, true));
-  layer('district', 1.4e4, 6e3, 260, 120, () => flat(canvasTex(2048, (x, n) => drawCity(x, n, 6000)), 6000, 6000, 0, 0, 0.2, true));
+  // The city in aerial photographs (AI-made, one style), each about 1.4 times closer than the one before, all centred on the
+  // same spot: wide 12 km, middle 8.4 km, core 6 km (the core's centre is the origin; the park comes next).
+  layer('cityWide', 3e4, 1.5e4, 9e3, 5e3, () => photo('textures/inward-city-wide.webp', 12000, 1024, 1536, 512, 768, 0.08));
+  layer('cityMid', 1.2e4, 8e3, 4e3, 2.5e3, () => photo('textures/inward-city-mid.webp', 8400, 1024, 1536, 512, 768, 0.08));
+  layer('cityCore', 7e3, 4e3, 600, 300, () => photo('textures/inward-city-core.webp', 6000, 1024, 1536, 512, 768, 0.08));
   layer('park', 600, 300, 40, 25, () => photo('textures/inward-park.webp', 300, 941, 1672, 470, 836, 0.12)); /* the park: its open lawn at the centre, about 300 m wide */
   // the lawn round the girl: grass blades and a few daisies, close to the photograph's own grass
   layer('lawn', 50, 25, 3, 1.8, () => photo('textures/inward-lawn.webp', 30, 941, 1672, 470, 836, 0.12)); /* the lawn, about 30 m wide: plain grass at the centre, where the girl lies */
