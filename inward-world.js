@@ -86,13 +86,11 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
     { const [u, v] = P(PARK[0], PARK[1]); x.fillStyle = '#5a7a2e'; x.fillRect(u, v, PARK[2] * s, PARK[3] * s); }
     for (const [wid, col] of [[420, '#c8b88a'], [300, '#4a7088']]) { x.strokeStyle = col; x.lineWidth = wid * s; x.lineJoin = 'round'; x.beginPath(); city.river.forEach(([rx, rz], k) => { const [u, v] = P(rx, rz); if (k) x.lineTo(u, v); else x.moveTo(u, v); }); x.stroke(); }
   }
-  layer('region', 9e5, 3e5, 8e3, 4e3, () => flat(canvasTex(2048, (x, n) => drawCity(x, n, 140000)), 140000, 140000, 0, 0, 0.18, true));
-  layer('metro', 1.2e5, 6e4, 2.5e3, 1.2e3, () => flat(canvasTex(2048, (x, n) => drawCity(x, n, 30000)), 30000, 30000, 0, 0, 0.2, true));
   // The city in aerial photographs (AI-made, one style), each about 1.4 times closer than the one before, all centred on the
   // same spot: wide 12 km, middle 8.4 km, core 6 km (the core's centre is the origin; the park comes next).
-  layer('cityWide', 3e4, 1.5e4, 9e3, 5e3, () => photo('textures/inward-city-wide.webp', 12000, 1024, 1536, 512, 768, 0.08));
-  layer('cityMid', 1.2e4, 8e3, 4e3, 2.5e3, () => photo('textures/inward-city-mid.webp', 8400, 1024, 1536, 512, 768, 0.08));
-  layer('cityCore', 7e3, 4e3, 600, 300, () => photo('textures/inward-city-core.webp', 6000, 1024, 1536, 512, 768, 0.08));
+  layer('cityWide', 3e4, 1.5e4, 9e3, 5e3, () => photo('textures/inward-city-wide.webp', 12000, 1024, 1536, 540, 825, 0.08));
+  layer('cityMid', 1.2e4, 8e3, 4e3, 2.5e3, () => photo('textures/inward-city-mid.webp', 8400, 1024, 1536, 529, 835, 0.08));
+  layer('cityCore', 7e3, 4e3, 900, 450, () => photo('textures/inward-city-core.webp', 6000, 1024, 1536, 518, 845, 0.08));
   layer('park', 600, 300, 40, 25, () => photo('textures/inward-park.webp', 300, 941, 1672, 470, 836, 0.12)); /* the park: its open lawn at the centre, about 300 m wide */
   // the lawn round the girl: grass blades and a few daisies, close to the photograph's own grass
   layer('lawn', 50, 25, 3, 1.8, () => photo('textures/inward-lawn.webp', 30, 941, 1672, 470, 836, 0.12)); /* the lawn, about 30 m wide: plain grass at the centre, where the girl lies */
