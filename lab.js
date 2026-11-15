@@ -282,7 +282,10 @@ function zoomBounds(){
 }
 // At the Earth close-up, a zoom that keeps pushing in against the edge (for about a third of a second) carries on into the journey inward.
 let pushFrom=-1e9,pushLast=-1e9;
-function pushInward(){const t=globalThis.performance?.now?.()??Date.now();if(t-pushLast>300)pushFrom=t;pushLast=t;if(t-pushFrom>=350){pushLast=-1e9;openInward();}}
+// The width (metres) of the view at the Earth close-up, so the journey opens where the zoom left off: Earth's diameter is 1 scene unit = 12,756 km.
+const EARTH_UNIT_M = 12756e3;
+function entryWidth(){if(!real())return null;const d=solarDistance(),t=Math.tan(camera.fov*Math.PI/360);return 2*d*t*camera.aspect*EARTH_UNIT_M;}
+function pushInward(){const t=globalThis.performance?.now?.()??Date.now();if(t-pushLast>300)pushFrom=t;pushLast=t;if(t-pushFrom>=350){pushLast=-1e9;openInward(entryWidth());}}
 function zoomTick(dt,instant){
  if(animating||!zoom.moving)return;
  if(!bridge){const z=zoomState();if(!z||z.busy){zoom.stop();return;}}
@@ -1065,7 +1068,7 @@ let inwardPausedTour=false;
 const inward=createInward({
  onOpen:()=>{hooks.covered=true;pushLayer('inward');if(tourRef?.active&&!tourRef.paused&&!tourRef.finished){tourRef.pause();inwardPausedTour=true;}},
  onClose:()=>{hooks.covered=false;dropLayer('inward');if(inwardPausedTour&&tourRef?.active&&tourRef.paused)tourRef.resume();inwardPausedTour=false;}});
-function openInward(){$('settings').open=false;hideFinale();cYear.close();mySky.close();zoom.stop();inward.open();}
+function openInward(startW){$('settings').open=false;hideFinale();cYear.close();mySky.close();zoom.stop();inward.open(startW);}
 function openCosmicYear(id){$('settings').open=false;hideFinale();mySky.close();inward.close();if(id)cYear.openAt(id);else cYear.open();}
 $('open-sources').onclick=()=>{$('settings').open=false;sourcesUi.open(null,$('settings').querySelector('summary'));};
 document.addEventListener('click',e=>{const b=e.target.closest?.('[data-sources]');if(!b)return;e.preventDefault();sourcesUi.open(b.dataset.sources,b);});

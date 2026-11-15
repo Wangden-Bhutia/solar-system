@@ -75,8 +75,10 @@ export function createInward({ onOpen, onClose } = {}) {
   }
   const createInwardWorld = (...a) => import('./inward-world.js').then(m => m.createInwardWorld(...a));
   function showFail() { if (note) { note.hidden = false; note.textContent = 'This journey needs 3D graphics (WebGL), which are not available here.'; } }
-  function open() {
-    if (!root) build(); opener = document.activeElement; stopPlay(); glide = null; zc.set(Math.log(RUNGS[0].w)); shown = null;
+  // startW: the width (m) the view had when it handed over from the main zoom; otherwise the whole Earth.
+  function open(startW) {
+    if (!root) build(); opener = document.activeElement; stopPlay(); glide = null; shown = null;
+    const w0 = startW && Number.isFinite(startW) ? Math.min(RUNGS[0].w, Math.max(RUNGS[0].w * 0.02, startW)) : RUNGS[0].w; zc.set(Math.log(w0));
     root.hidden = false; document.body.classList.add('cyear-on', 'inward-on'); onOpen?.(); paint(true);
     if (world) { world.setW(W()); world.resize(); world.start(); } else load(); if (failed) showFail();
     cancelAnimationFrame(raf); last = performance.now(); raf = requestAnimationFrame(tick); root.focus?.({ preventScroll: true });
