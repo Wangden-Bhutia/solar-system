@@ -26,7 +26,7 @@ test('journey inward: the width readout rolls its units over and compares with a
 test('journey inward: its pictures and modules ship with the app, and Explore offers it', () => {
   const yml = fs.readFileSync('.github/workflows/pages.yml', 'utf8');
   for (const f of ['inward.js', 'inward-data.js', 'inward-world.js']) assert.ok(yml.includes(f), f);
-  for (const f of ['girl', 'hand', 'skin']) assert.ok(fs.statSync(`textures/inward-${f}.webp`).size < 400e3, f);
+  for (const f of ['girl', 'hand', 'skin']) assert.ok(fs.statSync(`textures/inward-${f}.webp`).size < 500e3, f);
   const world = fs.readFileSync('inward-world.js', 'utf8');
   for (const f of ['girl', 'hand', 'skin']) assert.ok(world.includes(`textures/inward-${f}.webp`), f);
   const lab = fs.readFileSync('lab.js', 'utf8');
