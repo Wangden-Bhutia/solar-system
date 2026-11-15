@@ -296,7 +296,7 @@ function pickAt(clientX, clientY, pointerType = 'touch') {
 // Touch gets a larger movement allowance than a mouse; two-finger gestures never count as taps.
 // A click with no preceding pointer sequence (some automation, older browsers) is the fallback.
 export const TAP_SLOP = { touch: 14, pen: 10, mouse: 6 };
-const TAP_MAX_MS = 900, UI = 'button:not(.lbl),a,input,select,textarea,summary,label,details,#sheet,#topbar';
+const TAP_MAX_MS = 900, UI = 'button:not(.lbl),a,input,select,textarea,summary,label,details,#sheet,#topbar,.cyear,.mysky';
 const pointers = new Map(); let multiTouch = false, lastTapAt = -1e9, lastPointerUpAt = -1e9;
 const onScene = t => t === canvas || (t?.closest ? !t.closest(UI) : true);
 function handleTap(x, y, type, picked) {

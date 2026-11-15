@@ -580,3 +580,12 @@ body.explore-on .hud,body.explore-on #tour,body.explore-on .home-earth{visibilit
 .hud .hud-time{display:block;margin:1px 0 0;padding:0;min-height:0;border:0;background:none;text-align:left;font:inherit;color:#f3c887;cursor:pointer;pointer-events:auto;text-decoration:underline;text-underline-offset:2px;text-decoration-color:rgba(243,200,135,.45)}
 .hud .hud-time[hidden]{display:none}
 body.touring .hud .hud-time,body.story .hud .hud-time{display:none}
+/* The journey inward (inward.js): the cosmic year's frame, with the picture taking gestures */
+.inward{touch-action:none;-webkit-user-select:none;user-select:none}
+.inward .iw-read{margin:6px 0 0 48px;font-size:12px;color:rgba(240,236,228,.86);font-variant-numeric:tabular-nums;text-shadow:0 1px 8px rgba(0,0,0,.9)}
+.inward .cy-main{overflow:visible;pointer-events:none;gap:4px}
+.inward .cy-kick{font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#f3c887}
+.inward .cy-text{font-size:16px;line-height:1.45;max-width:30em}
+.inward .iw-note{font-size:12px;font-style:italic;color:rgba(240,236,228,.7);margin:2px 0 0}.inward .iw-note[hidden]{display:none}
+.inward .cy-main.travel .cy-text,.inward .cy-main.travel .iw-note{opacity:.35;transition:opacity .35s ease}
+.inward::before{background:linear-gradient(180deg,rgba(2,5,14,.6) 0%,rgba(2,5,14,0) 16%,rgba(2,5,14,0) 52%,rgba(2,5,14,.55) 72%,rgba(2,5,14,.85) 100%)}
