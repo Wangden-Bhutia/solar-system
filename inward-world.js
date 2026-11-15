@@ -31,7 +31,7 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map, alphaMap: edgeMask(edge, round), transparent: true, depthWrite: false, depthTest: false }));
     m.rotation.x = -Math.PI / 2; m.position.set(cx, 0, cz); m.renderOrder = ++order; return m;
   }
-  const photo = (url, wM, Wpx, Hpx, px, py, edge) => { const hM = wM * Hpx / Wpx; return flat(tex(url), wM, hM, (Wpx / 2 - px) / Wpx * wM, (Hpx / 2 - py) / Hpx * hM, edge); };
+  const photo = (url, wM, Wpx, Hpx, px, py, edge, round = false) => { const hM = wM * Hpx / Wpx; return flat(tex(url), wM, hM, (Wpx / 2 - px) / Wpx * wM, (Hpx / 2 - py) / Hpx * hM, edge, round); };
 
   // ---- the layers: [name, fade-in from w, fully in at w, fade-out from w, fully out at w, build] ----
   const LAYERS = [];
@@ -123,8 +123,8 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   }); map.wrapS = map.wrapT = THREE.RepeatWrapping; map.repeat.set(8 / T, 8 / T); return flat(map, 8, 8, 0, 0, 0.15, true); });
   // the three photographs (illustrations made for the app), each placed so the next one's centre sits at the origin
   layer('girl', 6, 2.6, 0.1, 0.05, () => photo('textures/inward-girl.webp', 0.724, 1448, 1086, 557, 972, 0.08));
-  layer('hand', 0.55, 0.24, 0.025, 0.013, () => photo('textures/inward-hand.webp', 0.17, 1448, 1086, 705, 523, 0.09));
-  layer('skin', 0.13, 0.065, 2.5e-3, 1.3e-3, () => photo('textures/inward-skin.webp', 0.058, 1448, 1086, 724, 543, 0.1));
+  layer('hand', 0.55, 0.24, 0.04, 0.03, () => photo('textures/inward-hand.webp', 0.17, 1448, 1086, 705, 523, 0.09));
+  layer('skin', 0.12, 0.05, 2.5e-3, 1.3e-3, () => photo('textures/inward-skin.webp', 0.058, 1254, 1254, 627, 627, 0.3, true)); /* a soft round patch, fading in as the hand fades out */
   // skin close up: a network of creases (coarse ones about 0.6 mm apart, finer ones between) and a fine hair
   const SKIN = [200, 148, 115];
   layer('creases', 0.014, 0.0065, 2.2e-4, 1.1e-4, () => flat(canvasTex(2048, (x, n) => {
