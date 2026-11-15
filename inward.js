@@ -11,7 +11,7 @@ const ease = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
 
 export function createInward({ onOpen, onClose } = {}) {
   let root, canvas, card, here, txt, note, readout, dots, prev, next, playBtn, world, worldTry = false, failed = false, opener = null;
-  let raf = 0, last = 0, glide = null, play = null, shown = null;
+  let raf = 0, last = 0, glide = null, play = null, shown = null, handover = null;
   const zc = createZoomController({ reduced: reducedMotion });
   const idx = r => RUNGS.indexOf(r);
   function build() {
@@ -70,17 +70,23 @@ export function createInward({ onOpen, onClose } = {}) {
   }
   async function load() {
     if (world || worldTry || failed) return; worldTry = true;
-    try { world = await createInwardWorld(canvas); world.setW(W()); canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); failed = true; world?.stop(); world = null; showFail(); }, { once: true }); if (!root.hidden) { world.resize(); world.start(); } }
+    try { world = await createInwardWorld(canvas); world.setW(W()); world.setHandover(handover); canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); failed = true; world?.stop(); world = null; showFail(); }, { once: true }); if (!root.hidden) { world.resize(); world.start(); } }
     catch (err) { failed = true; showFail(); }
   }
   const createInwardWorld = (...a) => import('./inward-world.js').then(m => m.createInwardWorld(...a));
   function showFail() { if (note) { note.hidden = false; note.textContent = 'This journey needs 3D graphics (WebGL), which are not available here.'; } }
-  function open() {
-    if (!root) build(); opener = document.activeElement; stopPlay(); glide = null; zc.set(Math.log(RUNGS[0].w)); shown = null;
+  // view: where the main zoom handed over (width in m, and the place under its centre); otherwise the whole Earth.
+  function open(view) {
+    if (!root) build(); opener = document.activeElement; stopPlay(); glide = null; shown = null;
+    const startW = view?.width; const w0 = startW && Number.isFinite(startW) ? Math.min(RUNGS[0].w, Math.max(RUNGS[0].w * 0.02, startW)) : RUNGS[0].w; zc.set(Math.log(w0));
+    handover = view && startW ? { lat: view.lat, lon: view.lon, wEntry: w0, wCity: RUNGS[1].w } : null; world?.setHandover(handover);
+    if (handover) fadeIn();
     root.hidden = false; document.body.classList.add('cyear-on', 'inward-on'); onOpen?.(); paint(true);
     if (world) { world.setW(W()); world.resize(); world.start(); } else load(); if (failed) showFail();
     cancelAnimationFrame(raf); last = performance.now(); raf = requestAnimationFrame(tick); root.focus?.({ preventScroll: true });
   }
+  // the journey fades in over the main view, so the handover does not cut
+  function fadeIn() { root.style.transition = 'opacity .45s ease'; root.style.opacity = '0'; requestAnimationFrame(() => requestAnimationFrame(() => { root.style.opacity = '1'; })); setTimeout(() => { if (root) { root.style.transition = ''; root.style.opacity = ''; } }, 700); }
   function close() {
     if (!root || root.hidden) return; stopPlay(); glide = null; cancelAnimationFrame(raf); root.hidden = true; world?.stop();
     document.body.classList.remove('cyear-on', 'inward-on'); onClose?.();

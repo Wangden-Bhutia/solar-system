@@ -39,15 +39,20 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
 
   // Earth, turned so the city (in northern India) is on top and north is up the screen.
   const R = 6.371e6, LAT = 28.6, LON = 77.2;
+  // The Earth's turn that puts a place (lat, lon) at the top of the picture, north up the screen.
+  let earthRef = null, earthIndia = null, handover = null;
+  function orientFor(lat, lon) {
+    const ph = (lon + 180) / 360 * Math.PI * 2, th = (90 - lat) / 180 * Math.PI, p = V(-Math.cos(ph) * Math.sin(th), Math.cos(th), Math.sin(ph) * Math.sin(th));
+    const q1 = new THREE.Quaternion().setFromUnitVectors(p, V(0, 1, 0)), north = V(0, 1, 0).sub(p.clone().multiplyScalar(p.y)).normalize().applyQuaternion(q1);
+    const q2 = new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI - Math.atan2(north.x, north.z));
+    return q2.multiply(q1);
+  }
   layer('earth', Infinity, Infinity, 5e4, 2e4, () => {
     const g = new THREE.Group(), body = new THREE.Mesh(new THREE.SphereGeometry(R, 96, 64), new THREE.MeshStandardMaterial({ map: tex('textures/earth.webp'), roughness: 0.85 }));
     const clouds = new THREE.Mesh(new THREE.SphereGeometry(R * 1.004, 96, 64), new THREE.MeshStandardMaterial({ map: tex('textures/earth-clouds.webp'), transparent: true, opacity: 0.5, depthWrite: false }));
     const glow = new THREE.Mesh(new THREE.SphereGeometry(R * 1.03, 64, 48), new THREE.MeshBasicMaterial({ color: C('#5a9aff'), transparent: true, opacity: 0.12, side: THREE.BackSide, depthWrite: false }));
     g.add(body, clouds, glow);
-    const ph = (LON + 180) / 360 * Math.PI * 2, th = (90 - LAT) / 180 * Math.PI, p = V(-Math.cos(ph) * Math.sin(th), Math.cos(th), Math.sin(ph) * Math.sin(th));
-    const q1 = new THREE.Quaternion().setFromUnitVectors(p, V(0, 1, 0)), north = V(0, 1, 0).sub(p.clone().multiplyScalar(p.y)).normalize().applyQuaternion(q1);
-    const q2 = new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI - Math.atan2(north.x, north.z)); /* turn north to -z: up the screen */
-    const ori = new THREE.Group(); ori.quaternion.copy(q2.multiply(q1)); ori.add(g); ori.position.y = -R;
+    const ori = new THREE.Group(); ori.quaternion.copy(orientFor(LAT, LON)); ori.add(g); ori.position.y = -R; earthRef = ori; earthIndia = ori.quaternion.clone();
     const holder = new THREE.Group(); holder.add(ori); holder.userData.update = t => { clouds.rotation.y = t * 0.004; }; return holder;
   });
 
@@ -227,6 +232,8 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   }
   function size() { W = canvas.clientWidth || 412; H = canvas.clientHeight || 915; renderer.setSize(W, H, false); aspect = W / H; cam.aspect = aspect; cam.setViewOffset(W, H, 0, H * 0.12, W, H); cam.updateProjectionMatrix(); }
   function render(now) {
+    // Handed over from the main zoom: the Earth starts turned to the place the main view was on, and turns to the city as we zoom in.
+    if (earthRef && handover && handover.wEntry > handover.wCity) { const t = Math.min(1, Math.max(0, Math.log(handover.wEntry / w) / Math.log(handover.wEntry / handover.wCity))); earthRef.quaternion.copy(orientFor(handover.lat, handover.lon)).slerp(earthIndia, t); }
     const t = reduced() ? 0 : (now - t0) / 1000; manage();
     for (const L of LAYERS) { if (!L.obj) continue; const a = opacityAt(L, w); L.obj.visible = a > 0.002; if (!L.obj.visible) continue; for (const m of L.mats) m.opacity = m.userData.base * a; L.obj.userData.update?.(t); }
     /* the camera: straight down (north up) until the living cells; then it tilts to show them in 3D, and slowly turns */
@@ -239,6 +246,7 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   function frame(now) { if (!running) return; raf = requestAnimationFrame(frame); render(now); }
   return {
     setW(x) { w = x; if (!running) render(performance.now()); },
+    setHandover(h) { handover = h || null; if (!running) render(performance.now()); },
     get w() { return w; },
     resize() { size(); if (!running) render(performance.now()); },
     start() { size(); running = true; t0 = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); },
