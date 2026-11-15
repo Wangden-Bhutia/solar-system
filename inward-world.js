@@ -108,8 +108,8 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   }); map.wrapS = map.wrapT = THREE.RepeatWrapping; map.repeat.set(8 / T, 8 / T); return flat(map, 8, 8, 0, 0, 0.15, true); });
   // the three photographs (illustrations made for the app), each placed so the next one's centre sits at the origin
   layer('girl', 2.2, 1.0, 0.2, 0.18, () => photo('textures/inward-girl.webp', 0.99, 941, 1672, 325, 985, 0.06)); /* girl, full length; her right hand (her hand's place) at the origin */
-  layer('hand', 0.24, 0.2, 0.065, 0.04, () => photo('textures/inward-hand.webp', 0.115, 941, 1672, 470, 780, 0.1)); /* her hand, about 7 cm across; its back at the origin */
-  layer('skin', 0.1, 0.05, 2.5e-3, 1.3e-3, () => photo('textures/inward-skin.webp', 0.058, 1254, 1254, 627, 627, 0.3, true)); /* a soft round patch, fading in as the hand fades out */
+  layer('hand', 0.24, 0.2, 0.06, 0.05, () => photo('textures/inward-hand.webp', 0.115, 941, 1672, 470, 780, 0.1)); /* her hand, about 7 cm across; its back at the origin */
+  layer('skin', 0.07, 0.05, 2.5e-3, 1.3e-3, () => photo('textures/inward-skin.webp', 0.1, 1254, 1254, 627, 627, 0.2)); /* her skin, 10 cm across with soft edges, fading in as the hand fades out: it fills the view at the back-of-hand step */
   // skin close up: a network of creases (coarse ones about 0.6 mm apart, finer ones between) and a fine hair
   const SKIN = [200, 148, 115];
   layer('creases', 0.014, 0.0065, 2.2e-4, 1.1e-4, () => flat(canvasTex(2048, (x, n) => {
@@ -221,7 +221,7 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   const near = (L, w2, dec) => (L.inFrom === Infinity || w2 < L.inFrom * Math.pow(10, dec)) && (L.outTo === 0 || w2 > L.outTo / Math.pow(10, dec));
   function manage() {
     for (const L of LAYERS) {
-      if (!L.obj && near(L, w, 0.6)) { L.obj = L.build(); L.mats = []; L.obj.traverse(o => { for (const m of [].concat(o.material || [])) { m.userData.base = m.opacity; m.transparent = true; L.mats.push(m); } }); L.obj.traverse(o => { if (!o.renderOrder) o.renderOrder = L.name === 'earth' ? -1 : 1000; }); /* Earth under the flat maps; the 3D steps over them */ scene.add(L.obj); }
+      if (!L.obj && near(L, w, 0.6)) { L.obj = L.build(); L.mats = []; L.obj.traverse(o => { for (const m of [].concat(o.material || [])) { m.userData.base = m.opacity; m.transparent = true; L.mats.push(m); } }); L.obj.traverse(o => { o.renderOrder = L.name === 'earth' ? -1 : 1000 + LAYERS.indexOf(L); }); /* Earth under the flat maps; the 3D steps over them */ scene.add(L.obj); }
       else if (L.obj && !near(L, w, 1.6)) { scene.remove(L.obj); L.obj.traverse(o => { o.geometry?.dispose?.(); for (const m of [].concat(o.material || [])) { for (const k of ['map', 'alphaMap']) if (m[k] && !Object.values(maskCache).includes(m[k])) m[k].dispose(); m.dispose(); } }); L.obj = null; }
     }
   }
