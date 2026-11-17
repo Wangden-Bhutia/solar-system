@@ -37,8 +37,8 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   const LAYERS = [];
   const layer = (name, inFrom, inTo, outFrom, outTo, build) => LAYERS.push({ name, inFrom, inTo, outFrom, outTo, build, obj: null, mats: null });
 
-  // Earth, turned so the city (in northern India) is on top and north is up the screen.
-  const R = 6.371e6, LAT = 28.6, LON = 77.2;
+  // Earth, turned so the town is on top and north is up the screen.
+  const R = 6.371e6, LAT = 48.1, LON = 11.6; /* a town in southern Germany, like the photographs */
   // The Earth's turn that puts a place (lat, lon) at the top of the picture, north up the screen.
   let earthRef = null, earthIndia = null, handover = null;
   function orientFor(lat, lon) {
@@ -47,7 +47,7 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
     const q2 = new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI - Math.atan2(north.x, north.z));
     return q2.multiply(q1);
   }
-  layer('earth', Infinity, Infinity, 5e4, 2e4, () => {
+  layer('earth', Infinity, Infinity, 2e6, 6e5, () => {
     const g = new THREE.Group(), body = new THREE.Mesh(new THREE.SphereGeometry(R, 96, 64), new THREE.MeshStandardMaterial({ map: tex('textures/earth.webp'), roughness: 0.85 }));
     const clouds = new THREE.Mesh(new THREE.SphereGeometry(R * 1.004, 96, 64), new THREE.MeshStandardMaterial({ map: tex('textures/earth-clouds.webp'), transparent: true, opacity: 0.5, depthWrite: false }));
     const glow = new THREE.Mesh(new THREE.SphereGeometry(R * 1.03, 64, 48), new THREE.MeshBasicMaterial({ color: C('#5a9aff'), transparent: true, opacity: 0.12, side: THREE.BackSide, depthWrite: false }));
@@ -93,7 +93,20 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   }
   // The city in aerial photographs (AI-made, one style), each about 1.4 times closer than the one before, all centred on the
   // same spot: wide 12 km, middle 8.4 km, core 6 km (the core's centre is the origin; the park comes next).
-  layer('cityWide', 3e4, 1.5e4, 9e3, 5e3, () => photo('textures/inward-city-wide.webp', 12000, 1024, 1536, 540, 825, 0.08));
+  // The ground between Earth and the photographs: the land's own colours (taken from the photographs and the Earth map), so the
+  // city pictures grow out of land and not out of black, and so a wide screen has ground beside a tall picture.
+  layer('ground', 3e6, 1e6, 120, 60, () => flat(canvasTex(512, (x, n) => {
+    const r = rng(23); x.fillStyle = 'rgb(84,98,62)'; x.fillRect(0, 0, n, n);
+    for (let k = 0; k < 260; k++) { const g = (r() - 0.5) * 34, rad = n * (0.02 + r() * 0.09); x.fillStyle = `rgba(${84 + g},${98 + g * 0.8},${62 + g * 0.5},0.22)`; x.beginPath(); x.arc(r() * n, r() * n, rad, 0, 6.283); x.fill(); }
+  }), 8e6, 8e6, 0, 0, 0.02));
+  // farmland and woods as they look from far above, in the photographs' own colours, so the city photo grows out of countryside
+  layer('groundFields', 6e5, 2.5e5, 3e4, 1.2e4, () => flat(canvasTex(2048, (x, n) => {
+    const r = rng(29), pal = [[104, 126, 66], [118, 130, 70], [140, 130, 88], [92, 114, 60], [64, 86, 48], [128, 138, 80], [112, 104, 74]];
+    x.fillStyle = 'rgb(84,98,62)'; x.fillRect(0, 0, n, n);
+    for (let k = 0; k < 5200; k++) { const [a, b, c] = pal[Math.floor(r() * pal.length)], u = r() * n, v = r() * n, wd = 5 + r() * 20, ht = 5 + r() * 20, ang = Math.floor(r() * 3) * 0.5 + (r() - 0.5) * 0.12;
+      x.save(); x.translate(u, v); x.rotate(ang); x.fillStyle = `rgba(${a},${b},${c},0.7)`; x.fillRect(-wd / 2, -ht / 2, wd, ht); x.restore(); }
+  }), 1.5e5, 1.5e5, 0, 0, 0.35, true));
+  layer('cityWide', 4e5, 1.2e5, 9e3, 5e3, () => photo('textures/inward-city-wide.webp', 12000, 1024, 1536, 540, 825, 0.08));
   layer('cityMid', 1.2e4, 8e3, 4e3, 2.5e3, () => photo('textures/inward-city-mid.webp', 8400, 1024, 1536, 529, 835, 0.08));
   layer('cityCore', 7e3, 4e3, 900, 450, () => photo('textures/inward-city-core.webp', 6000, 1024, 1536, 518, 845, 0.08));
   layer('park', 600, 300, 40, 25, () => photo('textures/inward-park.webp', 300, 941, 1672, 470, 836, 0.12)); /* the park: its open lawn at the centre, about 300 m wide */
@@ -114,37 +127,51 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   // the three photographs (illustrations made for the app), each placed so the next one's centre sits at the origin
   layer('girl', 2.2, 1.0, 0.2, 0.18, () => photo('textures/inward-girl.webp', 0.99, 941, 1672, 325, 985, 0.06)); /* girl, full length; her right hand (her hand's place) at the origin */
   layer('hand', 0.24, 0.2, 0.06, 0.05, () => photo('textures/inward-hand.webp', 0.115, 941, 1672, 470, 780, 0.1)); /* her hand, about 7 cm across; its back at the origin */
-  layer('skin', 0.07, 0.05, 2.5e-3, 1.3e-3, () => photo('textures/inward-skin.webp', 0.1, 1254, 1254, 627, 627, 0.2)); /* her skin, 10 cm across with soft edges, fading in as the hand fades out: it fills the view at the back-of-hand step */
+  layer('skin', 0.07, 0.05, 2.5e-3, 1.3e-3, () => photo('textures/inward-skin.webp', 0.2, 1254, 1254, 627, 627, 0.2)); /* her skin, 20 cm across with soft edges, fading in as the hand fades out: it fills the view at the back-of-hand step */
   // skin close up: a network of creases (coarse ones about 0.6 mm apart, finer ones between) and a fine hair
   const SKIN = [200, 148, 115];
-  layer('creases', 0.014, 0.0065, 2.2e-4, 1.1e-4, () => flat(canvasTex(2048, (x, n) => {
-    const r = rng(41); x.fillStyle = `rgb(${SKIN.join(',')})`; x.fillRect(0, 0, n, n); const s = n / 0.008;
-    for (let k = 0; k < 2500; k++) { const u = r() * n, v = r() * n, g = (r() - 0.5) * 18; x.fillStyle = `rgba(${SKIN[0] + g},${SKIN[1] + g},${SKIN[2] + g},0.5)`; x.beginPath(); x.arc(u, v, 6 + r() * 30, 0, 6.283); x.fill(); }
-    for (const [spacing, wid, a] of [[0.0006 * s, 3.2, 0.45], [0.00022 * s, 1.4, 0.3]]) { x.strokeStyle = `rgba(120,70,48,${a})`; x.lineWidth = wid;
-      for (const ang of [0.5, -0.45, 1.4]) { const cs = Math.cos(ang), sn = Math.sin(ang); for (let k = -n * 1.5; k < n * 1.5; k += spacing * (0.7 + r() * 0.6)) { x.beginPath(); let px = n / 2 + cs * -n * 1.5 - sn * k, py = n / 2 + sn * -n * 1.5 + cs * k; x.moveTo(px, py); for (let t = 0; t < 60; t++) { px += cs * n * 0.05 + (r() - 0.5) * 6; py += sn * n * 0.05 + (r() - 0.5) * 6; x.lineTo(px, py); } x.stroke(); } } }
+  // creases: a 20 mm tile of skin with bent fine lines in three directions, repeated to cover any screen (wrapped, so no seam); one hair on top
+  layer('creases', 0.014, 0.0065, 2.2e-4, 1.1e-4, () => {
+    const tile = canvasTex(2048, (x, n) => {
+      const r = rng(41), s = n / 0.02; x.fillStyle = `rgb(${SKIN.join(',')})`; x.fillRect(0, 0, n, n);
+      for (let k = 0; k < 2500; k++) { const u = r() * n, v = r() * n, g = (r() - 0.5) * 18; x.fillStyle = `rgba(${SKIN[0] + g},${SKIN[1] + g},${SKIN[2] + g},0.5)`; x.beginPath(); x.arc(u, v, 6 + r() * 30, 0, 6.283); x.fill(); }
+      const lines = [];
+      /* short wandering cracks in three loose directions, wrapped around the tile edges so the repeat has no seam */
+      for (const [count, wid, a, len] of [[700, 3, 0.34, 0.16], [2600, 1.3, 0.24, 0.07]]) for (let k = 0; k < count; k++) {
+        const ang = [0.5, -0.45, 1.4][k % 3] + (r() - 0.5) * 0.7; let px = r() * n, py = r() * n; const pts = [[px, py]], steps = 14;
+        for (let t = 0; t < steps; t++) { px += Math.cos(ang + (r() - 0.5) * 0.9) * n * len / steps; py += Math.sin(ang + (r() - 0.5) * 0.9) * n * len / steps; pts.push([px, py]); }
+        for (const [ox, oy] of [[0, 0], [n, 0], [-n, 0], [0, n], [0, -n]]) lines.push([pts.map(q => [q[0] + ox, q[1] + oy]), wid, a]);
+      }
+      x.lineJoin = 'round'; x.lineCap = 'round';
+      for (const [pts, wid, a] of lines) { x.strokeStyle = `rgba(120,70,48,${a})`; x.lineWidth = wid; x.beginPath(); x.moveTo(pts[0][0], pts[0][1]); for (let q = 1; q < pts.length; q++) x.lineTo(pts[q][0], pts[q][1]); x.stroke(); }
+    });
+    tile.wrapS = tile.wrapT = THREE.RepeatWrapping; tile.repeat.set(5, 5);
+    const g = new THREE.Group(), base = flat(tile, 0.1, 0.1, 0, 0, 0.2);
     /* a fine hair, about 0.03 mm thick, growing from its follicle */
-    x.strokeStyle = 'rgba(70,40,25,0.55)'; x.lineWidth = 0.00003 * s; x.lineCap = 'round'; x.beginPath(); x.moveTo(n * 0.55, n * 0.57); x.bezierCurveTo(n * 0.62, n * 0.5, n * 0.7, n * 0.47, n * 0.86, n * 0.42); x.stroke();
-    x.fillStyle = 'rgba(110,60,40,0.5)'; x.beginPath(); x.arc(n * 0.55, n * 0.57, 0.00004 * s, 0, 6.283); x.fill();
-  }), 0.008, 0.008, 0, 0, 0.12));
+    const hair = flat(canvasTex(1024, (x, n) => { const s = n / 0.02; x.strokeStyle = 'rgba(70,40,25,0.7)'; x.lineWidth = 0.00003 * s * 2; x.lineCap = 'round'; x.beginPath(); x.moveTo(n * 0.52, n * 0.528); x.bezierCurveTo(n * 0.548, n * 0.5, n * 0.58, n * 0.488, n * 0.644, n * 0.468); x.stroke();
+      x.fillStyle = 'rgba(110,60,40,0.55)'; x.beginPath(); x.arc(n * 0.52, n * 0.528, 0.00004 * s * 2, 0, 6.283); x.fill(); }), 0.02, 0.02, 0, 0, 0.02);
+    hair.userData.sub = 0.3; g.add(base, hair); return g;
+  });
   // the outer layer: flat dead cells about 30-40 µm across, overlapping like tiles, some edges lifting
   layer('flakes', 1.3e-3, 5.5e-4, 1.3e-4, 6e-5, () => flat(canvasTex(2048, (x, n) => {
-    const r = rng(53), s = n / 0.001; x.fillStyle = `rgb(${SKIN[0] - 10},${SKIN[1] - 12},${SKIN[2] - 10})`; x.fillRect(0, 0, n, n);
+    const r = rng(53), s = n / 0.0025; x.fillStyle = `rgb(${SKIN[0] - 10},${SKIN[1] - 12},${SKIN[2] - 10})`; x.fillRect(0, 0, n, n);
     const cell = 0.000034 * s, pts = []; for (let j = -1; j < n / (cell * 0.87) + 1; j++) for (let i = -1; i < n / cell + 1; i++) pts.push([(i + (j % 2) * 0.5) * cell + (r() - 0.5) * cell * 0.35, j * cell * 0.87 + (r() - 0.5) * cell * 0.35]);
     pts.sort(() => r() - 0.5);
     for (const [u, v] of pts) { const sides = 6, rad = cell * (0.58 + r() * 0.1), rot = r() * 6.283, g = (r() - 0.5) * 20; x.beginPath(); for (let k = 0; k < sides; k++) { const a = rot + k / sides * 6.283, rr = rad * (0.88 + r() * 0.2); const px = u + Math.cos(a) * rr, py = v + Math.sin(a) * rr; if (k) x.lineTo(px, py); else x.moveTo(px, py); } x.closePath();
       x.fillStyle = `rgb(${SKIN[0] + 18 + g},${SKIN[1] + 22 + g},${SKIN[2] + 26 + g})`; x.fill(); x.strokeStyle = 'rgba(120,80,60,0.45)'; x.lineWidth = 2.2; x.stroke();
       x.fillStyle = 'rgba(255,255,255,0.08)'; x.beginPath(); x.arc(u - rad * 0.2, v - rad * 0.2, rad * 0.5, 0, 6.283); x.fill(); }
-  }), 0.001, 0.001, 0, 0, 0.12));
+  }), 0.0025, 0.0025, 0, 0, 0.2));
 
   // ---- built in 3D below this: a living cell, its nucleus, DNA, one atom ----
   const M = (color, o = {}) => new THREE.MeshStandardMaterial({ color: C(color), roughness: 0.55, ...o });
-  const CELL = (() => { const U = 1e-6, geo = new THREE.IcosahedronGeometry(5.6 * U, 3), pc = geo.attributes.position;
+  const CELL = (() => { const U = 1e-6, geo = new THREE.SphereGeometry(5.6 * U, 48, 32), pc = geo.attributes.position;
     for (let k = 0; k < pc.count; k++) { const f = 1 + 0.07 * Math.sin(pc.getX(k) / U * 1.7) * Math.sin(pc.getY(k) / U * 1.3); pc.setXYZ(k, pc.getX(k) * f, pc.getY(k) * f * 0.8, pc.getZ(k) * f); } geo.computeVertexNormals();
     return { geo, nucGeo: new THREE.SphereGeometry(2.9 * U, 32, 24), cell: M('#f2c4b4', { transparent: true, opacity: 0.5, depthWrite: false }), nuc: M('#9a5aa8', { emissive: C('#2a0e30'), emissiveIntensity: 0.6 }) }; })();
   // living skin cells (about 10 µm), packed together, each with its nucleus; the one at the origin is the one we enter
   layer('cells', 1.6e-4, 7e-5, 2.4e-5, 1.4e-5, () => {
     const g = new THREE.Group(), r = rng(61), U = 1e-6;
-    for (let i = -4; i <= 4; i++) for (let k = -4; k <= 4; k++) { if (!i && !k) continue; const c = new THREE.Group(); c.position.set(i * 11 * U + (r() - 0.5) * 2.5 * U, (r() - 0.5) * 1.5 * U, k * 11 * U + (r() - 0.5) * 2.5 * U); c.rotation.set(r() * 3, r() * 3, r() * 3);
+    const bed = new THREE.Mesh(new THREE.PlaneGeometry(220 * U, 220 * U), M('#b86a58', { roughness: 0.9, transparent: true })); bed.rotation.x = -Math.PI / 2; bed.position.y = -4.2 * U; g.add(bed); /* the tissue the cells sit in */
+    for (let i = -6; i <= 6; i++) for (let k = -6; k <= 6; k++) { if (!i && !k) continue; const c = new THREE.Group(); c.position.set(i * 11 * U + (r() - 0.5) * 2.5 * U, (r() - 0.5) * 1.5 * U, k * 11 * U + (r() - 0.5) * 2.5 * U); c.rotation.set(r() * 3, r() * 3, r() * 3);
       c.add(new THREE.Mesh(CELL.geo, CELL.cell), new THREE.Mesh(CELL.nucGeo, CELL.nuc)); g.add(c); }
     return g;
   });
@@ -158,8 +185,8 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
     for (let k = 0; k < 160; k++) { const u = r() * 2 - 1, a = r() * 6.283, s2 = Math.sqrt(1 - u * u); o.position.set(s2 * Math.cos(a) * 3 * U, u * 3 * U, s2 * Math.sin(a) * 3 * U); o.lookAt(0, 0, 0); o.updateMatrix(); pores.setMatrixAt(k, o.matrix); } g.add(pores);
     const lines = []; for (let s = 0; s < 22; s++) { let p = s === 0 ? V(0, 0, 0) : V((r() - 0.5) * 4, (r() - 0.5) * 4, (r() - 0.5) * 4).multiplyScalar(U); const d = V(r() - 0.5, r() - 0.5, r() - 0.5).normalize();
       for (let k = 0; k < 260; k++) { d.add(V(r() - 0.5, r() - 0.5, r() - 0.5).multiplyScalar(0.5)).normalize(); const q = p.clone().addScaledVector(d, 0.09 * U); if (q.length() > 2.8 * U) { d.addScaledVector(q.clone().normalize(), -1).normalize(); continue; } lines.push(p.x, p.y, p.z, q.x, q.y, q.z); p = q; } }
-    const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
-    g.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: C('#e8a0f0'), transparent: true, opacity: 0.75 })));
+    const beads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.032 * U, 10, 8), M('#e6a2ee', { emissive: C('#4a1858'), emissiveIntensity: 0.7, roughness: 0.4 }), lines.length / 6), bo = new THREE.Object3D();
+    for (let k = 0; k < lines.length / 6; k++) { bo.position.set(lines[k * 6], lines[k * 6 + 1], lines[k * 6 + 2]); bo.updateMatrix(); beads.setMatrixAt(k, bo.matrix); } g.add(beads);
     g.add(new THREE.Mesh(new THREE.SphereGeometry(0.8 * U, 24, 16), M('#7a3a8a', { transparent: true, opacity: 0.5 })).translateX(1.4 * U).translateY(0.6 * U)); /* the nucleolus */
     return g;
   });
@@ -220,27 +247,35 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   });
 
   // ---- view: Z = ln(width of view in metres) ----
+  // w is the width of the view on a tall phone (aspect 0.46); every screen shows the same height, so the same subject fits on a
+  // phone, an iPad or a wide laptop, and a wide screen simply shows more to the sides.
+  const REF_ASPECT = 0.46;
   let w = 1.6e7, raf = 0, t0 = 0, W = 1, H = 1, running = false, aspect = 1;
   const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
   const opacityAt = (L, w2) => { const a = L.inFrom === Infinity ? 1 : sm(0, 1, Math.log(L.inFrom / w2) / Math.log(L.inFrom / L.inTo)), b = L.outFrom === 0 ? 1 : 1 - sm(0, 1, Math.log(L.outFrom / w2) / Math.log(L.outFrom / L.outTo)); return a * b; };
   const near = (L, w2, dec) => (L.inFrom === Infinity || w2 < L.inFrom * Math.pow(10, dec)) && (L.outTo === 0 || w2 > L.outTo / Math.pow(10, dec));
   function manage() {
     for (const L of LAYERS) {
-      if (!L.obj && near(L, w, 0.6)) { L.obj = L.build(); L.mats = []; L.obj.traverse(o => { for (const m of [].concat(o.material || [])) { m.userData.base = m.opacity; m.transparent = true; L.mats.push(m); } }); L.obj.traverse(o => { o.renderOrder = L.name === 'earth' ? -1 : 1000 + LAYERS.indexOf(L); }); /* Earth under the flat maps; the 3D steps over them */ scene.add(L.obj); }
+      if (!L.obj && near(L, w, 0.6)) { L.obj = L.build(); L.mats = []; L.obj.traverse(o => { for (const m of [].concat(o.material || [])) { m.userData.base = m.opacity; m.transparent = true; L.mats.push(m); } }); L.obj.traverse(o => { o.renderOrder = L.name === 'earth' ? -1 : 1000 + LAYERS.indexOf(L) + (o.userData.sub || 0); }); /* Earth under the flat maps; the 3D steps over them */ scene.add(L.obj); }
       else if (L.obj && !near(L, w, 1.6)) { scene.remove(L.obj); L.obj.traverse(o => { o.geometry?.dispose?.(); for (const m of [].concat(o.material || [])) { for (const k of ['map', 'alphaMap']) if (m[k] && !Object.values(maskCache).includes(m[k])) m[k].dispose(); m.dispose(); } }); L.obj = null; }
     }
   }
+  // The colour behind the micro-world, by zoom: warm tissue, purple inside the cell, deep blue among the DNA, black for the atom.
+  const BG = [[2e-4, '#02040c'], [9e-5, '#2a1612'], [1.5e-5, '#241324'], [3e-6, '#1a0f2a'], [4e-7, '#0d1230'], [2e-8, '#070d22'], [3e-9, '#02040c']].map(([x, c]) => [Math.log(x), C(c)]);
+  const bgNow = C('#02040c');
+  function bgAt(lw) { if (lw >= BG[0][0]) return bgNow.copy(BG[0][1]); if (lw <= BG[BG.length - 1][0]) return bgNow.copy(BG[BG.length - 1][1]);
+    for (let k = 0; k < BG.length - 1; k++) if (lw <= BG[k][0] && lw >= BG[k + 1][0]) { const t = (BG[k][0] - lw) / (BG[k][0] - BG[k + 1][0]); return bgNow.copy(BG[k][1]).lerp(BG[k + 1][1], t * t * (3 - 2 * t)); } return bgNow; }
   function size() { W = canvas.clientWidth || 412; H = canvas.clientHeight || 915; renderer.setSize(W, H, false); aspect = W / H; cam.aspect = aspect; cam.setViewOffset(W, H, 0, H * 0.12, W, H); cam.updateProjectionMatrix(); }
   function render(now) {
     // Handed over from the main zoom: the Earth starts turned to the place the main view was on, and turns to the city as we zoom in.
     if (earthRef && handover && handover.wEntry > handover.wCity) { const t = Math.min(1, Math.max(0, Math.log(handover.wEntry / w) / Math.log(handover.wEntry / handover.wCity))); earthRef.quaternion.copy(orientFor(handover.lat, handover.lon)).slerp(earthIndia, t); }
-    const t = reduced() ? 0 : (now - t0) / 1000; manage();
+    const t = reduced() ? 0 : (now - t0) / 1000; manage(); scene.background = bgAt(Math.log(w));
     for (const L of LAYERS) { if (!L.obj) continue; const a = opacityAt(L, w); L.obj.visible = a > 0.002; if (!L.obj.visible) continue; for (const m of L.mats) m.opacity = m.userData.base * a; L.obj.userData.update?.(t); }
     /* the camera: straight down (north up) until the living cells; then it tilts to show them in 3D, and slowly turns */
     const tilt = sm(Math.log(2.2e-4), Math.log(4e-5), Math.log(w)) * 0.85, az = (0.3 + (reduced() ? 0 : t * 0.04)) * tilt / 0.85; /* north stays up while looking straight down */
-    const D = w / (2 * Math.tan(cam.fov * Math.PI / 360) * Math.min(1, aspect)), dir = V(Math.sin(tilt) * Math.sin(az), Math.cos(tilt), Math.sin(tilt) * Math.cos(az));
+    const D = (w / REF_ASPECT) / (2 * Math.tan(cam.fov * Math.PI / 360)), dir = V(Math.sin(tilt) * Math.sin(az), Math.cos(tilt), Math.sin(tilt) * Math.cos(az));
     cam.position.copy(dir.multiplyScalar(D)); cam.up.set(-Math.sin(az), 0, -Math.cos(az)); cam.lookAt(0, 0, 0);
-    cam.near = D * 0.02; cam.far = D * 60 + (w > 1e5 ? 2 * R : 0); cam.updateProjectionMatrix();
+    cam.near = D * (w < 1e-5 ? 0.2 : 0.02); /* in the micro-world, nothing right in front of the lens */ cam.far = D * 60 + (w > 1e5 ? 2 * R : 0); cam.updateProjectionMatrix();
     renderer.render(scene, cam);
   }
   function frame(now) { if (!running) return; raf = requestAnimationFrame(frame); render(now); }
@@ -248,6 +283,7 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
     setW(x) { w = x; if (!running) render(performance.now()); },
     setHandover(h) { handover = h || null; if (!running) render(performance.now()); },
     get w() { return w; },
+    get aspect() { return aspect; },
     resize() { size(); if (!running) render(performance.now()); },
     start() { size(); running = true; t0 = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); },
     stop() { running = false; cancelAnimationFrame(raf); raf = 0; },

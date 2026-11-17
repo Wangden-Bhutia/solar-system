@@ -276,20 +276,19 @@ function zoomBounds(){
  if(ck&&ck.time()!==0){if(pin){b.min=Math.max(b.min,SEAM_Z[pin][1]);b.gateIn=()=>ck.rewind();}if(pout){b.max=Math.min(b.max,SEAM_Z[pout][0]);b.gateOut=()=>ck.rewind();}}
  if(l==='galaxy'&&!b.gateIn&&!galaxyView.atSun()){b.min=Math.max(b.min,SEAM_Z[pin][1]);b.gateIn=()=>galaxyView.zoomToSun();}
  if(l==='local'&&!b.gateIn&&localView.zoomState().atSun===false){b.min=Math.max(b.min,SEAM_Z[pin][1]);b.gateIn=()=>localView.zoomBackIn();}
- if(l==='solar'&&solarFocused?.()?.data?.name==='Earth')b.gateIn=pushInward;
+ if(l==='solar'&&solarFocused?.()?.data?.name==='Earth'){const f=solarFocused();if(f.radius)b.min=Math.max(b.min,solarZ(f.radius*2.3,real()));b.gateIn=pushInward;} /* hand over while the Earth's picture is still sharp */
  if(l==='solar'&&solarOffCentred()){b.max=Math.min(b.max,SEAM_Z[pout][0]);b.gateOut=()=>{if(solarFocused?.())unfocus(false);solarDrift?.(1e9);};}
  return b;
 }
 // At the Earth close-up, a zoom that keeps pushing in against the edge (for about a third of a second) carries on into the journey inward.
 let pushFrom=-1e9,pushLast=-1e9;
-// Where the main view is at the Earth close-up, so the journey opens on the same place: its width (m), and the latitude and
-// longitude under the centre of view. Earth's diameter is 1 scene unit = 12,756 km.
-const EARTH_UNIT_M = 12756e3;
-function entryView(){if(!real())return null;const f=solarFocused?.();if(f?.data?.name!=='Earth'||!f.mesh)return null;
-  const d=solarDistance(),t=Math.tan(camera.fov*Math.PI/360),width=2*d*t*camera.aspect*EARTH_UNIT_M;
+// Where the main view is at the Earth close-up, so the journey opens on the same place: how wide the view is (m, on a tall phone), and the
+// latitude and longitude under its centre. Earth's radius as drawn is f.radius scene units = 6,371 km, in either scale.
+function entryView(){const f=solarFocused?.();if(f?.data?.name!=='Earth'||!f.mesh||!f.radius)return null;
+  const d=solarDistance(),height=2*d*Math.tan(camera.fov*Math.PI/360)*(6.371e6/f.radius);
   const q=f.mesh.worldToLocal(camera.position.clone()).normalize(), th=Math.acos(Math.max(-1,Math.min(1,q.y))), ph=Math.atan2(q.z,-q.x);
-  return {width,lat:90-th*180/Math.PI,lon:((ph*180/Math.PI-180)%360+540)%360-180};}
-function pushInward(){const t=globalThis.performance?.now?.()??Date.now();if(t-pushLast>300)pushFrom=t;pushLast=t;if(t-pushFrom>=350){pushLast=-1e9;openInward(entryView());}}
+  return {width:0.46*height,lat:90-th*180/Math.PI,lon:((ph*180/Math.PI-180)%360+540)%360-180};}
+function pushInward(){const t=globalThis.performance?.now?.()??Date.now();if(t-pushLast>700)pushFrom=t;pushLast=t;if(t-pushFrom>=350){pushLast=-1e9;openInward(entryView());}}
 function zoomTick(dt,instant){
  if(animating||!zoom.moving)return;
  if(!bridge){const z=zoomState();if(!z||z.busy){zoom.stop();return;}}

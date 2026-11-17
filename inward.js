@@ -40,7 +40,9 @@ export function createInward({ onOpen, onClose } = {}) {
   const W = () => Math.exp(zc.z);
   function paint(force) {
     const w = W(), r = rungAt(w);
-    readout.textContent = `Width of view: ${formatMetres(w)} · ${compareWithYou(w)}`;
+    /* on a wide screen the shorter side is the screen's height, so say that size */
+    const across = w * Math.max(1, Math.min(world?.aspect ?? 0.46, 1) / 0.46);
+    readout.textContent = `Size of view: ${formatMetres(across)} · ${compareWithYou(across)}`;
     if (r !== shown || force) { shown = r; here.textContent = r.here; txt.textContent = r.text; note.textContent = r.note || ''; note.hidden = !r.note;
       const k = idx(r); dots.innerHTML = `<b>${k + 1}</b> / ${RUNGS.length}`; dots.setAttribute('aria-label', `Step ${k + 1} of ${RUNGS.length}`); }
     const k = idx(r), at = Math.abs(Math.log10(w / r.w)) < 0.05;

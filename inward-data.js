@@ -7,7 +7,7 @@ const wiki = t => ({ label: 'Wikipedia: ' + t, url: 'https://en.wikipedia.org/wi
 // w: the width of view (m) a glide to this step rests at. here: the "You are here" line. text: one fact.
 export const RUNGS = [
   { id: 'earth', w: 1.6e7, label: 'Earth', here: 'You are here: Earth', text: 'Earth, about 12,700 km across. Somewhere on it, a city.', src: [wiki('Earth')] },
-  { id: 'city', w: 2.4e4, label: 'City', here: 'You are here: a city', text: 'A city seen from far above: rooftops, roads, a river, and green spaces between them.', src: [] },
+  { id: 'city', w: 8e3, label: 'City', here: 'You are here: a city', text: 'A city seen from far above: rooftops, roads, a river, and green spaces between them.', src: [] },
   { id: 'park', w: 300, label: 'Park', here: 'You are here: a park', text: 'A park in the middle of the city. Someone is lying on the grass.', src: [] },
   { id: 'girl', w: 1.1, label: 'Girl', here: 'You are here: a girl on the grass', text: 'A little girl lying on the grass, looking up at the sky. Everything from here down is inside her.', src: [] },
   { id: 'hand', w: 0.16, label: 'Hand', here: 'You are here: her hand', text: 'Her hand, about 6 cm across. Now keep going: smaller than anything you can see.', src: [] },

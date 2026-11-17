@@ -440,7 +440,9 @@ function frame(now) {
   for (const b of bodies) {
     const hours = Math.abs(b.data.rot); // direction comes from the tilt (Venus 177°, Uranus 98°)
     const spin = playing && !hooks.hold ? dt * BASE_DAYS_PER_SEC * 10 ** speedExp * viewMotion * 24 / hours * 0.02 * Math.PI * 2 : 0;
-    if (!b.satellite) b.mesh.rotation.y += spin;
+    // close to the Earth, its spin slows to almost nothing, so you can see where you are heading before the journey takes over
+    const calm = focused === b && b.data.name === 'Earth' ? Math.min(1, Math.max(0.04, (camera.position.distanceTo(controls.target) / b.radius - 2.3) / 1.7)) : 1;
+    if (!b.satellite) b.mesh.rotation.y += spin * calm;
     if (b.mesh.userData.axis) b.mesh.userData.axis.visible = focused === b;
     if (b.mesh.userData.clouds) b.mesh.userData.clouds.rotation.y += spin * 0.15 + dt * 0.01;
   }
