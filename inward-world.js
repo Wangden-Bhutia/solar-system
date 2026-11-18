@@ -125,8 +125,8 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
       for (const ox of [-n, 0, n]) for (const oy of [-n, 0, n]) { const bu = u + ox, bv = v + oy; if (bu + L < 0 || bv + L < 0 || bu - L > n || bv - L > n) continue; blade(bu, bv, a, L, w, bend, g); } }
   }); map.wrapS = map.wrapT = THREE.RepeatWrapping; map.repeat.set(8 / T, 8 / T); return flat(map, 8, 8, 0, 0, 0.15, true); });
   // the three photographs (illustrations made for the app), each placed so the next one's centre sits at the origin
-  layer('girl', 2.2, 1.0, 0.2, 0.18, () => photo('textures/inward-girl.webp', 0.99, 941, 1672, 325, 985, 0.06)); /* girl, full length; her right hand (her hand's place) at the origin */
-  layer('hand', 0.24, 0.2, 0.06, 0.05, () => photo('textures/inward-hand.webp', 0.115, 941, 1672, 470, 780, 0.1)); /* her hand, about 7 cm across; its back at the origin */
+  layer('girl', 2.2, 1.0, 0.2, 0.18, () => photo('textures/inward-girl.webp', 0.99, 941, 1672, 325, 985, 0.15)); /* girl, full length; her right hand (her hand's place) at the origin */
+  layer('hand', 0.24, 0.2, 0.06, 0.05, () => photo('textures/inward-hand.webp', 0.115, 941, 1672, 470, 780, 0.3, true)); /* her hand, about 7 cm across; its back at the origin */
   layer('skin', 0.07, 0.05, 2.5e-3, 1.3e-3, () => photo('textures/inward-skin.webp', 0.2, 1254, 1254, 627, 627, 0.2)); /* her skin, 20 cm across with soft edges, fading in as the hand fades out: it fills the view at the back-of-hand step */
   // skin close up: a network of creases (coarse ones about 0.6 mm apart, finer ones between) and a fine hair
   const SKIN = [200, 148, 115];
