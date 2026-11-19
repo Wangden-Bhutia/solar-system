@@ -51,11 +51,16 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   const TOPW = CHAIN_W.at(-1);
   layer('earth', Infinity, Infinity, TOPW / 9, TOPW / 16, () => {
     const g = new THREE.Group(), body = new THREE.Mesh(new THREE.SphereGeometry(R, 96, 64), new THREE.MeshStandardMaterial({ map: tex('textures/earth.webp'), roughness: 0.85 }));
+    // A sharper satellite picture of Europe, North Africa and the Middle East (lon -45..75, lat 5..78, plate carrée), laid
+    // just above the globe, so it stays crisp from about 3,000 km down until the flat pictures take over.
+    const region = new THREE.Mesh(new THREE.SphereGeometry(R * 1.0003, 160, 100, (-45 + 180) / 180 * Math.PI, 120 / 180 * Math.PI, (90 - 78) / 180 * Math.PI, 73 / 180 * Math.PI),
+      new THREE.MeshStandardMaterial({ map: tex('textures/earth-region.webp'), transparent: true, depthWrite: false, roughness: 0.85 }));
+    g.add(region);
     const clouds = new THREE.Mesh(new THREE.SphereGeometry(R * 1.004, 96, 64), new THREE.MeshStandardMaterial({ map: tex('textures/earth-clouds.webp'), transparent: true, opacity: 0.5, depthWrite: false }));
     const glow = new THREE.Mesh(new THREE.SphereGeometry(R * 1.03, 64, 48), new THREE.MeshBasicMaterial({ color: C('#5a9aff'), transparent: true, opacity: 0.12, side: THREE.BackSide, depthWrite: false }));
     g.add(body, clouds, glow);
     const ori = new THREE.Group(); ori.quaternion.copy(orientFor(LAT, LON)); ori.add(g); ori.position.y = -R; earthRef = ori; earthHome = ori.quaternion.clone();
-    const holder = new THREE.Group(); holder.add(ori); holder.userData.update = t => { clouds.rotation.y = t * 0.004; }; return holder;
+    const holder = new THREE.Group(); holder.add(ori); holder.userData.update = t => { clouds.rotation.y = t * 0.004; clouds.material.opacity *= Math.min(1, Math.max(0, (Math.log(w) - Math.log(TOPW * 0.5)) / Math.log(3))); }; /* clouds thin away below ~5,000 km */ return holder;
   });
 
   // The two widest satellite pictures are too big to lie flat: they are wrapped onto the globe itself, each pixel at its
