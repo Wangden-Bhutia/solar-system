@@ -32,8 +32,8 @@ test('journey inward: its pictures and modules ship with the app, and Explore of
   const lab = fs.readFileSync('lab.js', 'utf8');
   assert.match(lab, /card\('inward','Journey inward'/); assert.match(lab, /top==='inward'\)inward\?\.close\(\)/); assert.match(lab, /data\?\.name==='Earth'[^\n]*b\.gateIn=pushInward/);
 });
-test('journey inward: the picture chain nests each picture in the next, and the real widths run from the leaf to 1,200 km', () => {
-  assert.equal(CHAIN.length, 15);
+test('journey inward: the picture chain nests each picture in the next, and the real widths run from the leaf to 3,600 km', () => {
+  assert.equal(CHAIN.length, 16);
   for (let k = 1; k < CHAIN.length; k++) { assert.ok(CHAIN[k].s > 0.25 && CHAIN[k].s < 0.45, CHAIN[k].f); assert.ok(CHAIN_W[k] > CHAIN_W[k - 1]); }
   assert.ok(Math.abs(toTrue(CHAIN_W[0]) / LEAF_W - 1) < 1e-9); assert.ok(Math.abs(toTrue(CHAIN_W.at(-1)) / TOP_W - 1) < 1e-9);
   for (const w of [1e-9, 0.05, 1, 300, 5e4, 1e6, 1.6e7]) assert.ok(Math.abs(toTrue(toPicture(w)) / w - 1) < 1e-9, String(w));

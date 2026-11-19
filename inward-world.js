@@ -1,5 +1,5 @@
 // The journey inward in 3D: one scene, every step centred on the next (the zoom always heads for the origin): Earth turned
-// so the place is on top, then a chain of pictures from 1,200 km down to one linden leaf (real satellite imagery, then
+// so the place is on top, then a chain of pictures from 3,600 km down to one linden leaf (real satellite imagery, then
 // AI-made pictures), then the leaf's veins and its surface (drawn), a leaf cell, its nucleus, DNA on its spools, the
 // double helix and one carbon atom (built here). Each layer fades in and out over a decade of zoom; a layer is built only when the zoom is
 // near it, and freed when it is far away, so a phone never holds all of them.
@@ -38,7 +38,7 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   const layer = (name, inFrom, inTo, outFrom, outTo, build) => LAYERS.push({ name, inFrom, inTo, outFrom, outTo, build, obj: null, mats: null });
 
   // The scene is built in "picture metres" (inward-data.js): real metres at the leaf and below, about 3 times smaller than
-  // real by 1,200 km, so the pictures fit each other exactly. The Earth is scaled the same way, to meet the top picture.
+  // real by 3,600 km, so the pictures fit each other exactly. The Earth is scaled the same way, to meet the top picture.
   const KT = TOP_W / CHAIN_W.at(-1), R = 6.371e6 / KT, LAT = 48.48, LON = 12.55; /* the countryside north-east of Munich */
   // The Earth's turn that puts a place (lat, lon) at the top of the picture, north up the screen.
   let earthRef = null, earthHome = null, handover = null;
@@ -58,7 +58,7 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
     const holder = new THREE.Group(); holder.add(ori); holder.userData.update = t => { clouds.rotation.y = t * 0.004; }; return holder;
   });
 
-  // ---- the pictures, from 1,200 km down to one leaf: each sits exactly inside the next ----
+  // ---- the pictures, from 3,600 km down to one leaf: each sits exactly inside the next ----
   // A picture stays fully shown until the one inside it covers any screen (a wide laptop shows about 3.5 times the
   // phone's width); the inner one fades in over its own patch only, on top, with soft edges, so nothing dips to black.
   { const centre = [[0, 0]]; /* where each picture's centre is, in picture metres (x across, z down the screen) */

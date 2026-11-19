@@ -4,7 +4,7 @@
 
 const wiki = t => ({ label: 'Wikipedia: ' + t, url: 'https://en.wikipedia.org/wiki/' + encodeURIComponent(t.replace(/ /g, '_')) });
 
-// The pictures from one leaf up to 1,200 km (AI-made up to the town, real satellite imagery above it). Each one sits inside the
+// The pictures from one leaf up to 3,600 km (AI-made up to the town, real satellite imagery above it). Each one sits inside the
 // next: s = how wide the inner picture is as a fraction of this one, c = where its centre is (fractions across and down).
 // The leaf picture is 12 cm wide and centred on the origin.
 export const CHAIN = [
@@ -13,12 +13,12 @@ export const CHAIN = [
   { f: 'inward-05', s: 0.335, c: [0.4785, 0.4864] }, { f: 'inward-06', s: 0.40, c: [0.5120, 0.5175] }, { f: 'inward-07', s: 0.42, c: [0.5024, 0.4912] },
   { f: 'inward-08', s: 0.395, c: [0.4976, 0.4912] }, { f: 'inward-09', s: 0.395, c: [0.5104, 0.4944] }, { f: 'inward-10', s: 0.335, c: [0.5, 0.5] },
   { f: 'inward-11', s: 1 / 3, c: [0.5, 0.5] }, { f: 'inward-12', s: 1 / 3, c: [0.5, 0.5] }, { f: 'inward-13', s: 1 / 3, c: [0.5, 0.5] }, { f: 'inward-14', s: 0.3, c: [0.5, 0.5] },
-  { f: 'inward-15', s: 0.3, c: [0.5, 0.5] },
+  { f: 'inward-15', s: 0.3, c: [0.5, 0.5] }, { f: 'inward-16', s: 1 / 3, c: [0.5, 0.5] },
 ];
-export const LEAF_W = 0.12, TOP_W = 1.2e6; /* the leaf picture's real width, and the top satellite picture's */
+export const LEAF_W = 0.12, TOP_W = 3.6e6; /* the leaf picture's real width, and the top satellite picture's */
 // The pictures fit each other exactly, but the made-up ones drifted in scale as they were made (each zoom-out came out a
 // little wider than asked). So the 3D scene is built in "picture metres" that equal real metres at the leaf and below,
-// and the difference (about 3 times by 1,200 km) is spread evenly, in powers of ten, between the leaf and the top picture.
+// and the difference (about 3 times by 3,600 km) is spread evenly, in powers of ten, between the leaf and the top picture.
 // Every width the reader sees (the readout, the steps) is a real one.
 export const CHAIN_W = (() => { const out = [LEAF_W]; for (let k = 1; k < CHAIN.length; k++) out.push(out[k - 1] / CHAIN[k].s); return out; })(); /* picture metres */
 const LA = Math.log(LEAF_W), LB = Math.log(CHAIN_W.at(-1)), LK = Math.log(TOP_W / CHAIN_W.at(-1));
