@@ -276,20 +276,19 @@ function zoomBounds(){
  if(ck&&ck.time()!==0){if(pin){b.min=Math.max(b.min,SEAM_Z[pin][1]);b.gateIn=()=>ck.rewind();}if(pout){b.max=Math.min(b.max,SEAM_Z[pout][0]);b.gateOut=()=>ck.rewind();}}
  if(l==='galaxy'&&!b.gateIn&&!galaxyView.atSun()){b.min=Math.max(b.min,SEAM_Z[pin][1]);b.gateIn=()=>galaxyView.zoomToSun();}
  if(l==='local'&&!b.gateIn&&localView.zoomState().atSun===false){b.min=Math.max(b.min,SEAM_Z[pin][1]);b.gateIn=()=>localView.zoomBackIn();}
- if(l==='solar'&&solarFocused?.()?.data?.name==='Earth')b.gateIn=pushInward;
+ if(l==='solar'&&solarFocused?.()?.data?.name==='Earth'){const f=solarFocused();if(f.radius)b.min=Math.max(b.min,solarZ(f.radius*2.3,real()));b.gateIn=pushInward;} /* hand over while the Earth's picture is still sharp */
  if(l==='solar'&&solarOffCentred()){b.max=Math.min(b.max,SEAM_Z[pout][0]);b.gateOut=()=>{if(solarFocused?.())unfocus(false);solarDrift?.(1e9);};}
  return b;
 }
 // At the Earth close-up, a zoom that keeps pushing in against the edge (for about a third of a second) carries on into the journey inward.
 let pushFrom=-1e9,pushLast=-1e9;
-// Where the main view is at the Earth close-up, so the journey opens on the same place: its width (m), and the latitude and
-// longitude under the centre of view. Earth's diameter is 1 scene unit = 12,756 km.
-const EARTH_UNIT_M = 12756e3;
-function entryView(){if(!real())return null;const f=solarFocused?.();if(f?.data?.name!=='Earth'||!f.mesh)return null;
-  const d=solarDistance(),t=Math.tan(camera.fov*Math.PI/360),width=2*d*t*camera.aspect*EARTH_UNIT_M;
+// Where the main view is at the Earth close-up, so the journey opens on the same place: how wide the view is (m, on a tall phone), and the
+// latitude and longitude under its centre. Earth's radius as drawn is f.radius scene units = 6,371 km, in either scale.
+function entryView(){const f=solarFocused?.();if(f?.data?.name!=='Earth'||!f.mesh||!f.radius)return null;
+  const d=solarDistance(),height=2*d*Math.tan(camera.fov*Math.PI/360)*(6.371e6/f.radius);
   const q=f.mesh.worldToLocal(camera.position.clone()).normalize(), th=Math.acos(Math.max(-1,Math.min(1,q.y))), ph=Math.atan2(q.z,-q.x);
-  return {width,lat:90-th*180/Math.PI,lon:((ph*180/Math.PI-180)%360+540)%360-180};}
-function pushInward(){const t=globalThis.performance?.now?.()??Date.now();if(t-pushLast>300)pushFrom=t;pushLast=t;if(t-pushFrom>=350){pushLast=-1e9;openInward(entryView());}}
+  return {width:0.46*height,lat:90-th*180/Math.PI,lon:((ph*180/Math.PI-180)%360+540)%360-180};}
+function pushInward(){const t=globalThis.performance?.now?.()??Date.now();if(t-pushLast>700)pushFrom=t;pushLast=t;if(t-pushFrom>=350){pushLast=-1e9;openInward(entryView());}}
 function zoomTick(dt,instant){
  if(animating||!zoom.moving)return;
  if(!bridge){const z=zoomState();if(!z||z.busy){zoom.stop();return;}}
@@ -647,7 +646,7 @@ function buildExplore(){
  const card=(act,title,blurb,cls='')=>`<button type="button" class="experiment-card${cls}" data-act="${act}"${act.startsWith('journey:')?` data-journey="${act.slice(8)}"`:''}><strong>${title}</strong><span>${blurb}</span>${act.startsWith('journey:')?'<em class="ex-done" hidden>✓ Done</em>':''}</button>`;
  const list=exploreEl.querySelector('#journey-list');
  list.innerHTML='<p class="xsec">Journeys</p>'+JOURNEYS.map(x=>card('journey:'+x.id,x.title,`${x.blurb} · ${x.steps.length} stops`)).join('')
-  +'<p class="xsec">Time and the sky</p>'+card('cyear','The cosmic year','13.8 billion years squeezed into one calendar year.')+card('inward','Journey inward','From Earth down to one atom in a little girl’s hand, a power of ten at a time.')+card('mysky','My sky','What is up over you tonight, and where to look.')
+  +'<p class="xsec">Time and the sky</p>'+card('cyear','The cosmic year','13.8 billion years squeezed into one calendar year.')+card('inward','Journey inward','From Earth down to one atom in a leaf, a power of ten at a time.')+card('mysky','My sky','What is up over you tonight, and where to look.')
   +'<p class="xsec">For young explorers</p>'+card('adventure','The Earth and Moon adventure','A short spoken story: find Earth, then fly to the Moon.');
  const startJourney=id=>{const start=()=>go({view:'journey',journey:id,step:0,experiment:null});if(levelOf(state.value.view)!=='solar')goLevel('solar',start);else start();};
  const acts={
@@ -1183,7 +1182,7 @@ const appleTouch=/iphone|ipad|ipod/i.test(nav.userAgent||'')||(/macintosh/i.test
 const savedBefore=()=>{try{return localStorage.getItem('offline-saved');}catch{return null;}};
 function saveOffline(){if(!sw)return;offline={done:0,total:0};paintOffline();sw.ready.then(reg=>reg.active?.postMessage({saveAll:true}));}
 // What Save for offline downloads: precache.json's total, written in here (and in index.html) by tools/stamp.mjs at deploy.
-const OFFLINE_SIZE='about 7.1 MB';
+const OFFLINE_SIZE='about 8.5 MB';
 function paintOffline(){
  $('install').hidden=!installEvent;$('save-offline').hidden=!sw;$('save-offline').disabled=!!offline&&!offline.finished&&!offline.error;
  const note=offline?.error?'Couldn’t save just now. Check the connection and try again.':offline&&!offline.finished?`Saving… ${offline.done} of ${offline.total||'…'} files`:offline?.finished?(offline.failed?`Saved, except ${offline.failed} files. Try again with a better connection.`:'Saved ✓ The whole app is on this device and opens even with no signal.'):savedBefore()?'Saved for offline ✓ New versions are saved as you use them.':!sw?'Offline use needs the secure (https) version of the site.':appleTouch&&!standalone()?'To install on iPhone or iPad: tap Share, then “Add to Home Screen”. Or save for offline here.':`Keeps the whole app (${OFFLINE_SIZE}) on this device so it opens fast, even with no signal.`;
