@@ -64,28 +64,41 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   { const centre = [[0, 0]]; /* where each picture's centre is, in picture metres (x across, z down the screen) */
     for (let k = 1; k < CHAIN.length; k++) { const [px, pz] = centre[k - 1], [cx, cy] = CHAIN[k].c; centre.push([px - (cx - 0.5) * CHAIN_W[k], pz - (cy - 0.5) * CHAIN_W[k]]); }
     for (let k = CHAIN.length - 1; k >= 0; k--) { const w0 = CHAIN_W[k], top = k === CHAIN.length - 1, inner = k > 0 ? CHAIN_W[k - 1] : 0;
-      layer(CHAIN[k].f, top ? w0 * 7 : w0 * 4, top ? w0 * 2.5 : w0 * 2, k > 0 ? inner / 3.5 : 0.035, k > 0 ? inner / 5.5 : 0.016,
+      layer(CHAIN[k].f, top ? w0 * 7 : w0 * 4, top ? w0 * 2.5 : w0 * 2, k > 0 ? inner / 3.5 : 0.022, k > 0 ? inner / 5.5 : 0.011,
         () => flat(tex(`textures/${CHAIN[k].f}.webp`), w0, w0, centre[k][0], centre[k][1], top ? 0.2 : 0.16)); } }
 
   // ---- the leaf, closer than the photograph can show (drawn) ----
-  const LEAFC = [92, 138, 40];
-  // veins: a 20 mm tile of leaf with pale veins branching into a net, repeated to cover any screen (wrapped, so no seam)
-  layer('veins', 0.06, 0.03, 2.2e-4, 1.1e-4, () => {
+  const LEAFC = [84, 136, 28]; /* the leaf photograph's own green, sampled from it */
+  // veins: a 20 mm tile of leaf, repeated to cover any screen (wrapped, so no seam). A few side veins cross it; smaller
+  // veins branch off them, and smaller ones off those, each thinner, so no vein ends in the open. Between them the
+  // finest veins close into a net of little islands (areoles) about 0.3-0.8 mm across.
+  layer('veins', 0.03, 0.014, 2.2e-4, 1.1e-4, () => {
     const tile = canvasTex(2048, (x, n) => {
       const r = rng(41); x.fillStyle = `rgb(${LEAFC.join(',')})`; x.fillRect(0, 0, n, n);
-      for (let k = 0; k < 2500; k++) { const u = r() * n, v = r() * n, g = (r() - 0.5) * 16; x.fillStyle = `rgba(${LEAFC[0] + g},${LEAFC[1] + g},${LEAFC[2] + g * 0.5},0.5)`; x.beginPath(); x.arc(u, v, 6 + r() * 30, 0, 6.283); x.fill(); }
-      /* the finest veins: a closed net of little islands (areoles) about 0.4-0.8 mm across, from a jittered grid that wraps */
-      const G = 36, cs = n / G, P = []; for (let j = 0; j < G; j++) { P.push([]); for (let i = 0; i < G; i++) P[j].push([(i + 0.5 + (r() - 0.5) * 0.8) * cs, (j + 0.5 + (r() - 0.5) * 0.8) * cs]); }
-      const pt = (i, j) => { const q = P[((j % G) + G) % G][((i % G) + G) % G]; return [q[0] + Math.floor(i / G) * n, q[1] + Math.floor(j / G) * n]; };
-      x.lineJoin = 'round'; x.lineCap = 'round'; x.strokeStyle = 'rgba(190,220,116,0.5)'; x.lineWidth = 2.2;
-      for (let j = -1; j <= G; j++) for (let i = -1; i <= G; i++) for (const [di, dj] of [[1, 0], [0, 1]]) { if (r() < 0.12) continue; const [a1, b1] = pt(i, j), [a2, b2] = pt(i + di, j + dj), mx = (a1 + a2) / 2 + (r() - 0.5) * cs * 0.25, my = (b1 + b2) / 2 + (r() - 0.5) * cs * 0.25;
-        x.beginPath(); x.moveTo(a1, b1); x.quadraticCurveTo(mx, my, a2, b2); x.stroke(); }
-      /* thicker veins that the net hangs from: gently curving, branching, wrapped round the tile */
-      for (const [count, wid, a, len, steps] of [[4, 14, 0.7, 1.0, 40], [22, 6, 0.6, 0.3, 16]]) for (let k = 0; k < count; k++) {
-        let ang = count === 4 ? 0.55 + (r() - 0.5) * 0.15 : 0.55 + (r() < 0.5 ? 0.9 : -0.9) + (r() - 0.5) * 0.4, px = r() * n, py = r() * n; const pts = [[px, py]];
-        for (let t = 0; t < steps; t++) { ang += (r() - 0.5) * 0.12; px += Math.cos(ang) * n * len / steps; py += Math.sin(ang) * n * len / steps; pts.push([px, py]); }
-        for (const [ox, oy] of [[0, 0], [n, 0], [-n, 0], [0, n], [0, -n], [n, n], [-n, -n], [n, -n], [-n, n]]) { x.strokeStyle = `rgba(200,226,128,${a})`; x.lineWidth = wid; x.beginPath(); pts.forEach(([u, v], q) => q ? x.lineTo(u + ox, v + oy) : x.moveTo(u + ox, v + oy)); x.stroke(); }
-      }
+      for (let k = 0; k < 2500; k++) { const u = r() * n, v = r() * n, g = (r() - 0.5) * 14; x.fillStyle = `rgba(${LEAFC[0] + g},${LEAFC[1] + g},${LEAFC[2] + g * 0.5},0.5)`; x.beginPath(); x.arc(u, v, 6 + r() * 30, 0, 6.283); x.fill(); }
+      const OFF = [[0, 0], [n, 0], [-n, 0], [0, n], [0, -n], [n, n], [-n, -n], [n, -n], [-n, n]];
+      const stroke = (pts, wid, col) => { x.strokeStyle = col; x.lineWidth = wid; for (const [ox, oy] of OFF) { x.beginPath(); pts.forEach(([u, v], q) => q ? x.lineTo(u + ox, v + oy) : x.moveTo(u + ox, v + oy)); x.stroke(); } };
+      x.lineJoin = 'round'; x.lineCap = 'round';
+      /* the net: walls of an uneven pattern of cells (each the region nearest one of a jittered grid of points), wrapped */
+      const G = 30, cs = n / G, P = []; for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) P.push([(i + 0.5 + (r() - 0.5) * 0.95) * cs, (j + 0.5 + (r() - 0.5) * 0.95) * cs]);
+      const at = (i, j) => { const q = P[(((j % G) + G) % G) * G + (((i % G) + G) % G)]; return [q[0] + Math.floor(i / G) * n, q[1] + Math.floor(j / G) * n]; };
+      const seen = new Set();
+      for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) { const [sx, sy] = at(i, j); let poly = [[sx - cs * 2, sy - cs * 2], [sx + cs * 2, sy - cs * 2], [sx + cs * 2, sy + cs * 2], [sx - cs * 2, sy + cs * 2]];
+        for (let dj = -2; dj <= 2; dj++) for (let di = -2; di <= 2; di++) { if (!di && !dj) continue; const q = at(i + di, j + dj), mx = (sx + q[0]) / 2, my = (sy + q[1]) / 2, nx = q[0] - sx, ny = q[1] - sy, out = [], side = p => (p[0] - mx) * nx + (p[1] - my) * ny;
+          for (let k = 0; k < poly.length; k++) { const A = poly[k], B = poly[(k + 1) % poly.length], sa = side(A), sb = side(B); if (sa <= 0) out.push(A); if (sa * sb < 0) { const t = sa / (sa - sb); out.push([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t]); } }
+          poly = out; }
+        for (let k = 0; k < poly.length; k++) { const A = poly[k], B = poly[(k + 1) % poly.length], key = [A, B].map(p => p.map(c => Math.round(((c % n) + n) % n)).join(',')).sort().join('|'); if (seen.has(key)) continue; seen.add(key);
+          if (r() < 0.08) continue; /* a few walls missing, as in a real leaf, where veinlets end inside an island */
+          const mx = (A[0] + B[0]) / 2 + (r() - 0.5) * cs * 0.18, my = (A[1] + B[1]) / 2 + (r() - 0.5) * cs * 0.18;
+          stroke([A, [(A[0] + mx) / 2, (A[1] + my) / 2], [mx, my], [(B[0] + mx) / 2, (B[1] + my) / 2], B], 2.2, 'rgba(168,204,92,0.5)'); } }
+      /* the branching veins: each grows in small curving steps and gives off thinner side veins */
+      function vein(px, py, ang, len, wid, depth) { const pts = [[px, py]], steps = Math.max(6, Math.round(len / 18)), kids = [];
+        for (let t = 0; t < steps; t++) { ang += (r() - 0.5) * (depth ? 0.35 : 0.08); px += Math.cos(ang) * len / steps; py += Math.sin(ang) * len / steps; pts.push([px, py]);
+          if (depth < 2 && t > 1 && r() < (depth ? 0.12 : 0.07)) kids.push([px, py, ang + (r() < 0.5 ? 1 : -1) * (0.9 + r() * 0.5), len * (depth ? 0.25 + r() * 0.2 : 0.09 + r() * 0.08), wid * 0.5, depth + 1]); }
+        /* the vein tapers: drawn as a few overlapping pieces, each a little thinner */
+        for (let q = 0; q < 3; q++) stroke(pts.slice(Math.floor(q * pts.length / 3), Math.floor((q + 1) * pts.length / 3) + 1), wid * (1 - q * 0.22), `rgba(176,210,96,${0.75 - depth * 0.08})`);
+        for (const k of kids) vein(...k); }
+      for (let k = 0; k < 3; k++) vein(r() * n, -n * 0.1 + k * n * 0.4, 0.55 + (r() - 0.5) * 0.15, n * 1.25, 15, 0);
     });
     tile.wrapS = tile.wrapT = THREE.RepeatWrapping; tile.repeat.set(5, 5); return flat(tile, 0.1, 0.1, 0, 0, 0.2);
   });
@@ -178,8 +191,14 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
     return { curve, spools, axis: curve.getPoint(t0 + 1e-4).sub(curve.getPoint(t0 - 1e-4)).normalize() }; })();
   layer('spools', 1.2e-6, 5e-7, 3e-8, 1.6e-8, () => { /* built in nanometres, then scaled: the curve's maths needs numbers near 1 */
     const g = new THREE.Group(), spoolM = M('#5a86c8', { roughness: 0.45 }), dnaM = M('#e8b0f0', { roughness: 0.4, emissive: C('#3a1a40'), emissiveIntensity: 0.4 }), sg = new THREE.CylinderGeometry(5.5, 5.5, 5.7, 24);
-    for (const [c, rot] of SPOOLS.spools) { const m = new THREE.Mesh(sg, spoolM); m.position.copy(c); m.rotation.copy(rot); g.add(m); }
-    g.add(new THREE.Mesh(new THREE.TubeGeometry(SPOOLS.curve, 2400, 1, 8), dnaM)); g.scale.setScalar(1e-9);
+    /* the chain we follow, and about forty more round it (copies turned every way), as chromatin is packed in the nucleus */
+    const r = rng(73), places = [[V(0, 0, 0), new THREE.Quaternion()]];
+    while (places.length < 42) { const p = V(r() - 0.5, r() - 0.5, r() - 0.5).multiplyScalar(1100); if (p.length() > 520 || p.length() < 70) continue;
+      places.push([p, new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 6.283, r() * 6.283, r() * 6.283))]); }
+    const spools = new THREE.InstancedMesh(sg, spoolM, places.length * SPOOLS.spools.length), o = new THREE.Object3D(), tube = new THREE.TubeGeometry(SPOOLS.curve, 2400, 1, 8);
+    places.forEach(([p, q], k) => { SPOOLS.spools.forEach(([c, rot], i) => { o.position.copy(c).applyQuaternion(q).add(p); o.quaternion.setFromEuler(rot).premultiply(q); o.updateMatrix(); spools.setMatrixAt(k * SPOOLS.spools.length + i, o.matrix); });
+      const t = new THREE.Mesh(tube, dnaM); t.position.copy(p); t.quaternion.copy(q); g.add(t); });
+    g.add(spools); g.scale.setScalar(1e-9);
     return g;
   });
   // the double helix, atom by atom (B-DNA: 2 nm wide, 10.5 base pairs a turn, 0.34 nm apart); hydrogens left out.
@@ -207,18 +226,19 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   // one carbon atom: its six electrons as a cloud of where they are likely to be (two close in, four further out in
   // lobes); the nucleus, 60,000 times smaller, is far too small to draw and is marked by a ring.
   layer('atom', 4e-9, 1.9e-9, 0, 0, () => {
-    const g = new THREE.Group(), N = 1e-9, r = rng(83), n = 16000, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), tc = new THREE.Color();
+    const g = new THREE.Group(), N = 1e-9, r = rng(83), n = 24000, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), tc = new THREE.Color();
     const HQ = new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), SPOOLS.axis); /* the helix's own turn */
     const nb = HELIX.filter(a => { const d = Math.hypot(a[1], a[2], a[3]); return d > 1e-12 && d < 0.2 * N; }).map(a => V(a[1], a[2], a[3]).applyQuaternion(HQ).normalize());
     for (const d of [[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]]) if (nb.length < 4) nb.push(V(...d).normalize()); /* its four bonds */
-    for (let i = 0; i < n; i++) { let x, y, z; if (r() < 0.2) { /* the two inner electrons, held close */ const rr = -Math.log(r() * r()) * 0.008 * N, u = r() * 2 - 1, a = r() * 6.283, s = Math.sqrt(1 - u * u); x = rr * s * Math.cos(a); y = rr * u; z = rr * s * Math.sin(a); tc.set('#ffe6b0'); }
-      else { /* the four outer electrons, a cloud bulging toward each bond */ const d = nb[Math.floor(r() * nb.length)], rr = (0.015 + -Math.log(r() * r()) * 0.035) * N, sp = rr * 0.75;
-        x = d.x * rr + gauss(r) * sp; y = d.y * rr + gauss(r) * sp; z = d.z * rr + gauss(r) * sp; tc.setHSL(0.58, 0.55, 0.55 + r() * 0.3); }
+    for (let i = 0; i < n; i++) { let x, y, z; if (r() < 0.1) { /* the two inner electrons, held close */ const rr = -Math.log(r() * r()) * 0.01 * N, u = r() * 2 - 1, a = r() * 6.283, s = Math.sqrt(1 - u * u); x = rr * s * Math.cos(a); y = rr * u; z = rr * s * Math.sin(a); tc.set('#6a5a40'); } /* dimmer, or they pile up into a white blot */
+      else { /* the four outer electrons, a cloud bulging toward each bond */ const d = nb[Math.floor(r() * nb.length)], rr = (0.04 + -Math.log(r() * r()) * 0.05) * N, sp = rr * 0.55; /* about 0.3 nm across in all */
+        x = d.x * rr + gauss(r) * sp; y = d.y * rr + gauss(r) * sp; z = d.z * rr + gauss(r) * sp; tc.setHSL(0.57 + r() * 0.04, 0.7, 0.5 + r() * 0.25); }
       pos.set([x, y, z], i * 3); col.set([tc.r, tc.g, tc.b], i * 3); }
     const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); pg.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    g.add(new THREE.Points(pg, new THREE.PointsMaterial({ size: 0.012 * N, vertexColors: true, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending })));
+    const dot = canvasTex(64, (x) => { const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); }); /* soft round points */
+    g.add(new THREE.Points(pg, new THREE.PointsMaterial({ size: 0.022 * N, map: dot, vertexColors: true, transparent: true, opacity: 0.06, depthWrite: false, blending: THREE.AdditiveBlending })));
     /* its bonded neighbours, faint, as clouds too */
-    for (const a of HELIX) { const d = Math.hypot(a[1], a[2], a[3]); if (d < 1e-12 || d > 0.32 * N) continue; const s2 = new THREE.Mesh(new THREE.SphereGeometry(0.075 * N, 20, 14), new THREE.MeshBasicMaterial({ color: C(ELEMENT[a[0]][0]), transparent: true, opacity: 0.12, depthWrite: false })); s2.position.set(a[1], a[2], a[3]).applyQuaternion(HQ); g.add(s2); }
+    for (const a of HELIX) { const d = Math.hypot(a[1], a[2], a[3]); if (d < 1e-12 || d > 0.32 * N) continue; const s2 = new THREE.Mesh(new THREE.SphereGeometry(0.075 * N, 20, 14), new THREE.MeshBasicMaterial({ color: C(ELEMENT[a[0]][0]), transparent: true, opacity: 0.22, depthWrite: false })); s2.position.set(a[1], a[2], a[3]).applyQuaternion(HQ); g.add(s2); }
     /* the nucleus: a ring that keeps the same size on screen */
     const ring = new THREE.Sprite(new THREE.SpriteMaterial({ map: canvasTex(128, (x) => { x.strokeStyle = '#f3c887'; x.lineWidth = 6; x.beginPath(); x.arc(64, 64, 52, 0, 6.283); x.stroke(); x.fillStyle = '#fff4d8'; x.beginPath(); x.arc(64, 64, 4, 0, 6.283); x.fill(); }), transparent: true, depthTest: false, sizeAttenuation: false }));
     ring.scale.setScalar(0.035); ring.renderOrder = 1e6; g.add(ring); g.userData.update = t => { g.rotation.y = t * 0.08; }; return g;
