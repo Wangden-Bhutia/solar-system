@@ -89,38 +89,72 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
     });
     tile.wrapS = tile.wrapT = THREE.RepeatWrapping; tile.repeat.set(5, 5); return flat(tile, 0.1, 0.1, 0, 0, 0.2);
   });
-  // the leaf's skin: flat jigsaw cells about 50 µm across, and stomata (two bean-shaped guard cells round a slit, about 30 µm long)
-  layer('surface', 1.3e-3, 5.5e-4, 1.3e-4, 6e-5, () => flat(canvasTex(2048, (x, n) => {
-    const r = rng(53), s = n / 0.0025; x.fillStyle = 'rgb(118,160,70)'; x.fillRect(0, 0, n, n);
-    const cell = 0.00005 * s, pts = []; for (let j = -1; j < n / (cell * 0.87) + 1; j++) for (let i = -1; i < n / cell + 1; i++) pts.push([(i + (j % 2) * 0.5) * cell + (r() - 0.5) * cell * 0.4, j * cell * 0.87 + (r() - 0.5) * cell * 0.4]);
-    for (const [u, v] of pts) { const sides = 7, rad = cell * 0.56, rot = r() * 6.283, g = (r() - 0.5) * 18; x.beginPath();
-      for (let k = 0; k <= sides * 4; k++) { const a = rot + k / (sides * 4) * 6.283, rr = rad * (0.9 + 0.12 * Math.sin(a * sides + rot)); k ? x.lineTo(u + Math.cos(a) * rr, v + Math.sin(a) * rr) : x.moveTo(u + Math.cos(a) * rr, v + Math.sin(a) * rr); }
-      x.fillStyle = `rgb(${150 + g},${192 + g},${104 + g * 0.6})`; x.fill(); x.strokeStyle = 'rgba(60,96,30,0.55)'; x.lineWidth = 2.4; x.stroke(); }
-    for (let k = 0; k < 60; k++) { const u = r() * n, v = r() * n, a = r() * 3.14, L = 0.000028 * s * (0.9 + r() * 0.2);
+  // the leaf's skin seen from above: jigsaw-shaped cells about 50 µm across, each with its own wavy outline, locking
+  // together with no gaps; and stomata (two bean-shaped guard cells round a slit, about 30 µm long) set between them
+  layer('surface', 1.3e-3, 5.5e-4, 1.4e-4, 8e-5, () => flat(canvasTex(2048, (x, n) => {
+    const r = rng(53), s = n / 0.0025, cs = 0.00005 * s, G = Math.ceil(n / cs) + 2, seeds = [];
+    for (let j = -1; j < G; j++) for (let i = -1; i < G; i++) seeds.push([(i + 0.5 + (r() - 0.5) * 0.9) * cs, (j + 0.5 + (r() - 0.5) * 0.9) * cs, i, j]);
+    const at = (i, j) => seeds[(j + 1) * (G + 1) + (i + 1)];
+    // each cell is the part of the plane nearer its seed than any neighbour's (cut from a square by the half-way lines)
+    const polyOf = (i, j) => { const [sx, sy] = at(i, j); let poly = [[sx - cs * 2, sy - cs * 2], [sx + cs * 2, sy - cs * 2], [sx + cs * 2, sy + cs * 2], [sx - cs * 2, sy + cs * 2]];
+      for (let dj = -2; dj <= 2; dj++) for (let di = -2; di <= 2; di++) { if (!di && !dj) continue; const q = at(i + di, j + dj); if (!q) continue;
+        const mx = (sx + q[0]) / 2, my = (sy + q[1]) / 2, nx = q[0] - sx, ny = q[1] - sy, out = [], side = p => (p[0] - mx) * nx + (p[1] - my) * ny;
+        for (let k = 0; k < poly.length; k++) { const A = poly[k], B = poly[(k + 1) % poly.length], sa = side(A), sb = side(B);
+          if (sa <= 0) out.push(A); if (sa * sb < 0) { const t = sa / (sa - sb); out.push([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t]); } }
+        poly = out; if (poly.length < 3) break; } return poly; };
+    x.fillStyle = 'rgb(140,184,96)'; x.fillRect(0, 0, n, n);
+    const edges = new Map();
+    for (let j = 0; j < G - 1; j++) for (let i = 0; i < G - 1; i++) { const poly = polyOf(i, j); if (poly.length < 3) continue; const g = (r() - 0.5) * 10;
+      x.fillStyle = `rgb(${146 + g},${188 + g},${100 + g * 0.6})`; x.beginPath(); poly.forEach(([u, v], k) => k ? x.lineTo(u, v) : x.moveTo(u, v)); x.fill();
+      for (let k = 0; k < poly.length; k++) { const A = poly[k], B = poly[(k + 1) % poly.length], key = [A, B].map(p => p.map(c => Math.round(c)).join(',')).sort().join('|'); if (!edges.has(key)) edges.set(key, [A, B]); } }
+    // the wavy walls: each shared wall bends in two to four lobes, the same for both cells (drawn once)
+    x.strokeStyle = 'rgba(56,92,30,0.7)'; x.lineWidth = 2.6; x.lineJoin = 'round';
+    for (const [A, B] of edges.values()) { const dx = B[0] - A[0], dy = B[1] - A[1], L = Math.hypot(dx, dy); if (L < 1) continue;
+      const lobes = 1 + Math.floor(r() * 3), amp = Math.min(L * 0.16, cs * 0.12) * (0.6 + r() * 0.6), nx = -dy / L, ny = dx / L;
+      x.beginPath(); for (let t = 0; t <= 1.0001; t += 1 / 24) { const o = amp * Math.sin(t * Math.PI * lobes) * Math.sin(t * Math.PI), u = A[0] + dx * t + nx * o, v = A[1] + dy * t + ny * o; t ? x.lineTo(u, v) : x.moveTo(u, v); } x.stroke(); }
+    // stomata, about one for every seven cells, each in its own direction
+    for (let k = 0; k < (G * G) / 7; k++) { const u = r() * n, v = r() * n, a = r() * 3.14, L = 0.00003 * s * (0.85 + r() * 0.3);
       x.save(); x.translate(u, v); x.rotate(a);
-      for (const sd of [-1, 1]) { x.beginPath(); x.ellipse(0, sd * L * 0.17, L * 0.5, L * 0.2, 0, 0, 6.283); x.fillStyle = 'rgb(84,136,44)'; x.fill(); x.strokeStyle = 'rgba(40,70,20,0.7)'; x.lineWidth = 2; x.stroke(); }
-      x.beginPath(); x.ellipse(0, 0, L * 0.3, L * 0.045, 0, 0, 6.283); x.fillStyle = 'rgb(30,46,16)'; x.fill(); x.restore(); }
+      x.beginPath(); x.ellipse(0, 0, L * 0.62, L * 0.5, 0, 0, 6.283); x.fillStyle = 'rgb(126,170,84)'; x.fill(); x.strokeStyle = 'rgba(56,92,30,0.6)'; x.lineWidth = 2; x.stroke(); /* the cells round it */
+      for (const sd of [-1, 1]) { x.beginPath(); x.ellipse(0, sd * L * 0.17, L * 0.5, L * 0.2, 0, 0, 6.283); x.fillStyle = 'rgb(78,130,42)'; x.fill(); x.strokeStyle = 'rgba(36,64,18,0.8)'; x.lineWidth = 2; x.stroke(); }
+      x.beginPath(); x.ellipse(0, 0, L * 0.32, L * 0.05, 0, 0, 6.283); x.fillStyle = 'rgb(24,38,12)'; x.fill(); x.restore(); }
   }), 0.0025, 0.0025, 0, 0, 0.2));
 
   // ---- built in 3D below this: a living cell, its nucleus, DNA, one atom ----
   const M = (color, o = {}) => new THREE.MeshStandardMaterial({ color: C(color), roughness: 0.55, ...o });
-  const CELL = (() => { const U = 1e-6, geo = new THREE.SphereGeometry(5.6 * U, 48, 32), pc = geo.attributes.position;
-    for (let k = 0; k < pc.count; k++) { const f = 1 + 0.07 * Math.sin(pc.getX(k) / U * 1.7) * Math.sin(pc.getY(k) / U * 1.3); pc.setXYZ(k, pc.getX(k) * f, pc.getY(k) * f * 0.8, pc.getZ(k) * f); } geo.computeVertexNormals();
-    return { geo, nucGeo: new THREE.SphereGeometry(2.9 * U, 32, 24), cell: M('#bfe39a', { transparent: true, opacity: 0.42, depthWrite: false }), nuc: M('#9a5aa8', { emissive: C('#2a0e30'), emissiveIntensity: 0.6 }),
-      chlGeo: new THREE.SphereGeometry(0.75 * U, 14, 10).scale(1, 0.5, 0.75), chl: M('#3f9a2e', { emissive: C('#0e2a08'), emissiveIntensity: 0.5, roughness: 0.5 }) }; })();
-  /* about 40 chloroplasts (lens-shaped, about 4 µm long here) lining the inside of one cell */
-  const chloroplasts = (n, seed) => { const im = new THREE.InstancedMesh(CELL.chlGeo, CELL.chl, n), o = new THREE.Object3D(), r = rng(seed), U = 1e-6;
-    for (let k = 0; k < n; k++) { const u = r() * 2 - 1, a = r() * 6.283, s2 = Math.sqrt(1 - u * u), d = 4.4 * U; o.position.set(s2 * Math.cos(a) * d, u * d * 0.8, s2 * Math.sin(a) * d); o.lookAt(0, 0, 0); o.updateMatrix(); im.setMatrixAt(k, o.matrix); } return im; };
-  // living leaf cells (drawn about 11 µm), packed together, each with its nucleus; the one at the origin is the one we enter
+  // Leaf cells under the skin (palisade cells): tall columns, drawn about 10 µm wide and 36 µm tall, packed side by side but
+  // each a little different in width, height and tilt, their walls lined with green chloroplasts. One geometry for all,
+  // drawn as instances, so seven hundred cells cost two draw calls.
+  const CELL = (() => { const U = 1e-6, geo = new THREE.CapsuleGeometry(1, 6, 8, 24), pc = geo.attributes.position; /* 8 units tall, scaled per cell */
+    for (let k = 0; k < pc.count; k++) { const f = 1 + 0.05 * Math.sin(pc.getY(k) * 2.1 + Math.atan2(pc.getZ(k), pc.getX(k)) * 3); pc.setXYZ(k, pc.getX(k) * f, pc.getY(k), pc.getZ(k) * f); } geo.computeVertexNormals();
+    return { U, geo, nucGeo: new THREE.SphereGeometry(2.9 * U, 32, 24), cell: M('#86c25a', { transparent: true, opacity: 0.8, depthWrite: false, roughness: 0.3 }), nuc: M('#9a5aa8', { emissive: C('#2a0e30'), emissiveIntensity: 0.6 }),
+      chlGeo: new THREE.SphereGeometry(0.75 * U, 12, 8).scale(1, 0.5, 0.75), chl: M('#3f9a2e', { emissive: C('#0e2a08'), emissiveIntensity: 0.5, roughness: 0.5 }) }; })();
+  const COLS = (() => { const r = rng(61), U = CELL.U, out = [[0, 0, 5, 36, 0, 0, 0.4]]; /* x, z, radius, height, tilt x, tilt z, nucleus height (fraction) */
+    for (let j = -17; j <= 17; j++) for (let i = -15; i <= 15; i++) { const x = (i + (j % 2) * 0.5) * 10.6 * U + (r() - 0.5) * 2.4 * U, z = j * 9.2 * U + (r() - 0.5) * 2.4 * U;
+      if (Math.hypot(x, z) < 9 * U || Math.hypot(x, z) > 150 * U || r() < 0.04) continue; /* the cell we enter, the edge, a few air gaps */
+      out.push([x, z, 4.3 + r() * 1.2, 30 + r() * 12, (r() - 0.5) * 0.12, (r() - 0.5) * 0.12, 0.2 + r() * 0.6]); }
+    return out; })();
+  // build some columns: walls, chloroplasts (about 28 per cell, spread over its wall) and, for the cell we enter, its nucleus
+  // (in the others it is hidden behind their chloroplasts, as it mostly is under a microscope)
+  function columns(list, seed) { const U = CELL.U, r = rng(seed), o = new THREE.Object3D(), q = new THREE.Object3D(), NCH = 28;
+    /* each layer gets its own materials: layers fade by setting their materials' opacity, so they must not share them */
+    const walls = new THREE.InstancedMesh(CELL.geo, CELL.cell.clone(), list.length), nucs = new THREE.InstancedMesh(CELL.nucGeo, CELL.nuc.clone(), list.length), chl = new THREE.InstancedMesh(CELL.chlGeo, CELL.chl.clone(), list.length * NCH);
+    list.forEach(([cx, cz, rad, h, tx, tz, nh], k) => {
+      o.position.set(cx, 0, cz); o.rotation.set(tx, r() * 6.283, tz); o.scale.set(rad * U, h * U / 8, rad * U); o.updateMatrix(); walls.setMatrixAt(k, o.matrix);
+      const frame = new THREE.Object3D(); frame.position.set(cx, 0, cz); frame.rotation.copy(o.rotation); frame.updateMatrixWorld();
+      q.position.set(cx || cz ? rad * 0.25 * U : 0, (nh - 0.5) * h * U * 0.8, 0); q.rotation.set(0, 0, 0); q.scale.setScalar(Math.min(1, rad / 5.6)); q.updateMatrix(); nucs.setMatrixAt(k, frame.matrixWorld.clone().multiply(q.matrix));
+      for (let c = 0; c < NCH; c++) { const a = r() * 6.283, y = (r() - 0.5) * h * 0.82 * U, d = rad * 0.82 * U; q.position.set(Math.cos(a) * d, y, Math.sin(a) * d); q.scale.setScalar(1); q.lookAt(0, y, 0); q.updateMatrix();
+        chl.setMatrixAt(k * NCH + c, frame.matrixWorld.clone().multiply(q.matrix)); } });
+    chl.userData.sub = -0.2; nucs.userData.sub = -0.2; /* drawn before the see-through walls, so the walls tint them */
+    const g = new THREE.Group(); g.add(walls, chl); if (list.length === 1) g.add(nucs); else nucs.dispose(); return g; }
+  // living leaf cells, packed together, seen from above at a slant; the one at the origin is the one we enter
   layer('cells', 1.6e-4, 7e-5, 2.4e-5, 1.4e-5, () => {
-    const g = new THREE.Group(), r = rng(61), U = 1e-6;
-    const bed = new THREE.Mesh(new THREE.PlaneGeometry(220 * U, 220 * U), M('#3c6a2a', { roughness: 0.9, transparent: true })); bed.rotation.x = -Math.PI / 2; bed.position.y = -4.2 * U; g.add(bed); /* the tissue the cells sit in */
-    for (let i = -6; i <= 6; i++) for (let k = -6; k <= 6; k++) { if (!i && !k) continue; const c = new THREE.Group(); c.position.set(i * 11 * U + (r() - 0.5) * 2.5 * U, (r() - 0.5) * 1.5 * U, k * 11 * U + (r() - 0.5) * 2.5 * U); c.rotation.set(r() * 3, r() * 3, r() * 3);
-      c.add(new THREE.Mesh(CELL.geo, CELL.cell), new THREE.Mesh(CELL.nucGeo, CELL.nuc), chloroplasts(40, 100 + i * 13 + k)); g.add(c); }
+    const g = columns(COLS.slice(1), 100), U = CELL.U;
+    const bed = new THREE.Mesh(new THREE.PlaneGeometry(420 * U, 420 * U), M('#2c5220', { roughness: 0.9, transparent: true })); bed.rotation.x = -Math.PI / 2; bed.position.y = -24 * U; bed.userData.sub = -0.5; g.add(bed); /* the spongy layer below, in shadow */
     return g;
   });
-  // the one cell we enter: its outer membrane fades away to show the nucleus
-  layer('cell', 1.6e-4, 7e-5, 1.2e-5, 7e-6, () => { const g = new THREE.Group(); g.add(new THREE.Mesh(CELL.geo, CELL.cell.clone()), new THREE.Mesh(CELL.nucGeo, CELL.nuc.clone()), chloroplasts(40, 7)); return g; });
+  // the one cell we enter: its wall fades away to show the nucleus (at the origin)
+  layer('cell', 1.6e-4, 7e-5, 1.6e-5, 9e-6, () => { return columns([[0, 0, 5, 36, 0, 0, 0.5]], 7); });
   // the nucleus, opened up: a thin double wall with pores, and the DNA inside as tangled threads (chromatin)
   layer('nucleus', 1.6e-5, 9e-6, 6e-7, 2.6e-7, () => {
     const g = new THREE.Group(), U = 1e-6, r = rng(67);
