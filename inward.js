@@ -81,7 +81,7 @@ export function createInward({ onOpen, onClose } = {}) {
   function open(view) {
     if (!root) build(); opener = document.activeElement; stopPlay(); glide = null; shown = null;
     const startW = view?.width; const w0 = startW && Number.isFinite(startW) ? Math.min(RUNGS[0].w, Math.max(RUNGS[0].w * 0.02, startW)) : RUNGS[0].w; zc.set(Math.log(w0));
-    handover = view && startW ? { lat: view.lat, lon: view.lon, wEntry: w0, wCity: RUNGS[1].w } : null; world?.setHandover(handover);
+    handover = view && startW ? { lat: view.lat, lon: view.lon, wEntry: w0, wCity: 3e6 } /* the turn is done by 3,000 km, before the flat pictures appear */ : null; world?.setHandover(handover);
     if (handover) fadeIn();
     root.hidden = false; document.body.classList.add('cyear-on', 'inward-on'); onOpen?.(); paint(true);
     if (world) { world.setW(W()); world.resize(); world.start(); } else load(); if (failed) showFail();
