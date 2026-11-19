@@ -49,7 +49,7 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
     return q2.multiply(q1);
   }
   const TOPW = CHAIN_W.at(-1);
-  layer('earth', Infinity, Infinity, TOPW / 2.5, TOPW / 4, () => {
+  layer('earth', Infinity, Infinity, TOPW / 9, TOPW / 16, () => {
     const g = new THREE.Group(), body = new THREE.Mesh(new THREE.SphereGeometry(R, 96, 64), new THREE.MeshStandardMaterial({ map: tex('textures/earth.webp'), roughness: 0.85 }));
     const clouds = new THREE.Mesh(new THREE.SphereGeometry(R * 1.004, 96, 64), new THREE.MeshStandardMaterial({ map: tex('textures/earth-clouds.webp'), transparent: true, opacity: 0.5, depthWrite: false }));
     const glow = new THREE.Mesh(new THREE.SphereGeometry(R * 1.03, 64, 48), new THREE.MeshBasicMaterial({ color: C('#5a9aff'), transparent: true, opacity: 0.12, side: THREE.BackSide, depthWrite: false }));
@@ -58,14 +58,31 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
     const holder = new THREE.Group(); holder.add(ori); holder.userData.update = t => { clouds.rotation.y = t * 0.004; }; return holder;
   });
 
+  // The two widest satellite pictures are too big to lie flat: they are wrapped onto the globe itself, each pixel at its
+  // own latitude and longitude (the pictures are Web Mercator, as map tiles are), so they curve with it and turn with it
+  // while it turns from the hand-over place to this one, and fade out at a round, soft edge.
+  const mercY = lat => (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2;
+  function capGeo(wTrue, seg = 72) {
+    const F = wTrue / (2 * Math.PI * 6378137 * Math.cos(LAT * Math.PI / 180)), fx = (LON + 180) / 360, fy = mercY(LAT), rr = R * 1.0006, pos = [], uv = [], idx = [];
+    for (let j = 0; j <= seg; j++) for (let i = 0; i <= seg; i++) { const u = i / seg, v = j / seg, gx = fx + (u - 0.5) * F, gy = fy + (v - 0.5) * F;
+      const lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * gy))) * 180 / Math.PI, ph = gx * 2 * Math.PI, th = (90 - lat) / 180 * Math.PI;
+      pos.push(-rr * Math.cos(ph) * Math.sin(th), rr * Math.cos(th), rr * Math.sin(ph) * Math.sin(th)); uv.push(u, 1 - v); }
+    for (let j = 0; j < seg; j++) for (let i = 0; i < seg; i++) { const a = j * (seg + 1) + i; idx.push(a, a + seg + 1, a + 1, a + 1, a + seg + 1, a + seg + 2); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g; }
+  const homeQ = orientFor(LAT, LON), capPos = V(0, 0, 0), ONE = V(1, 1, 1);
+  function cap(f, wTrue) {
+    const m = new THREE.Mesh(capGeo(wTrue), new THREE.MeshStandardMaterial({ map: tex(`textures/${f}.webp`), alphaMap: edgeMask(0.22, true), transparent: true, depthWrite: false, depthTest: false, roughness: 0.85, side: THREE.DoubleSide }));
+    const h = new THREE.Group(); h.matrixAutoUpdate = false; h.add(m);
+    h.userData.update = () => { capPos.set(0, -R, 0); h.matrix.compose(capPos, earthRef ? earthRef.quaternion : homeQ, ONE); h.matrixWorldNeedsUpdate = true; }; h.userData.update(); return h; }
   // ---- the pictures, from 3,600 km down to one leaf: each sits exactly inside the next ----
   // A picture stays fully shown until the one inside it covers any screen (a wide laptop shows about 3.5 times the
   // phone's width); the inner one fades in over its own patch only, on top, with soft edges, so nothing dips to black.
   { const centre = [[0, 0]]; /* where each picture's centre is, in picture metres (x across, z down the screen) */
     for (let k = 1; k < CHAIN.length; k++) { const [px, pz] = centre[k - 1], [cx, cy] = CHAIN[k].c; centre.push([px - (cx - 0.5) * CHAIN_W[k], pz - (cy - 0.5) * CHAIN_W[k]]); }
     for (let k = CHAIN.length - 1; k >= 0; k--) { const w0 = CHAIN_W[k], top = k === CHAIN.length - 1, inner = k > 0 ? CHAIN_W[k - 1] : 0;
-      layer(CHAIN[k].f, top ? w0 * 7 : w0 * 4, top ? w0 * 2.5 : w0 * 2, k > 0 ? inner / 3.5 : 0.022, k > 0 ? inner / 5.5 : 0.011,
-        () => flat(tex(`textures/${CHAIN[k].f}.webp`), w0, w0, centre[k][0], centre[k][1], top ? 0.2 : 0.16)); } }
+      layer(CHAIN[k].f, top ? w0 * 2.2 : w0 * 4, top ? w0 * 1.3 : w0 * 2, k > 0 ? inner / 3.5 : 0.022, k > 0 ? inner / 5.5 : 0.011,
+        k >= CHAIN.length - 2 ? () => cap(CHAIN[k].f, TOP_W / Math.pow(3, CHAIN.length - 1 - k)) /* the two widest: laid on the globe */
+          : () => flat(tex(`textures/${CHAIN[k].f}.webp`), w0, w0, centre[k][0], centre[k][1], 0.16)); } }
 
   // ---- the leaf, closer than the photograph can show (drawn) ----
   const LEAFC = [84, 136, 28]; /* the leaf photograph's own green, sampled from it */
