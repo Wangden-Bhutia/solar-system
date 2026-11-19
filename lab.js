@@ -646,7 +646,7 @@ function buildExplore(){
  const card=(act,title,blurb,cls='')=>`<button type="button" class="experiment-card${cls}" data-act="${act}"${act.startsWith('journey:')?` data-journey="${act.slice(8)}"`:''}><strong>${title}</strong><span>${blurb}</span>${act.startsWith('journey:')?'<em class="ex-done" hidden>✓ Done</em>':''}</button>`;
  const list=exploreEl.querySelector('#journey-list');
  list.innerHTML='<p class="xsec">Journeys</p>'+JOURNEYS.map(x=>card('journey:'+x.id,x.title,`${x.blurb} · ${x.steps.length} stops`)).join('')
-  +'<p class="xsec">Time and the sky</p>'+card('cyear','The cosmic year','13.8 billion years squeezed into one calendar year.')+card('inward','Journey inward','From Earth down to one atom in a little girl’s hand, a power of ten at a time.')+card('mysky','My sky','What is up over you tonight, and where to look.')
+  +'<p class="xsec">Time and the sky</p>'+card('cyear','The cosmic year','13.8 billion years squeezed into one calendar year.')+card('inward','Journey inward','From Earth down to one atom in a leaf, a power of ten at a time.')+card('mysky','My sky','What is up over you tonight, and where to look.')
   +'<p class="xsec">For young explorers</p>'+card('adventure','The Earth and Moon adventure','A short spoken story: find Earth, then fly to the Moon.');
  const startJourney=id=>{const start=()=>go({view:'journey',journey:id,step:0,experiment:null});if(levelOf(state.value.view)!=='solar')goLevel('solar',start);else start();};
  const acts={
@@ -1182,7 +1182,7 @@ const appleTouch=/iphone|ipad|ipod/i.test(nav.userAgent||'')||(/macintosh/i.test
 const savedBefore=()=>{try{return localStorage.getItem('offline-saved');}catch{return null;}};
 function saveOffline(){if(!sw)return;offline={done:0,total:0};paintOffline();sw.ready.then(reg=>reg.active?.postMessage({saveAll:true}));}
 // What Save for offline downloads: precache.json's total, written in here (and in index.html) by tools/stamp.mjs at deploy.
-const OFFLINE_SIZE='about 7.1 MB';
+const OFFLINE_SIZE='about 8.6 MB';
 function paintOffline(){
  $('install').hidden=!installEvent;$('save-offline').hidden=!sw;$('save-offline').disabled=!!offline&&!offline.finished&&!offline.error;
  const note=offline?.error?'Couldn’t save just now. Check the connection and try again.':offline&&!offline.finished?`Saving… ${offline.done} of ${offline.total||'…'} files`:offline?.finished?(offline.failed?`Saved, except ${offline.failed} files. Try again with a better connection.`:'Saved ✓ The whole app is on this device and opens even with no signal.'):savedBefore()?'Saved for offline ✓ New versions are saved as you use them.':!sw?'Offline use needs the secure (https) version of the site.':appleTouch&&!standalone()?'To install on iPhone or iPad: tap Share, then “Add to Home Screen”. Or save for offline here.':`Keeps the whole app (${OFFLINE_SIZE}) on this device so it opens fast, even with no signal.`;

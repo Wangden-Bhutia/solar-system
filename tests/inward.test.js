@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { RUNGS, W_MAX, W_MIN, rungAt, formatMetres, compareWithYou, SOURCES } from '../inward-data.js';
+import { RUNGS, W_MAX, W_MIN, rungAt, formatMetres, compareWithYou, SOURCES, CHAIN, CHAIN_W, LEAF_W, TOP_W, toTrue, toPicture } from '../inward-data.js';
 
 test('journey inward: thirteen steps from Earth to one atom, each smaller than the last and inside the zoom range', () => {
   assert.equal(RUNGS.length, 13);
@@ -11,7 +11,7 @@ test('journey inward: thirteen steps from Earth to one atom, each smaller than t
   assert.equal(new Set(RUNGS.map(r => r.id)).size, RUNGS.length);
 });
 test('journey inward: every fact about the body and atoms has a source; the steps that only say where we are need none', () => {
-  for (const r of RUNGS) if (/[0-9]/.test(r.text) && r.id !== 'hand' && r.id !== 'earth') assert.ok(r.src.length > 0, r.id);
+  for (const r of RUNGS) if (/[0-9]/.test(r.text) && r.id !== 'earth') assert.ok(r.src.length > 0, r.id);
   assert.ok(SOURCES.every(s => /^https:\/\/en\.wikipedia\.org\/wiki\//.test(s.url) && s.label.startsWith('Wikipedia: ')));
 });
 test('journey inward: the width readout rolls its units over and compares with a person in round numbers', () => {
@@ -26,9 +26,16 @@ test('journey inward: the width readout rolls its units over and compares with a
 test('journey inward: its pictures and modules ship with the app, and Explore offers it', () => {
   const yml = fs.readFileSync('.github/workflows/pages.yml', 'utf8');
   for (const f of ['inward.js', 'inward-data.js', 'inward-world.js']) assert.ok(yml.includes(f), f);
-  for (const f of ['girl', 'hand', 'skin']) assert.ok(fs.statSync(`textures/inward-${f}.webp`).size < 500e3, f);
+  for (const c of CHAIN) assert.ok(fs.statSync(`textures/${c.f}.webp`).size < 500e3, c.f);
   const world = fs.readFileSync('inward-world.js', 'utf8');
-  for (const f of ['girl', 'hand', 'skin']) assert.ok(world.includes(`textures/inward-${f}.webp`), f);
+  assert.ok(world.includes('textures/${CHAIN[k].f}.webp'));
   const lab = fs.readFileSync('lab.js', 'utf8');
-  assert.match(lab, /card\('inward','Journey inward'/); assert.match(lab, /top==='inward'\)inward\?\.close\(\)/); assert.match(lab, /data\?\.name==='Earth'\)b\.gateIn=pushInward/);
+  assert.match(lab, /card\('inward','Journey inward'/); assert.match(lab, /top==='inward'\)inward\?\.close\(\)/); assert.match(lab, /data\?\.name==='Earth'[^\n]*b\.gateIn=pushInward/);
+});
+test('journey inward: the picture chain nests each picture in the next, and the real widths run from the leaf to 1,200 km', () => {
+  assert.equal(CHAIN.length, 15);
+  for (let k = 1; k < CHAIN.length; k++) { assert.ok(CHAIN[k].s > 0.25 && CHAIN[k].s < 0.45, CHAIN[k].f); assert.ok(CHAIN_W[k] > CHAIN_W[k - 1]); }
+  assert.ok(Math.abs(toTrue(CHAIN_W[0]) / LEAF_W - 1) < 1e-9); assert.ok(Math.abs(toTrue(CHAIN_W.at(-1)) / TOP_W - 1) < 1e-9);
+  for (const w of [1e-9, 0.05, 1, 300, 5e4, 1e6, 1.6e7]) assert.ok(Math.abs(toTrue(toPicture(w)) / w - 1) < 1e-9, String(w));
+  for (let k = 1; k < CHAIN.length; k++) { const step = Math.log10(toTrue(CHAIN_W[k]) / toTrue(CHAIN_W[k - 1])) / Math.log10(CHAIN_W[k] / CHAIN_W[k - 1]); assert.ok(step > 1 && step < 1.15, CHAIN[k].f); }
 });

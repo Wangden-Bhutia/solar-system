@@ -1,4 +1,4 @@
-// The journey inward: a full-screen view that zooms from Earth down to one carbon atom in a little girl's hand.
+// The journey inward: a full-screen view that zooms from Earth down to one carbon atom in a leaf.
 // Pinch, scroll or drag up and down to zoom; the arrows glide one step at a time; Play goes all the way, pausing at
 // each step. Zooming out past Earth closes it. Data: inward-data.js; the 3D scene: inward-world.js.
 import { RUNGS, Z_MAX, Z_MIN, rungAt, formatMetres, compareWithYou } from './inward-data.js';
