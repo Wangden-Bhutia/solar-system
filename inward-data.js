@@ -39,10 +39,10 @@ export const RUNGS = [
   { id: 'nucleus', w: 9e-6, label: 'Nucleus', here: 'You are here: the cell’s nucleus', text: 'The nucleus, about 6 µm wide (six thousandths of a millimetre), holds the cell’s DNA.', src: [wiki('Cell nucleus')] },
   { id: 'spools', w: 1.2e-7, label: 'DNA spools', here: 'You are here: DNA on its spools', text: 'DNA is wound round protein spools called histones. Stretched out, the DNA in one cell would be about 2 metres long.', src: [wiki('Nucleosome'), wiki('DNA')] },
   { id: 'helix', w: 7e-9, label: 'Double helix', here: 'You are here: the double helix', text: 'The double helix: a twisted ladder of atoms, 2 nm wide. The order of its rungs, the bases, spells out the genetic code.', note: 'atoms in the usual chemists’ colours: carbon grey, oxygen red, nitrogen blue, phosphorus orange', src: [wiki('Nucleic acid double helix')] },
-  { id: 'atom', w: 9e-10, label: 'Atom', here: 'You are here: one carbon atom', text: 'One carbon atom, about 0.3 nm across. Not long ago it floated in the air: the leaf took it in as carbon dioxide. Its electrons are a cloud; the nucleus is 60,000 times smaller.', note: 'smaller still: the nucleus, and what it is made of', src: [wiki('Carbon fixation'), wiki('Carbon'), wiki('Atomic orbital'), wiki('Atomic nucleus')] },
+  { id: 'atom', w: 4.5e-10, label: 'Atom', here: 'You are here: one carbon atom', text: 'One carbon atom, about 0.3 nm across. Not long ago it floated in the air: the leaf took it in as carbon dioxide. Its electrons are a cloud; the nucleus is 60,000 times smaller.', note: 'smaller still: the nucleus, and what it is made of', src: [wiki('Carbon fixation'), wiki('Carbon'), wiki('Atomic orbital'), wiki('Atomic nucleus')] },
 ];
 // The zoom's range: a little beyond Earth's width (zooming out further returns to the app) down to just inside the atom.
-export const W_MAX = 3.2e7, W_MIN = 5e-10;
+export const W_MAX = 3.2e7, W_MIN = 2.4e-10;
 export const Z_MAX = Math.log(W_MAX), Z_MIN = Math.log(W_MIN);
 // The step the view is in: the nearest, measured in powers of ten.
 export function rungAt(w) {
