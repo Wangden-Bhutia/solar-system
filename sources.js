@@ -703,9 +703,10 @@ export function illustrations() {
     },
     {
       where: 'Solar System',
-      shown: 'Planets’ places along their orbits and the speed of time are illustrative, not today’s sky.',
-      real: 'Orbit sizes and periods are real; dates are not.',
-      src: ['nssdcEarth']
+      shown:
+        'The eight planets and the Moon stand where they really are on the date shown (it starts at today and moves with Play and the speed; the menu sets any date from 1800 to 2050). The Earth is tilted toward the pole star and turned to the real hour. Dwarf planets and asteroids are placed for illustration. Distances are compressed unless Real scale is on; while time runs fast, the spins are slowed so they can be watched.',
+      real: 'Positions from JPL’s approximate orbital elements (to about a degree) and the Astronomical Almanac’s Moon series.',
+      src: ['nssdcEarth', 'jplApprox']
     },
     {
       where: 'Surfaces',

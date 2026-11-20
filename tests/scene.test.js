@@ -545,7 +545,8 @@ test('orbits run at 1/5 speed in the overview and full speed in a close-up', asy
   );
   s.step(40);
   const close = sweep();
-  assert.ok(Math.abs(close - 18) < 0.5, `close-up: ${close.toFixed(2)}° per second (1 year / 20 s)`);
+  /* the Earth now moves at its real, uneven pace (about 3% faster near perihelion in January, slower in July) */
+  assert.ok(Math.abs(close - 18) < 0.7, `close-up: ${close.toFixed(2)}° per second (1 year / 20 s)`);
   assert.ok(Math.abs(overview - 3.6) < 0.3, `overview: ${overview.toFixed(2)}° per second`);
 });
 test('a page first laid out at another size re-frames the overview when it becomes 412x915 (stale framing bug)', async () => {

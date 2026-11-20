@@ -198,7 +198,7 @@ MOON.realDist = 2 * rOf(MOON.distKm); // Moon distance shrunk to 1.5 units by de
 // Database (epoch JD 2461200.5) and, for Pluto, the NASA NSSDCA Pluto fact sheet (J2000 mean
 // elements). Sizes and periods: NSSDCA (Pluto, Ceres, Vesta, Pallas) and NASA Science dwarf-planet
 // pages (Eris, Haumea, Makemake). Read 9 Nov 2026; see docs/sources.md. Positions along each orbit
-// are illustrative (not today's sky), like the planets'.
+// are illustrative (not today's sky); the eight planets and the Moon stand at their real places (app.js).
 export const DWARFS = [
   {
     name: 'Ceres',

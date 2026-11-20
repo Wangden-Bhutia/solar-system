@@ -107,6 +107,8 @@ async function setup(width = 390, height = 844, stored = {}) {
     solarEdge: () => 900,
     solarHome: () => 600,
     solarCamera: () => ({ au: 40, metric: 0 }),
+    solarDate: () => Date.UTC(2026, 10, 20, 12),
+    setSolarDate() {},
     hideSunLabel() {},
     solarAnchor(out) {
       out.x = 206;
@@ -727,8 +729,8 @@ test('Planets in view (menu) switches inner planets ↔ all planets; ✕ closes 
   assert.ok(a.document.querySelector('#world-nav #world'), 'world picker lives in the keyboard skip-nav');
   assert.equal(
     menu.querySelectorAll('.mrow').length,
-    7,
-    'settings only: planets in view, real scale, speed, names, voice, offline, sources (My sky and the cosmic year live in Explore)'
+    8,
+    'settings only: planets in view, real scale, speed, date, names, voice, offline, sources (My sky and the cosmic year live in Explore)'
   );
   assert.ok(menu.querySelector('#save-offline'));
 });

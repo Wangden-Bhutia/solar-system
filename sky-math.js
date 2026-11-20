@@ -125,7 +125,15 @@ export function planetEquatorial(name, T) {
   return { ra: d.ra, dec: d.dec, dist: q.dist };
 }
 // The Moon (Astronomical Almanac low-precision series): RA/Dec of the date, distance (km), parallax (degrees).
+// The Moon's ecliptic longitude of the date (degrees), the first line of the series below.
+export const moonLongitude = T => moonSeries(T).lon;
 export function moonEquatorial(T) {
+  const { lon, lat, par } = moonSeries(T),
+    cl = Math.cos(lat * RAD),
+    q = eclToEq(cl * Math.cos(lon * RAD), cl * Math.sin(lon * RAD), Math.sin(lat * RAD), obliquity(T));
+  return { ra: q.ra, dec: q.dec, parallax: par, distKm: 6378.14 / Math.sin(par * RAD) };
+}
+function moonSeries(T) {
   const s = (a, b) => Math.sin((a + b * T) * RAD),
     c = (a, b) => Math.cos((a + b * T) * RAD);
   const lon =
@@ -140,9 +148,7 @@ export function moonEquatorial(T) {
   const lat = 5.13 * s(93.3, 483202.02) + 0.28 * s(228.2, 960400.89) - 0.28 * s(318.3, 6003.15) - 0.17 * s(217.6, -407332.21);
   const par =
     0.9508 + 0.0518 * c(135.0, 477198.87) + 0.0095 * c(259.3, -413335.36) + 0.0078 * c(235.7, 890534.22) + 0.0028 * c(269.9, 954397.7);
-  const cl = Math.cos(lat * RAD),
-    q = eclToEq(cl * Math.cos(lon * RAD), cl * Math.sin(lon * RAD), Math.sin(lat * RAD), obliquity(T));
-  return { ra: q.ra, dec: q.dec, parallax: par, distKm: 6378.14 / Math.sin(par * RAD) };
+  return { lon, lat, par };
 }
 export const angularSeparation = (a, b) => {
   const r = Math.acos(

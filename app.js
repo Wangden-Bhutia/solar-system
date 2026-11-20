@@ -9,6 +9,7 @@ import { beginLabelFrame, frameFree, frameClaim, labelFrame, HYST_PX, HOLD_FRAME
 import { SUN_ENTRY, starPixels, starColor } from './stars-data.js';
 import { hygPoints, oortPositions, pointCloud, wireShell, HELIO } from './transition.js';
 import { solarZ, metricBlend, auToUnits, AU_LY } from './zoom-ladder.js';
+import { ELEMENTS, heliocentric, moonLongitude, planetEquatorial, siderealTime } from './sky-math.js';
 import {
   tex,
   rimShell,
@@ -162,7 +163,9 @@ for (const d of PLANETS) {
   if (PHOTO[d.name]) photo(mat, PHOTO[d.name].map, { ...PHOTO[d.name], fallback: () => tex(d.name) });
   // Real axial tilt: tilt group holds the spinning mesh (obliquity > 90° makes Venus/Uranus spin retrograde)
   const tiltG = new THREE.Object3D();
-  tiltG.rotation.z = THREE.MathUtils.degToRad(d.tilt);
+  /* the Earth's axis leans toward ecliptic longitude 90° (it points at the pole star), so the seasons fall on their real dates */
+  if (d.name === 'Earth') tiltG.rotation.x = -THREE.MathUtils.degToRad(d.tilt);
+  else tiltG.rotation.z = THREE.MathUtils.degToRad(d.tilt);
   pivot.add(tiltG);
   tiltG.add(mesh);
   mesh.add(rimShell(d.size * 1.035, d.rim || d.color, 2.6, d.name === 'Earth' ? 1.1 : 0.55, 32));
@@ -454,7 +457,46 @@ export const OVERVIEW_SUN = 0.5,
   OVERVIEW_MOTION = 0.2;
 let sunView = OVERVIEW_SUN,
   motionView = OVERVIEW_MOTION;
-let simDays = 0;
+// The Solar System runs on a real date: simDays counts days from J2000 (1 Jan 2000, 12:00 UT). The eight planets and
+// the Moon stand where they really are on that date (sky-math.js, JPL approximate elements, good to about a degree);
+// their distances and sizes follow the view (compressed model or real scale). Play and the speed move the date.
+const J2000 = Date.UTC(2000, 0, 1, 12);
+let simDays = (Date.now() - J2000) / 864e5;
+const LON = {}; /* this frame's heliocentric longitudes (radians), by planet */
+let lonAt = NaN;
+function longitudes() {
+  if (lonAt === simDays) return;
+  lonAt = simDays;
+  const T = simDays / 36525;
+  for (const n of Object.keys(ELEMENTS)) {
+    const h = heliocentric(n, T);
+    LON[n] = Math.atan2(h[1], h[0]);
+  }
+  LON.Moon = (moonLongitude(T) * Math.PI) / 180;
+}
+const realAngle = b => LON[b.data.name] ?? b.angle + (simDays / b.data.period) * Math.PI * 2;
+// Turn the Earth to the real time of day: the Sun overhead at the longitude where it is noon. While time runs fast
+// its spin is slowed so it can be watched; it is turned back to the real hour whenever a date is chosen.
+let earthTurned = false;
+function turnEarth() {
+  const e = bodies.find(b => b.data.name === 'Earth');
+  if (!e) return;
+  e.pivot.updateMatrixWorld(true);
+  const q = e.mesh.worldToLocal(new THREE.Vector3(0, 0, 0)).normalize(),
+    lon = (Math.atan2(q.z, -q.x) * 180) / Math.PI - 180,
+    want = planetEquatorial('Sun', simDays / 36525).ra - siderealTime(simDays + 2451545, 0),
+    d = ((((want - lon) % 360) + 540) % 360) - 180;
+  e.mesh.rotation.y -= (d * Math.PI) / 180; /* the sunlit longitude moves opposite to the spin */
+  earthTurned = true;
+}
+// The date the Solar System shows (ms since 1970), and a way to set it (the menu's Date row and its Now button).
+export const solarDate = () => J2000 + simDays * 864e5;
+export function setSolarDate(ms) {
+  if (!Number.isFinite(ms)) return;
+  simDays = (ms - J2000) / 864e5;
+  placeBodies();
+  turnEarth();
+}
 const fly = { t: 1, fromPos: new THREE.Vector3(), fromTgt: new THREE.Vector3(), dur: 1.2 };
 
 function placeBodies() {
@@ -465,9 +507,10 @@ function placeBodies() {
       b.pivot.position.set(v[0], v[1], v[2]);
       continue;
     }
-    const a = b.angle + (simDays / b.data.period) * Math.PI * 2;
+    longitudes();
+    const a = realAngle(b);
     b.pivot.position.set(Math.cos(a) * D(b.data), 0, -Math.sin(a) * D(b.data));
-    if (b.moonPivot) b.moonPivot.rotation.y = (simDays / MOON.period) * Math.PI * 2;
+    if (b.moonPivot) b.moonPivot.rotation.y = LON.Moon; /* where the Moon really is, seen from the Earth */
   }
 }
 function updateTrails() {
@@ -478,7 +521,7 @@ function updateTrails() {
     const pos = b.trail.geometry.attributes.position,
       col = b.trail.geometry.attributes.color;
     const span = Math.min(0.35, 0.35) * Math.PI * 2; // trail covers ~35% of orbit
-    const base = b.angle + (simDays / b.data.period) * Math.PI * 2,
+    const base = realAngle(b),
       c = new THREE.Color(b.data.color);
     for (let i = 0; i < TRAIL_N; i++) {
       const f = i / (TRAIL_N - 1),
@@ -836,6 +879,7 @@ function frame(now) {
   simDays += dDays;
   advanceMoons(dt, dDays);
   placeBodies();
+  if (!earthTurned) turnEarth();
   placeBelts();
   for (const b of bodies) {
     const hours = Math.abs(b.data.rot); // direction comes from the tilt (Venus 177°, Uranus 98°)
