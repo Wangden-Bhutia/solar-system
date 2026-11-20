@@ -5,6 +5,8 @@
 
 An interactive, static Three.js Solar System. The space scene fills the screen; everything else lives in one bottom sheet.
 
+**Real positions.** The Solar System runs on a real date. It opens at today; Play and the speed move the date on, and the menu's **Date** row picks any day from 1800 to 2050 (**Now** comes back). The eight planets and the Moon stand where they really are on that date (JPL approximate elements and the Astronomical Almanac's Moon series, the same maths as My Sky, good to about a degree), the Earth's axis leans toward the pole star so the seasons fall on their real dates, and the Earth is turned to the real hour when a date is set. The scale readout shows the date. Dwarf planets and asteroids are still placed for illustration.
+
 ## Immersive layout
 - **Overview first.** Portrait phones open on a steeper view of the inner planets (Mercury to Mars, legible and tappable); landscape opens on all eight planets. With the sheet closed, the top-left chip reads **Show all planets** / **Show inner planets** and switches the framing (a re-layout to a different screen size, e.g. rotating or DevTools device emulation, re-frames the overview); outer worlds are also reachable by pinching out, by their labels, or from *Go to a world* in the ☰ menu. Camera distance is fitted to the screen's aspect ratio. Closing the sheet (empty tap, ✕, Escape from peek, Back/Overview) flies the camera back to the overview.
 - **Overview display:** only in the overview, the Sun is drawn at 1/10 of its true size (instead of the default 1/5) so the inner planets are not hidden behind it, and orbits run at 1/5 speed so worlds are easy to tap. Close-ups, the Sun's own card and Real scale use the normal sizes and speed. The ☰ menu scale note says so.

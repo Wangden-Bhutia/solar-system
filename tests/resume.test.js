@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import { SPOT_KEY, SPOT_MAX_AGE_MS, makeSpot, parseSpot, isAway, spotLabel, AWAY_Z } from '../resume.js';
 import { layoutAt, SEAM_Z } from '../zoom-ladder.js';
 import { bootApp } from './integration-harness.js';
+import { FIXED_NOW } from './integration-harness.js';
 
 const SEEN = { 'solar.tour.v1': '{"seen":true}' }; // a returning visitor: the tour's first-visit hint is already dismissed
 const now = 1.79e12,
@@ -134,7 +135,7 @@ test('exploring saves the spot (throttled, never mid-glide); Continue glides bac
 test('a saved world reopens its card; corrupt data starts as usual; dismissing lets the new spot be saved', async () => {
   const spot = JSON.stringify({
     v: 1,
-    t: Date.now(),
+    t: FIXED_NOW /* the app's 'now' in the harness */,
     level: 'solar',
     view: 'explore',
     Z: -12,
@@ -176,7 +177,7 @@ test('a saved world reopens its card; corrupt data starts as usual; dismissing l
 test('first visit: the tour hint wins over the Continue prompt; neither is saved over during the tour', async () => {
   const spot = JSON.stringify({
     v: 1,
-    t: Date.now(),
+    t: FIXED_NOW /* the app's 'now' in the harness */,
     level: 'stars',
     view: 'stars',
     Z: -0.22,

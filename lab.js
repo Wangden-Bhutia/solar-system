@@ -59,7 +59,9 @@ import {
   solarDrift,
   solarAnchor,
   solarCamera,
-  hideSunLabel
+  hideSunLabel,
+  solarDate,
+  setSolarDate
 } from './app.js';
 import { createZoomController, wheelZ, pinchZ } from './zoom.js';
 import { createZoomLog } from './zoomlog.js';
@@ -1045,7 +1047,7 @@ function updateHud() {
   const h = hudText({ widthLy: viewWidth(Math.exp(z), cam.fov, aspect), sunLy, model, offSun });
   hudSet(hudH, hereLine(l));
   hudSet(hudM, hereMore(l));
-  hudSet(hudA, h.lines[0]);
+  hudSet(hudA, l === 'solar' ? `${h.lines[0]} · ${dateWord(solarDate())}` : h.lines[0]); /* the Solar System's date */
   hudSet(hudB, h.lines[1]);
   hudSet(hudC, h.lines[2]);
   hudSet(hudN, h.note);
@@ -3430,6 +3432,36 @@ spotFrame = () => {
   saveSpot(false);
 };
 offerResume();
+// ---- The date the Solar System shows (app.js): the menu's Date row, kept in step while the menu is open ----
+const dateIn = $('simdate'),
+  pad2 = n => String(n).padStart(2, '0'),
+  ymd = ms => {
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  };
+function paintDate() {
+  if (!dateIn || globalThis.document?.activeElement === dateIn) return;
+  const v = ymd(solarDate());
+  if (dateIn.value !== v) dateIn.value = v;
+}
+if (dateIn) {
+  /* a picked day keeps the time of day it is now, so the Earth's lit side stays the real one */
+  dateIn.onchange = () => {
+    const [y, m, d] = dateIn.value.split('-').map(Number);
+    if (!y) return;
+    const now = new Date();
+    setSolarDate(new Date(y, m - 1, d, now.getHours(), now.getMinutes()).getTime());
+  };
+  $('simnow').onclick = () => {
+    setSolarDate(Date.now());
+    paintDate();
+  };
+  $('settings').addEventListener?.('toggle', paintDate);
+  globalThis.setInterval?.(() => {
+    if ($('settings').open) paintDate();
+  }, 500);
+}
+const dateWord = ms => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 // ---- Install and offline (offline-ui.js) ----
 mountOffline({ $, win: globalThis });
 window.__lab = {

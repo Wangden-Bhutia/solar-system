@@ -42,6 +42,10 @@ export const SOURCES = {
     url: 'https://www.hawaii.edu/news/2014/09/03/uh-scientist-maps-supercluster-of-galaxies-names-it-laniakea/'
   },
   planck2018: { label: 'Planck 2018 results VI, A&A 641, A6', url: 'https://doi.org/10.1051/0004-6361/201833910' },
+  jplApprox: {
+    label: 'Standish, Keplerian elements for approximate positions of the major planets (JPL)',
+    url: 'https://ssd.jpl.nasa.gov/planets/approx_pos.html'
+  },
   lauer2021: {
     label: 'Lauer et al. 2021, ApJ 906, 77 (New Horizons: how dark space is, so how many galaxies there are)',
     url: 'https://arxiv.org/abs/2011.03052'

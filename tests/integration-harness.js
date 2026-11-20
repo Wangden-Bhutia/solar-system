@@ -6,6 +6,17 @@ import vm from 'node:vm';
 import path from 'node:path';
 import { parseHTML } from 'linkedom';
 import * as THREE from '../vendor/three.module.min.js';
+
+// A fixed 'now' (20 Nov 2026, 12:00 UT) for the app's real-date Solar System.
+export const FIXED_NOW = Date.UTC(2026, 10, 20, 12);
+export class FixedDate extends Date {
+  constructor(...a) {
+    super(...(a.length ? a : [FIXED_NOW]));
+  }
+  static now() {
+    return FIXED_NOW;
+  }
+}
 // fakeClock: performance.now() inside the app advances only with step() (50 ms a frame), so scene glides that
 // time themselves by the wall clock run at frame speed. Off by default.
 export async function bootApp({
@@ -200,6 +211,7 @@ export async function bootApp({
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
   g.Math = Object.assign(Object.create(Math), { random });
+  g.Date = FixedDate; /* the Solar System opens on today's real sky: a fixed today keeps the tests repeatable */
   const context = vm.createContext(g);
   g.globalThis = g;
   g.self = g;
