@@ -4,8 +4,13 @@ import { AU_LY } from './zoom-ladder.js';
 export const DAY_YR = 1 / 365.25;
 // Width of the view across the screen at the centre of view: 2 · D · tan(fov/2) · aspect (D: camera to the point
 // it looks at, in ly; fov: vertical, degrees; aspect: width / height).
-export const viewWidth = (Dly, fovDeg, aspect) => 2 * Dly * Math.tan(fovDeg * Math.PI / 360) * aspect;
-const sig = (x, n = 2) => { if (!(x > 0)) return '0'; const d = Math.max(0, n - 1 - Math.floor(Math.log10(x))); const r = Number(x.toFixed(Math.min(d, 6))); return r.toLocaleString('en-US', { maximumFractionDigits: Math.min(d, 6) }); };
+export const viewWidth = (Dly, fovDeg, aspect) => 2 * Dly * Math.tan((fovDeg * Math.PI) / 360) * aspect;
+const sig = (x, n = 2) => {
+  if (!(x > 0)) return '0';
+  const d = Math.max(0, n - 1 - Math.floor(Math.log10(x)));
+  const r = Number(x.toFixed(Math.min(d, 6)));
+  return r.toLocaleString('en-US', { maximumFractionDigits: Math.min(d, 6) });
+};
 // A distance in light-years with units rolling over: km → AU → light-years → thousand / million / billion ly.
 export function formatLy(ly) {
   if (!(ly > 0)) return '0';
@@ -20,7 +25,8 @@ export function formatLy(ly) {
 // Light-crossing time of a width in ly (a light-year takes a year): seconds → minutes → hours → days → years
 // → thousand / million / billion years.
 export function formatLight(ly) {
-  const yr = ly, s = yr * 365.25 * 86400;
+  const yr = ly,
+    s = yr * 365.25 * 86400;
   if (!(s > 0)) return '0 s';
   if (s < 90) return `${sig(s)} seconds`;
   if (s < 5400) return `${sig(s / 60)} minutes`;
@@ -41,7 +47,11 @@ export function formatLight(ly) {
 export const OBSERVABLE_LY = 46.5e9;
 export function hudText({ widthLy, sunLy, model = false, offSun = false }) {
   const approx = model ? '≈ ' : '';
-  const lines = [`View ${approx}${formatLy(widthLy)} across`, `${approx}${formatLy(sunLy)} from the Sun`, `Light crosses it in ${approx}${formatLight(widthLy)}`];
+  const lines = [
+    `View ${approx}${formatLy(widthLy)} across`,
+    `${approx}${formatLy(sunLy)} from the Sun`,
+    `Light crosses it in ${approx}${formatLight(widthLy)}`
+  ];
   const notes = [];
   if (model) notes.push('Solar System distances compressed (model)');
   if (offSun) notes.push('centred away from the Sun');

@@ -14,13 +14,17 @@ const REL = String.raw`\.{1,2}/[^'"?#\s]+`;
 
 export function stampJs(src, v) {
   // static imports/exports: from './x.js'   side-effect imports: import './x.js'   dynamic: import('./x.js')
-  return src.replace(new RegExp(String.raw`(\bfrom\s*|\bimport\s*\(?\s*)(['"])(${REL}\.m?js)\2`, 'g'),
-    (_, pre, q, spec) => `${pre}${q}${spec}?v=${v}${q}`);
+  return src.replace(
+    new RegExp(String.raw`(\bfrom\s*|\bimport\s*\(?\s*)(['"])(${REL}\.m?js)\2`, 'g'),
+    (_, pre, q, spec) => `${pre}${q}${spec}?v=${v}${q}`
+  );
 }
 
 export function stampHtml(src, v) {
-  return src.replace(/(<(?:script|link)\b[^>]*\b(?:src|href)=)(["'])(?!https?:|data:|\/\/)([^"'?#]+\.(?:m?js|css))\2/g,
-    (_, pre, q, url) => `${pre}${q}${url}?v=${v}${q}`);
+  return src.replace(
+    /(<(?:script|link)\b[^>]*\b(?:src|href)=)(["'])(?!https?:|data:|\/\/)([^"'?#]+\.(?:m?js|css))\2/g,
+    (_, pre, q, url) => `${pre}${q}${url}?v=${v}${q}`
+  );
 }
 
 function walk(dir) {
@@ -38,7 +42,10 @@ export function stampSite(dir, v) {
     if (ext !== '.js' && ext !== '.mjs' && ext !== '.html') continue;
     const src = fs.readFileSync(f, 'utf8');
     const out = ext === '.html' ? stampHtml(src, v) : stampJs(src, v);
-    if (out !== src) { fs.writeFileSync(f, out); changed.push(path.relative(dir, f)); }
+    if (out !== src) {
+      fs.writeFileSync(f, out);
+      changed.push(path.relative(dir, f));
+    }
   }
   return changed;
 }
@@ -48,32 +55,59 @@ export function stampSite(dir, v) {
 // voice clips (voice/*.mp3): they are optional, so each one is cached by sw.js the first time it plays.
 export const isClip = f => /^voice\/.*\.mp3$/.test(f);
 export function precacheList(dir, v) {
-  return walk(dir).map(f => path.relative(dir, f).split(path.sep).join('/'))
-    .filter(f => f !== 'sw.js' && f !== 'precache.json' && f !== 'og-image.jpg' /* only for link previews */ && !f.startsWith('.') && !f.endsWith('.md') && !f.endsWith('.txt') && !isClip(f))
-    .map(f => f === 'index.html' ? './' : /\.(m?js|css)$/.test(f) ? `${f}?v=${v}` : f).sort();
+  return walk(dir)
+    .map(f => path.relative(dir, f).split(path.sep).join('/'))
+    .filter(
+      f =>
+        f !== 'sw.js' &&
+        f !== 'precache.json' &&
+        f !== 'og-image.jpg' /* only for link previews */ &&
+        !f.startsWith('.') &&
+        !f.endsWith('.md') &&
+        !f.endsWith('.txt') &&
+        !isClip(f)
+    )
+    .map(f => (f === 'index.html' ? './' : /\.(m?js|css)$/.test(f) ? `${f}?v=${v}` : f))
+    .sort();
 }
 // "about 4.0 MB": decimal megabytes, one decimal (what phones' storage settings show).
 export const sizeLabel = bytes => `about ${(bytes / 1e6).toFixed(1)} MB`;
-export const precacheBytes = (dir, files) => files.reduce((s, f) => s + fs.statSync(path.join(dir, f === './' ? 'index.html' : f.split('?')[0])).size, 0);
+export const precacheBytes = (dir, files) =>
+  files.reduce((s, f) => s + fs.statSync(path.join(dir, f === './' ? 'index.html' : f.split('?')[0])).size, 0);
 // Write the offline download's size where the menu shows it (lab.js OFFLINE_SIZE and index.html's first paint).
 // strict (the deploy): a missing marker is an error, so the menu can never keep a stale figure.
 export function writeOfflineSize(dir, bytes, { strict = false } = {}) {
-  const label = sizeLabel(bytes), edits = [
-    ['lab.js', /(const OFFLINE_SIZE=')[^']*(')/],
-    ['index.html', /(id="offline-note"[^>]*>Keeps the whole app \()[^)]*(\))/],
-  ];
-  for (const [f, re] of edits) { const p = path.join(dir, f); if (!fs.existsSync(p)) continue; const src = fs.readFileSync(p, 'utf8'); if (!re.test(src)) { if (strict) throw Error(`offline size marker missing in ${f}`); continue; } fs.writeFileSync(p, src.replace(re, `$1${label}$2`)); }
+  const label = sizeLabel(bytes),
+    edits = [
+      ['lab.js', /(const OFFLINE_SIZE\s*=\s*')[^']*(')/],
+      ['index.html', /(id="offline-note"[^>]*>Keeps the whole app \()[^)]*(\))/]
+    ];
+  for (const [f, re] of edits) {
+    const p = path.join(dir, f);
+    if (!fs.existsSync(p)) continue;
+    const src = fs.readFileSync(p, 'utf8');
+    if (!re.test(src)) {
+      if (strict) throw Error(`offline size marker missing in ${f}`);
+      continue;
+    }
+    fs.writeFileSync(p, src.replace(re, `$1${label}$2`));
+  }
   return label;
 }
 export function writePrecache(dir, v, { strict = false } = {}) {
-  const files = precacheList(dir, v); writeOfflineSize(dir, precacheBytes(dir, files), { strict }); const bytes = precacheBytes(dir, files);
+  const files = precacheList(dir, v);
+  writeOfflineSize(dir, precacheBytes(dir, files), { strict });
+  const bytes = precacheBytes(dir, files);
   fs.writeFileSync(path.join(dir, 'precache.json'), JSON.stringify({ version: v, bytes, files }));
   return files.length;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const [dir, v] = process.argv.slice(2);
-  if (!dir || !v) { console.error('usage: node tools/stamp.mjs <site-dir> <version>'); process.exit(2); }
+  if (!dir || !v) {
+    console.error('usage: node tools/stamp.mjs <site-dir> <version>');
+    process.exit(2);
+  }
   const changed = stampSite(dir, v);
   console.log(`stamped ${changed.length} files with ?v=${v}: ${changed.join(', ')}`);
   console.log(`precache list: ${writePrecache(dir, v, { strict: true })} files`);

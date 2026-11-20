@@ -1,0 +1,11 @@
+vendor/
+node_modules/
+*.html
+*.md
+textures/
+docs/
+precache.json
+voice/
+laniakea-data.js
+transition-data.js
+style.css

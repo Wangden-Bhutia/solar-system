@@ -18,10 +18,20 @@ test('unversioned files (textures, data) are refreshed in the background; versio
 });
 
 test('a shared link shows a description and a picture; the picture is deployed but not part of the offline download', () => {
-  const html = fs.readFileSync('index.html', 'utf8'), wf = fs.readFileSync('.github/workflows/pages.yml', 'utf8');
-  for (const re of [/<meta name="description" content="[^"]{60,160}">/, /<meta property="og:title" content="[^"]+">/, /<meta property="og:description" content="[^"]+">/,
-    /<meta property="og:image" content="https:\/\/[^"]+\/og-image\.jpg">/, /<meta name="twitter:card" content="summary_large_image">/]) assert.match(html, re);
-  assert.ok(fs.existsSync('og-image.jpg')); assert.match(wf, /\bog-image\.jpg\b/);
-  const dir = fs.mkdtempSync('/tmp/og-'); fs.writeFileSync(dir + '/og-image.jpg', 'x'); fs.writeFileSync(dir + '/index.html', 'x');
+  const html = fs.readFileSync('index.html', 'utf8'),
+    wf = fs.readFileSync('.github/workflows/pages.yml', 'utf8');
+  for (const re of [
+    /<meta name="description" content="[^"]{60,160}">/,
+    /<meta property="og:title" content="[^"]+">/,
+    /<meta property="og:description" content="[^"]+">/,
+    /<meta property="og:image" content="https:\/\/[^"]+\/og-image\.jpg">/,
+    /<meta name="twitter:card" content="summary_large_image">/
+  ])
+    assert.match(html, re);
+  assert.ok(fs.existsSync('og-image.jpg'));
+  assert.match(wf, /\bog-image\.jpg\b/);
+  const dir = fs.mkdtempSync('/tmp/og-');
+  fs.writeFileSync(dir + '/og-image.jpg', 'x');
+  fs.writeFileSync(dir + '/index.html', 'x');
   assert.deepEqual(precacheList(dir, 'v1'), ['./']);
 });

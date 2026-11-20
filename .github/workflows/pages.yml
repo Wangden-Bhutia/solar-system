@@ -22,6 +22,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run format:check # code stays in one style (Prettier); fix with npm run format
       - run: npm test
   deploy:
     needs: test
