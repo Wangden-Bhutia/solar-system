@@ -91,6 +91,7 @@ export const RUNGS = [
     label: 'Tree',
     here: 'You are here: a linden tree',
     text: 'A linden tree from above. Its crown carries tens of thousands of leaves.',
+    note: 'in the gold ring: someone resting in its shade',
     src: [wiki('Tilia')]
   },
   {
@@ -143,7 +144,7 @@ export const RUNGS = [
   },
   {
     id: 'helix',
-    w: 7e-9,
+    w: 1e-8 /* the whole twist fits a phone's width */,
     label: 'Double helix',
     here: 'You are here: the double helix',
     text: 'DNA is a twisted ladder, 2 nm wide. The order of its rungs spells the genetic code.',
