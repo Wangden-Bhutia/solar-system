@@ -154,6 +154,7 @@ Nineteen moons besides Earth's: Phobos, Deimos; Io, Europa, Ganymede, Callisto; 
   - The NGC/IC catalogues favour bright, nearby galaxies.
   - Few galaxies appear behind the Milky Way's disc (the zone of avoidance).
 - **Check:** at least 25 catalogue galaxies cluster around each of the Virgo, Coma and Perseus positions (tests).
+- **How many galaxies** the observable universe holds: "hundreds of billions (estimate)". New Horizons measured how dark space is from beyond Pluto, far from sunlit dust, and found too little light for the 2016 estimate of 2 trillion ([Lauer et al. 2021, ApJ 906, 77](https://arxiv.org/abs/2011.03052); [phys.org, January 2021](https://phys.org/news/2021-01-horizons-spacecraft-dark-space.amp)). Changed from "as many as 2 trillion" on 20 Nov 2026.
 - **Cluster centres and distances.** From each Wikipedia article, read 9 Nov 2026: Virgo 53.8 Mly, Fornax 62, Perseus 240, Coma 321 (infobox 336), Norma 221 (near the centre of the Great Attractor), Shapley 652.
 - **Nearby groups.** These use their brightest galaxy's measured distance: M81 11.8 Mly, NGC 253 11.4, Centaurus A about 12, Sombrero 31.1.
 - **Laniakea itself.** About 100,000 galaxies and about 10¹⁷ solar masses. It was defined in 2014 by Tully, Courtois, Hoffman and Pomarède ([Laniakea Supercluster](https://en.wikipedia.org/wiki/Laniakea_Supercluster)). Its quoted width varies (Wikipedia gives 400 million ly; other sources about 520), so the app says 400–500 million.

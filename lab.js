@@ -867,7 +867,20 @@ function entryView() {
   const q = f.mesh.worldToLocal(camera.position.clone()).normalize(),
     th = Math.acos(Math.max(-1, Math.min(1, q.y))),
     ph = Math.atan2(q.z, -q.x);
-  return { width: 0.46 * height, lat: 90 - (th * 180) / Math.PI, lon: (((((ph * 180) / Math.PI - 180) % 360) + 540) % 360) - 180 };
+  const sun = f.mesh.worldToLocal(camera.position.clone().set(0, 0, 0)).normalize(); /* where the Sun is, in the Earth's own frame */
+  camera.updateMatrixWorld();
+  const north = camera.position
+    .clone()
+    .set(0, 1, 0)
+    .transformDirection(f.mesh.matrixWorld)
+    .transformDirection(camera.matrixWorldInverse); /* the Earth's north on screen */
+  return {
+    width: 0.46 * height,
+    lat: 90 - (th * 180) / Math.PI,
+    lon: (((((ph * 180) / Math.PI - 180) % 360) + 540) % 360) - 180,
+    sun: [sun.x, sun.y, sun.z],
+    roll: Math.atan2(north.x, north.y) /* how far north is turned from straight up the screen */
+  };
 }
 function pushInward() {
   const t = globalThis.performance?.now?.() ?? Date.now();

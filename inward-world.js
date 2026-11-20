@@ -13,10 +13,17 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   scene.background = new THREE.Color('#02040c');
   const V = (x, y, z) => new THREE.Vector3(x, y, z),
     C = c => new THREE.Color(c);
-  const sun = new THREE.DirectionalLight(0xfff4e0, 2.6);
+  const sun = new THREE.DirectionalLight(0xfff4e0, 2.6),
+    SUN0 = new THREE.Vector3(-3, 5, -2).normalize(),
+    rollQ = new THREE.Quaternion(),
+    UPV = new THREE.Vector3(0, 1, 0),
+    ROLL_SIGN = -1,
+    sunDir = new THREE.Vector3();
   sun.position.set(-3, 5, -2);
   scene.add(sun, sun.target);
-  scene.add(new THREE.AmbientLight(0x8a9ab8, 0.55), new THREE.HemisphereLight(0xdfe8ff, 0x3a2a20, 0.7));
+  const amb = new THREE.AmbientLight(0x8a9ab8, 0.55),
+    hemi = new THREE.HemisphereLight(0xdfe8ff, 0x3a2a20, 0.7);
+  scene.add(amb, hemi);
   const rng = seed => {
     let s = seed >>> 0 || 1;
     return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
@@ -234,7 +241,15 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
         k > 0 ? inner / 5.5 : 0.011,
         k >= CHAIN.length - 2
           ? () => cap(CHAIN[k].f, TOP_W / Math.pow(3, CHAIN.length - 1 - k)) /* the two widest: laid on the globe */
-          : () => flat(tex(`textures/${CHAIN[k].f}.webp`), w0, w0, centre[k][0], centre[k][1], 0.16)
+          : () =>
+              flat(
+                tex(`textures/${CHAIN[k].f}.webp`),
+                w0,
+                w0,
+                centre[k][0],
+                centre[k][1],
+                CHAIN[k].f === 'inward-10' ? 0.32 : 0.16
+              ) /* the made-up town meets the real fields over a wider edge */
       );
     }
   }
@@ -524,7 +539,12 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
       U,
       geo,
       nucGeo: new THREE.SphereGeometry(2.9 * U, 32, 24),
-      cell: M('#86c25a', { transparent: true, opacity: 0.8, depthWrite: false, roughness: 0.3 }),
+      cell: M('#86c25a', {
+        transparent: true,
+        opacity: 0.5,
+        depthWrite: false,
+        roughness: 0.3
+      }) /* see-through enough to show the chloroplasts lining every wall */,
       nuc: M('#9a5aa8', { emissive: C('#2a0e30'), emissiveIntensity: 0.6 }),
       chlGeo: new THREE.SphereGeometry(0.75 * U, 12, 8).scale(1, 0.5, 0.75),
       chl: M('#3f9a2e', { emissive: C('#0e2a08'), emissiveIntensity: 0.5, roughness: 0.5 })
@@ -1182,7 +1202,22 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
     // Handed over from the main zoom: the Earth starts turned to the place the main view was on, and turns to the city as we zoom in.
     if (earthRef && handover && handover.wEntry > handover.wCity) {
       const t = Math.min(1, Math.max(0, Math.log(handover.wEntry / w) / Math.log(handover.wEntry / handover.wCity)));
-      earthRef.quaternion.copy(orientFor(handover.lat, handover.lon)).slerp(earthHome, t);
+      earthRef.quaternion
+        .copy(orientFor(handover.lat, handover.lon))
+        .premultiply(
+          rollQ.setFromAxisAngle(UPV, ROLL_SIGN * (handover.roll || 0))
+        ) /* turned on screen as the app showed it, north wherever it was */
+        .slerp(earthHome, t);
+      /* and it is lit as the app lit it (the Sun where it really is), easing to the usual light as it turns, so the hand-over in either direction keeps day and night where they were */
+      if (handover.sun) {
+        sun.position.copy(sunDir.fromArray(handover.sun).applyQuaternion(earthRef.quaternion).lerp(SUN0, t).normalize().multiplyScalar(5));
+        amb.intensity = 0.12 + 0.43 * t; /* the night side as dark as in the app, until the turn is done */
+        hemi.intensity = 0.7 * t;
+      }
+    } else {
+      sun.position.copy(SUN0).multiplyScalar(5);
+      amb.intensity = 0.55;
+      hemi.intensity = 0.7;
     }
     const t = reduced() ? 0 : (now - t0) / 1000;
     manage();

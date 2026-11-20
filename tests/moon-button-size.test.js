@@ -117,7 +117,7 @@ test('button labels match what the narration says: the Moon stop shows "Visit Mo
   assert.equal(STOPS[0].next, 'On to the Moon →');
 });
 
-test('Save for offline shows the real download size, written at deploy from precache.json (97 files ≈ 9.1 MB, with the Sources screen, Continue and the journey inward)', () => {
+test('Save for offline shows the real download size, written at deploy from precache.json (97 files ≈ 9.3 MB, with the Sources screen, Continue and the journey inward)', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-'));
   const copy = fs
     .readFileSync('.github/workflows/pages.yml', 'utf8')
@@ -129,7 +129,7 @@ test('Save for offline shows the real download size, written at deploy from prec
   const list = JSON.parse(fs.readFileSync(path.join(dir, 'precache.json'), 'utf8')),
     label = sizeLabel(list.bytes);
   assert.equal(list.files.length, 97);
-  assert.equal(label, 'about 9.1 MB', `${list.bytes} bytes`);
+  assert.equal(label, 'about 9.3 MB', `${list.bytes} bytes`);
   assert.ok(fs.readFileSync(path.join(dir, 'offline-ui.js'), 'utf8').includes(`const OFFLINE_SIZE = '${label}'`));
   assert.ok(fs.readFileSync(path.join(dir, 'index.html'), 'utf8').includes(`Keeps the whole app (${label})`));
   // The source files carry the same figure, so a local run or preview also shows it.
