@@ -112,6 +112,7 @@ async function setup(width = 390, height = 844, stored = {}) {
     solarDate: () => Date.UTC(2026, 10, 20, 12),
     setSolarDate() {},
     setPlaying() {},
+    isPlaying: () => true,
     hideSunLabel() {},
     solarAnchor(out) {
       out.x = 206;
@@ -734,9 +735,10 @@ test('Planets in view (menu) switches inner planets ↔ all planets; ✕ closes 
   assert.ok(a.document.querySelector('#world-nav #world'), 'world picker lives in the keyboard skip-nav');
   assert.equal(
     menu.querySelectorAll('.mrow').length,
-    8,
-    'settings only: planets in view, real scale, speed, date, names, voice, offline, sources (My sky and the cosmic year live in Explore)'
+    6,
+    'settings only: planets in view, real scale, names, voice, offline, sources (play, speed and date live in the time bar; My sky and the cosmic year in Explore)'
   );
+  for (const id of ['play', 'speed', 'simdate', 'simnow']) assert.equal(menu.querySelector('#' + id), null, `${id} is in the time bar`);
   assert.ok(menu.querySelector('#save-offline'));
 });
 test('every world has a working card, contextual action, facts and external source', async () => {
@@ -1179,7 +1181,7 @@ test('Milky Way clock: shown only in the Galaxy, plays and scrubs, names the mom
   const a = await setup(),
     c = a.$('c'),
     wheel = dy => c.dispatchEvent(Object.assign(new a.document.defaultView.Event('wheel'), { deltaY: dy }));
-  assert.equal(a.$('gtime').hidden, true, 'no galaxy clock in the Solar System');
+  assert.equal(a.$('gtime').dataset.clock, 'solar', 'in the Solar System the time bar holds its own clock, not the galaxy’s');
   const toGalaxy = () => a.document.querySelector('#ladder [data-level="galaxy"]').onclick();
   toGalaxy();
   if (a.lab.state.value.view !== 'galaxy') toGalaxy();

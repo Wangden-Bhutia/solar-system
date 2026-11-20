@@ -62,7 +62,8 @@ import {
   hideSunLabel,
   solarDate,
   setSolarDate,
-  setPlaying
+  setPlaying,
+  isPlaying
 } from './app.js';
 import { createZoomController, wheelZ, pinchZ } from './zoom.js';
 import { createZoomLog } from './zoomlog.js';
@@ -285,13 +286,41 @@ if (typeof globalThis.requestAnimationFrame === 'function' && typeof setTimeout 
 // ---- Time at the big scales: one clock bar, in thousands of years for the stars (star-motion.js)
 // and millions for the Milky Way (galaxy-motion.js). Each scene keeps its own clock; leaving a scale
 // (or zooming across a seam) first returns it to today, because every map is drawn as the sky is now.
+// ---- The date the Solar System shows (app.js): the time bar's Date field, kept in step with the clock ----
+const dateIn = $('simdate'),
+  pad2 = n => String(n).padStart(2, '0'),
+  ymd = ms => {
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  };
+function paintDate() {
+  if (!dateIn || globalThis.document?.activeElement === dateIn) return;
+  const v = ymd(solarDate());
+  if (dateIn.value !== v) dateIn.value = v;
+}
+if (dateIn) {
+  /* a picked day keeps the time of day it is now, so the Earth's lit side stays the real one */
+  dateIn.onchange = () => {
+    const [y, m, d] = dateIn.value.split('-').map(Number);
+    if (!y) return;
+    const now = new Date();
+    setSolarDate(new Date(y, m - 1, d, now.getHours(), now.getMinutes()).getTime());
+    dateIn.blur?.(); /* a picked date leaves the field, so it goes on following the clock (a focused field is not repainted) */
+  };
+  $('simnow').onclick = () => {
+    setSolarDate(Date.now());
+    paintDate();
+  };
+}
+const dateWord = ms => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 const gtime = $('gtime'),
   gslider = $('gslider');
 let timeText = '';
 const clockLevel = () => {
   const v = state.value.view;
-  return v === 'galaxy' ? 'galaxy' : v === 'stars' ? 'stars' : null;
+  return v === 'galaxy' ? 'galaxy' : v === 'stars' ? 'stars' : levelOf(v) === 'solar' ? 'solar' : null;
 };
+// The Solar System's clock is app.js's (play, speed, date); it has no clockOf, so leaving the scale keeps its date.
 const clockOf = l => (l === 'galaxy' ? galaxyView : l === 'stars' ? starsView : null);
 // The bar starts folded into a small chip; opened, it stays open until folded again or until we leave that scale.
 let timeOpenAt = null,
@@ -305,8 +334,10 @@ function paintFold() {
   const open = !!timeOpenAt;
   gtime.classList.toggle('folded', !open);
   $('gopen').setAttribute('aria-expanded', String(open));
-  $('gopen').classList.toggle('new', !timeSeen && !open);
-  $('gopen').classList.toggle('playing', !!clockOf(l)?.playing());
+  $('gopen').classList.toggle('new', !timeSeen && !open && l !== 'solar');
+  const playing = l === 'solar' ? isPlaying() : !!clockOf(l)?.playing();
+  $('gopen').classList.toggle('playing', playing);
+  $('gopen').classList.toggle('paused', l === 'solar' && !playing);
 }
 function setTimeOpen(on) {
   timeOpenAt = on ? clockLevel() : null;
@@ -324,10 +355,36 @@ $('gopen').onclick = () => {
   setTimeOpen(true);
 };
 $('gfold').onclick = () => setTimeOpen(false);
-function paintTime() {
+for (const b of gtime.querySelectorAll('[data-fold]')) b.onclick = () => setTimeOpen(false);
+// The Solar System: the folded chip reads the date (and says when the clock is paused); open, it holds play, speed and the date.
+let solarChip = '';
+function paintSolarTime() {
   paintFold();
-  const l = clockLevel(),
-    c = clockOf(l);
+  gtime.dataset.clock = 'solar';
+  document.body.classList.toggle('solar-clock', !gtime.hidden);
+  const p = isPlaying(),
+    word = dateWord(solarDate()),
+    key = word + p;
+  paintDate();
+  if (key === solarChip) return;
+  solarChip = key;
+  $('gchip-text').textContent = word;
+  $('gopen').setAttribute('aria-label', `Time: ${word}${p ? '' : ', paused'}. Open the time bar`);
+  gtime.setAttribute('aria-label', 'Time in the Solar System');
+  timeText = '';
+}
+function paintTime() {
+  const l = clockLevel();
+  if (l === 'solar') return paintSolarTime();
+  paintFold();
+  const c = clockOf(l);
+  document.body.classList.remove('solar-clock');
+  if (gtime.dataset.clock !== l) {
+    gtime.dataset.clock = l || '';
+    $('gchip-text').textContent = 'Time';
+    $('gopen').setAttribute('aria-label', 'Open the time bar');
+    solarChip = '';
+  }
   if (!c) return;
   const t = c.time(),
     p = c.playing(),
@@ -1050,7 +1107,7 @@ function updateHud() {
   const h = hudText({ widthLy: viewWidth(Math.exp(z), cam.fov, aspect), sunLy, model, offSun });
   hudSet(hudH, hereLine(l));
   hudSet(hudM, hereMore(l));
-  hudSet(hudA, l === 'solar' ? `${h.lines[0]} · ${dateWord(solarDate())}` : h.lines[0]); /* the Solar System's date */
+  hudSet(hudA, h.lines[0]); /* the Solar System's date is on the time chip beside it */
   hudSet(hudB, h.lines[1]);
   hudSet(hudC, h.lines[2]);
   hudSet(hudN, h.note);
@@ -1093,6 +1150,7 @@ hooks.afterFrame = () => {
   if (finale.shown && (zoom.moving || animating || bridge)) finale.hide();
   updateHud();
   updateTimeBar();
+  if (!gtime.hidden && clockLevel() === 'solar') paintSolarTime(); /* the date moves while the clock plays */
   tourUi?.frame();
   spotFrame?.();
   hooks.afterFrameLog?.();
@@ -1850,7 +1908,7 @@ function buildExplore() {
     '<p class="xsec">Time and the sky</p>' +
     card('cyear', 'The cosmic year', '13.8 billion years squeezed into one calendar year.') +
     card('mysky', 'My sky', 'What is up over you tonight, and where to look.') +
-    card('comingup', 'Coming up', 'Eclipses, meteor showers and planets lining up over the next year.') +
+    card('comingup', 'Coming up', 'Eclipses, meteor showers and planets lining up in the next six months.') +
     '<p class="xsec">For young explorers</p>' +
     card('adventure', 'The Earth and Moon adventure', 'A short spoken story: find Earth, then fly to the Moon.');
   const startJourney = id => {
@@ -1895,6 +1953,7 @@ function buildExplore() {
 }
 function openExplore() {
   if (!exploreEl) buildExplore();
+  tourUi?.remember?.(); /* found their own way in: the first-visit tour hint has done its job */
   $('settings').open = false;
   dismissHint();
   finale.hide();
@@ -2806,6 +2865,7 @@ function render() {
   $('back').hidden = !canGoBack(s);
   paintScope();
   gtime.hidden = !clockLevel() || open;
+  if (gtime.hidden) document.body.classList.remove('solar-clock');
   if (!gtime.hidden) paintTime();
   $('world-depth').open = false;
   sheet.querySelector('.tabs').hidden = experiment || s.view === 'journey' || space; // labs: controls first, Back returns to the tabs
@@ -3494,36 +3554,6 @@ spotFrame = () => {
   saveSpot(false);
 };
 offerResume();
-// ---- The date the Solar System shows (app.js): the menu's Date row, kept in step while the menu is open ----
-const dateIn = $('simdate'),
-  pad2 = n => String(n).padStart(2, '0'),
-  ymd = ms => {
-    const d = new Date(ms);
-    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-  };
-function paintDate() {
-  if (!dateIn || globalThis.document?.activeElement === dateIn) return;
-  const v = ymd(solarDate());
-  if (dateIn.value !== v) dateIn.value = v;
-}
-if (dateIn) {
-  /* a picked day keeps the time of day it is now, so the Earth's lit side stays the real one */
-  dateIn.onchange = () => {
-    const [y, m, d] = dateIn.value.split('-').map(Number);
-    if (!y) return;
-    const now = new Date();
-    setSolarDate(new Date(y, m - 1, d, now.getHours(), now.getMinutes()).getTime());
-  };
-  $('simnow').onclick = () => {
-    setSolarDate(Date.now());
-    paintDate();
-  };
-  $('settings').addEventListener?.('toggle', paintDate);
-  globalThis.setInterval?.(() => {
-    if ($('settings').open) paintDate();
-  }, 500);
-}
-const dateWord = ms => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 // ---- Install and offline (offline-ui.js) ----
 mountOffline({ $, win: globalThis });
 window.__lab = {

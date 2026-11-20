@@ -686,6 +686,7 @@ playBtn.onclick = () => {
   paintPlay();
 };
 // Hold the clock (Coming up shows a line-up on its date: it should stay lined up until you press Play).
+export const isPlaying = () => playing;
 export function setPlaying(on) {
   playing = !!on;
   paintPlay();
