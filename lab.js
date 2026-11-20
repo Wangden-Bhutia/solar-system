@@ -364,7 +364,9 @@ hooks.beforeFrame=dt=>{readExclusions();tourFrame(dt);zoomTick(dt);zlog?.frame(d
 function zoomInput(dz,kind,now){
  if(animating||!dz)return false;
  if(!bridge){const z=zoomState();if(!z||z.busy||sheetOpen())return false;if(!zoom.moving)zoom.set(zOfLevel(levelOf(state.value.view)));
-  if(levelOf(state.value.view)==='solar'&&dz>0&&solarFocused?.()&&solarDistance()>0.5*solarEdge()){unfocus(false);if(state.value.sheet!=='closed'){state.update({sheet:'closed'});render();}}}
+  if(levelOf(state.value.view)==='solar'&&dz>0&&solarFocused?.()&&solarDistance()>0.5*solarEdge()){unfocus(false);if(state.value.sheet!=='closed'){state.update({sheet:'closed'});render();}}
+  // Zooming in on the Solar System with nothing chosen heads for the Earth (and on to the journey inward), not the Sun.
+  if(levelOf(state.value.view)==='solar'&&dz<0&&!solarFocused?.()&&state.value.view==='explore'){const e=bodies.find(b=>b.data.name==='Earth');if(e)focus(e,{silent:true,steer:true,dur:1.3});}}
  dz/=viewRate(zoom.z,real()); // same apparent speed in the compressed Solar System as everywhere else
  if(kind==='pinch')zoom.drag(dz,now);else zoom.nudge(dz);
  if(!smoothFrames())zoomTick(0,true);
