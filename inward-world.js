@@ -364,6 +364,8 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
     for (const L of LAYERS) { if (!L.obj) continue; const a = opacityAt(L, w); L.obj.visible = a > 0.002; if (!L.obj.visible) continue; for (const m of L.mats) m.opacity = m.userData.base * a; L.obj.userData.update?.(t); }
     /* the camera: straight down (north up) until the living cells; then it tilts to show them in 3D, and slowly turns */
     const tilt = sm(Math.log(2.2e-4), Math.log(4e-5), Math.log(w)) * 0.85, az = (0.3 + (reduced() ? 0 : t * 0.04)) * tilt / 0.85; /* north stays up while looking straight down */
+    /* the subject sits a little above centre, clear of the text; past Earth's own step it eases back to the centre, where the app's view picks it up */
+    cam.setViewOffset(W, H, 0, H * 0.12 * (1 - sm(Math.log(1.6e7), Math.log(4e7), Math.log(w * KT))), W, H);
     const unit = w < 1e-12 ? 1e-15 : 1; /* femtometres deep in the atom (FM above) */
     for (const L of LAYERS) if (L.obj && L.obj.visible && L.name !== 'mark' /* a ring at the origin, the same in any unit */ && (unit === 1) === FM.has(L.name)) L.obj.visible = false;
     const D = (w / unit / REF_ASPECT) / (2 * Math.tan(cam.fov * Math.PI / 360)), dir = V(Math.sin(tilt) * Math.sin(az), Math.cos(tilt), Math.sin(tilt) * Math.cos(az));
