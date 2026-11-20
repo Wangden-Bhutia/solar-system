@@ -65,6 +65,7 @@ export function precacheList(dir, v) {
         !f.startsWith('.') &&
         !f.endsWith('.md') &&
         !f.endsWith('.txt') &&
+        !f.endsWith('.ics') /* calendar files: fetched when asked for, not kept offline */ &&
         !isClip(f)
     )
     .map(f => (f === 'index.html' ? './' : /\.(m?js|css)$/.test(f) ? `${f}?v=${v}` : f))

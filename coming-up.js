@@ -40,7 +40,7 @@ export function createComingUp({ onLook, onSpace, onOpen, onClose, now = () => D
       evs = upcoming(t),
       nx = nextToJoin(t);
     const card = e =>
-      `<article class="cu-ev"><p class="cu-when"><span>${esc(fmtDay(e.look?.at ?? e.at))}${isNew(e, t) ? ' <b class="cu-new">New</b>' : ''}</span><em>${esc(e.kind)}</em></p><h3>${esc(e.title)}</h3><p class="cu-txt">${esc(e.text)}</p><p class="cu-look">${esc(e.when)}</p><div class="cu-acts">${e.look ? `<button type="button" data-ev="${e.id}" data-do="look">Where to look</button>` : ''}${e.space ? `<button type="button" data-ev="${e.id}" data-do="space">See it in space ↗</button>` : ''}</div></article>`;
+      `<article class="cu-ev"><p class="cu-when"><span>${esc(fmtDay(e.look?.at ?? e.at))}${isNew(e, t) ? ' <b class="cu-new">New</b>' : ''}</span><em>${esc(e.kind)}</em></p><h3>${esc(e.title)}</h3><p class="cu-txt">${esc(e.text)}</p><p class="cu-look">${esc(e.when)}</p><div class="cu-acts">${e.look ? `<button type="button" data-ev="${e.id}" data-do="look">Where to look</button>` : ''}${e.space ? `<button type="button" data-ev="${e.id}" data-do="space">See it in space ↗</button>` : ''}<a class="cu-remind" href="ics/${e.id}.ics" aria-label="Remind me: add ${esc(e.title)} to your calendar">🔔 Remind me</a></div></article>`;
     list.innerHTML =
       (evs.length ? evs.map(card).join('') : '<p class="cu-txt">Nothing in the next six months is listed yet.</p>') +
       (nx

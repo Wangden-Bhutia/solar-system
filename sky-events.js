@@ -82,7 +82,7 @@ export const SKY_EVENTS = [
     at: ut(2027, 2, 11, 0, 29),
     title: 'Jupiter opposite the Sun',
     text: 'Earth passes between the Sun and Jupiter. Jupiter rises at sunset, is up all night and is at its brightest and closest for the year. Binoculars show its four big moons as a line of dots.',
-    when: '11 Feb, all night, high at midnight',
+    when: 'Night of 10–11 Feb, high at midnight',
     look: { at: ist(2027, 2, 10, 23), body: 'Jupiter' },
     space: { fitTo: 'Jupiter' },
     src: [NAOJ]
@@ -172,7 +172,7 @@ export const SKY_EVENTS = [
     at: ut(2027, 10, 18, 0, 36),
     title: 'Saturn opposite the Sun',
     text: 'Earth passes between the Sun and Saturn. Saturn is up all night, a steady yellowish point. A small telescope shows the rings, now opening up again after being edge-on in 2025.',
-    when: '18 Oct, all night, high at midnight',
+    when: 'Night of 17–18 Oct, high at midnight',
     look: { at: ist(2027, 10, 17, 23), body: 'Saturn' },
     space: { fitTo: 'Saturn' },
     src: [NAOJ]
