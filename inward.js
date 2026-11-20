@@ -11,7 +11,7 @@ const ease = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
 
 export function createInward({ onOpen, onClose } = {}) {
   let root, canvas, card, here, txt, note, readout, dots, prev, next, playBtn, world, worldTry = false, failed = false, opener = null;
-  let raf = 0, last = 0, glide = null, play = null, shown = null, handover = null, endEl = null;
+  let raf = 0, last = 0, glide = null, play = null, shown = null, handover = null, endEl = null, fadeOut = 0, closing = false;
   const zc = createZoomController({ reduced: reducedMotion });
   const idx = r => RUNGS.indexOf(r);
   function build() {
@@ -77,7 +77,7 @@ export function createInward({ onOpen, onClose } = {}) {
   function tick(now) {
     if (!root || root.hidden) return; raf = requestAnimationFrame(tick); const dt = Math.min(0.1, (now - last) / 1000); last = now;
     if (glide) { const k = Math.min(1, (now - glide.t0) / glide.dur); zc.set(glide.a + (glide.b - glide.a) * ease(k)); if (k >= 1) { const t = glide.then; glide = null; t?.(); } }
-    else { const res = zc.step(dt, { min: Z_MIN, max: Z_MAX + 0.5 }); if (zc.z > Z_MAX + 0.35 && res.dz > 0) { close(); return; } }
+    else { const res = zc.step(dt, { min: Z_MIN, max: Z_MAX + 0.5 }); if (zc.z > Z_MAX + 0.35 && res.dz > 0) { close({ out: true, width: W() }); return; } }
     if (!glide && atEnd()) showEnd(); else if (W() > END_W * 3) hideEnd();
     world?.setW(W()); paint();
   }
@@ -90,7 +90,7 @@ export function createInward({ onOpen, onClose } = {}) {
   function showFail() { if (note) { note.hidden = false; note.textContent = 'This journey needs 3D graphics (WebGL), which are not available here.'; } }
   // view: where the main zoom handed over (width in m, and the place under its centre); otherwise the whole Earth.
   function open(view) {
-    if (!root) build(); opener = document.activeElement; stopPlay(); glide = null; shown = null; hideEnd();
+    if (!root) build(); if (closing) { clearTimeout(fadeOut); closing = false; root.style.transition = root.style.opacity = root.style.pointerEvents = ''; } opener = document.activeElement; stopPlay(); glide = null; shown = null; hideEnd();
     const startW = view?.width; const w0 = startW && Number.isFinite(startW) ? Math.min(RUNGS[0].w, Math.max(RUNGS[0].w * 0.02, startW)) : RUNGS[0].w; zc.set(Math.log(w0));
     handover = view && startW ? { lat: view.lat, lon: view.lon, wEntry: w0, wCity: 3e6 } /* the turn is done by 3,000 km, before the flat pictures appear */ : null; world?.setHandover(handover);
     if (handover) fadeIn();
@@ -100,10 +100,15 @@ export function createInward({ onOpen, onClose } = {}) {
   }
   // the journey fades in over the main view, so the handover does not cut
   function fadeIn() { root.style.transition = 'opacity .45s ease'; root.style.opacity = '0'; requestAnimationFrame(() => requestAnimationFrame(() => { root.style.opacity = '1'; })); setTimeout(() => { if (root) { root.style.transition = ''; root.style.opacity = ''; } }, 700); }
-  function close() {
-    if (!root || root.hidden) return; stopPlay(); glide = null; cancelAnimationFrame(raf); root.hidden = true; world?.stop();
-    document.body.classList.remove('cyear-on', 'inward-on'); onClose?.();
+  // how: { out, width } when the reader zoomed out past Earth, so the app can carry on from the same view
+  function close(how) {
+    if (!root || root.hidden || closing) return; stopPlay(); glide = null; cancelAnimationFrame(raf); world?.stop();
+    if (how?.out && !reducedMotion()) { /* zoomed out past Earth: fade over the app, which carries on from the same view */
+      root.style.pointerEvents = 'none'; root.style.transition = 'opacity .45s ease'; root.style.opacity = '0';
+      closing = true; fadeOut = setTimeout(() => { closing = false; root.hidden = true; root.style.transition = root.style.opacity = root.style.pointerEvents = ''; }, 460); }
+    else root.hidden = true;
+    document.body.classList.remove('cyear-on', 'inward-on'); onClose?.(how?.out ? how : null);
     const back = opener?.isConnected && opener.offsetParent ? opener : document.querySelector('#settings summary'); back?.focus?.({ preventScroll: true }); opener = null;
   }
-  return { open, close, get isOpen() { return !!root && !root.hidden; }, get width() { return W(); }, glideTo, _step: step };
+  return { open, close, get isOpen() { return !!root && !root.hidden && !closing; }, get width() { return W(); }, glideTo, _step: step };
 }

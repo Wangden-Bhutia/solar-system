@@ -1072,7 +1072,11 @@ const cYear=createCosmicYear({
 let inwardPausedTour=false;
 const inward=createInward({
  onOpen:()=>{hooks.covered=true;pushLayer('inward');if(tourRef?.active&&!tourRef.paused&&!tourRef.finished){tourRef.pause();inwardPausedTour=true;}},
- onClose:()=>{hooks.covered=false;dropLayer('inward');if(inwardPausedTour&&tourRef?.active&&tourRef.paused)tourRef.resume();inwardPausedTour=false;}});
+ onClose:out=>{hooks.covered=false;dropLayer('inward');if(inwardPausedTour&&tourRef?.active&&tourRef.paused)tourRef.resume();inwardPausedTour=false;if(out)leaveInward(out.width);}});
+// Zoomed out of the journey past Earth: the app picks up with the Earth the same size on screen (entryView in reverse)
+// and keeps drifting out, instead of jumping back to the close-up it handed over from.
+function leaveInward(width){const f=solarFocused?.();if(levelOf(state.value.view)!=='solar'||f?.data?.name!=='Earth'||!f.radius||!(width>0))return;
+ const d=(width/0.46)/(2*Math.tan(camera.fov*Math.PI/360))*(f.radius/6.371e6);setSolarDistance(Math.max(solarDistance(),d));zoom.set(zOfLevel('solar'));}
 function openInward(view){$('settings').open=false;hideFinale();cYear.close();mySky.close();zoom.stop();inward.open(view);}
 function openCosmicYear(id){$('settings').open=false;hideFinale();mySky.close();inward.close();if(id)cYear.openAt(id);else cYear.open();}
 $('open-sources').onclick=()=>{$('settings').open=false;sourcesUi.open(null,$('settings').querySelector('summary'));};
