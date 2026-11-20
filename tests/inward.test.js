@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { RUNGS, W_MAX, W_MIN, rungAt, formatMetres, compareWithYou, SOURCES, CHAIN, CHAIN_W, LEAF_W, TOP_W, toTrue, toPicture } from '../inward-data.js';
+import { RUNGS, END_W, END, W_MAX, W_MIN, rungAt, formatMetres, compareWithYou, SOURCES, CHAIN, CHAIN_W, LEAF_W, TOP_W, toTrue, toPicture } from '../inward-data.js';
 
-test('journey inward: thirteen steps from Earth to one atom, each smaller than the last and inside the zoom range', () => {
-  assert.equal(RUNGS.length, 13);
-  assert.equal(RUNGS[0].id, 'earth'); assert.equal(RUNGS.at(-1).id, 'atom');
+test('journey inward: sixteen steps from Earth into an atom, each smaller than the last and inside the zoom range', () => {
+  assert.equal(RUNGS.length, 16);
+  assert.equal(RUNGS[0].id, 'earth'); assert.equal(RUNGS.at(-1).id, 'proton'); assert.ok(END_W < RUNGS.at(-1).w / 100 && END_W > W_MIN, 'the end lies below the last step'); assert.equal(END.lines.length, 3);
   for (let k = 1; k < RUNGS.length; k++) assert.ok(RUNGS[k].w < RUNGS[k - 1].w, RUNGS[k].id);
   for (const r of RUNGS) { assert.ok(r.w < W_MAX && r.w > W_MIN, r.id); assert.equal(rungAt(r.w), r, r.id); assert.match(r.here, /^You are here: /); assert.ok(r.text.length > 20 && r.text.length < 260, r.id); }
   assert.equal(new Set(RUNGS.map(r => r.id)).size, RUNGS.length);
@@ -15,7 +15,7 @@ test('journey inward: every fact about the body and atoms has a source; the step
   assert.ok(SOURCES.every(s => /^https:\/\/en\.wikipedia\.org\/wiki\//.test(s.url) && s.label.startsWith('Wikipedia: ')));
 });
 test('journey inward: the width readout rolls its units over and compares with a person in round numbers', () => {
-  const cases = [[1.6e7, '16,000 km'], [2.4e4, '24 km'], [300, '300 m'], [1.1, '1.1 m'], [0.16, '16 cm'], [0.045, '4.5 cm'], [3e-3, '3 mm'], [3e-4, '300 µm'], [4e-5, '40 µm'], [1.2e-7, '120 nm'], [9e-10, '0.9 nm']];
+  const cases = [[1.6e7, '16,000 km'], [2.4e4, '24 km'], [300, '300 m'], [1.1, '1.1 m'], [0.16, '16 cm'], [0.045, '4.5 cm'], [3e-3, '3 mm'], [3e-4, '300 µm'], [4e-5, '40 µm'], [1.2e-7, '120 nm'], [9e-10, '0.9 nm'], [6e-11, '60 pm'], [2.4e-15, '2.4 fm']];
   for (const [m, s] of cases) assert.equal(formatMetres(m), s, String(m));
   assert.equal(compareWithYou(1.1), 'about your own height');
   assert.equal(compareWithYou(300), 'about 190 times bigger than you');

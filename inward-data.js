@@ -1,4 +1,4 @@
-// The journey inward: from Earth to one carbon atom, by powers of ten. Pure data and formatting (no three.js),
+// The journey inward: from Earth to one carbon atom and into it, by powers of ten. Pure data and formatting (no three.js),
 // so tests can check it. Sizes are real widths of view in metres; every fact is tied to a source (docs/sources.md).
 // The zoom coordinate is Z = ln(width of view in metres), the same idea as the outward zoom (zoom-ladder.js).
 
@@ -40,9 +40,23 @@ export const RUNGS = [
   { id: 'spools', w: 1.2e-7, label: 'DNA spools', here: 'You are here: DNA on its spools', text: 'DNA winds round tiny protein spools. Stretched out, the DNA in one cell would be about 2 metres long.', src: [wiki('Nucleosome'), wiki('DNA')] },
   { id: 'helix', w: 7e-9, label: 'Double helix', here: 'You are here: the double helix', text: 'DNA is a twisted ladder, 2 nm wide. The order of its rungs spells the genetic code.', note: 'carbon grey, oxygen red, nitrogen blue, phosphorus orange', src: [wiki('Nucleic acid double helix')] },
   { id: 'atom', w: 4.5e-10, label: 'Atom', here: 'You are here: one carbon atom', text: 'One carbon atom, about 0.3 nm across: a cloud of electrons around a nucleus 60,000 times smaller. Not long ago it floated in the air as carbon dioxide.', src: [wiki('Carbon fixation'), wiki('Carbon'), wiki('Atomic orbital'), wiki('Atomic nucleus')] },
+  { id: 'inner', w: 6e-11, label: 'Inner electrons', here: 'You are here: deep inside the atom', text: 'Closer in, carbon’s two innermost electrons make a small, bright cloud. The rest of the atom is a thin haze.', src: [wiki('Atomic orbital'), wiki('Electron shell')] },
+  { id: 'core', w: 1.2e-14, label: 'Nucleus', here: 'You are here: the atom’s nucleus', text: 'Six protons and six neutrons pressed together. The nucleus is 60,000 times smaller than the atom, yet holds almost all of its mass.', note: 'protons drawn warm, neutrons cool', src: [wiki('Atomic nucleus'), wiki('Carbon-12')] },
+  { id: 'proton', w: 2.4e-15, label: 'Proton', here: 'You are here: inside a proton', text: 'Three quarks held together by gluons, with pairs of quarks flickering in and out. The quarks’ own mass is only about 1% of the proton’s; the rest is the energy that binds them.', note: 'an illustration: no one can photograph a proton', src: [wiki('Proton'), wiki('Quark'), wiki('Gluon')] },
 ];
-// The zoom's range: a little beyond Earth's width (zooming out further returns to the app) down to just inside the atom.
-export const W_MAX = 3.2e7, W_MIN = 2.4e-10;
+// The zoom's range: a little beyond Earth's width (zooming out further returns to the app) down to END_W, where the end
+// screen says why the journey stops there.
+export const END_W = 1e-18, W_MAX = 3.2e7, W_MIN = 8e-19;
+// The end of the journey: as small as any experiment can see.
+export const END = {
+  title: 'As far as we can see',
+  lines: [
+    'No experiment has ever found a size for a quark. They look like points.',
+    'Below this, our instruments cannot reach. Any picture would be a guess.',
+    'Like the edge of the universe, this is the edge of what we can see, not the edge of what there is.',
+  ],
+  home: 'Go home', again: 'Back to Earth',
+};
 export const Z_MAX = Math.log(W_MAX), Z_MIN = Math.log(W_MIN);
 // The step the view is in: the nearest, measured in powers of ten.
 export function rungAt(w) {
@@ -51,7 +65,7 @@ export function rungAt(w) {
   return best;
 }
 const sig = (x, n = 2) => Number(x.toPrecision(n)).toLocaleString('en-US', { maximumFractionDigits: 6 }); /* n significant figures */
-// A width in metres, with units rolling over: km, m, cm, mm, µm, nm.
+// A width in metres, with units rolling over: km, m, cm, mm, µm, nm, pm, fm.
 export function formatMetres(m) {
   if (!(m > 0)) return '0';
   if (m >= 1000) return `${sig(m / 1000)} km`;
@@ -59,11 +73,13 @@ export function formatMetres(m) {
   if (m >= 0.01) return `${sig(m * 100)} cm`;
   if (m >= 1e-3) return `${sig(m * 1e3)} mm`;
   if (m >= 1e-6) return `${sig(m * 1e6)} µm`;
-  return `${sig(m * 1e9)} nm`;
+  if (m >= 1e-10) return `${sig(m * 1e9)} nm`; /* an atom is 0.3 nm */
+  if (m >= 1e-12) return `${sig(m * 1e12)} pm`;
+  return `${sig(m * 1e15)} fm`;
 }
 // How the view compares with a person (taken as 1.6 m tall): "about 500 times smaller than you".
 /* two significant figures: 'about' means about */
-const words = n => n >= 1e9 ? `${sig(n / 1e9)} billion` : n >= 1e6 ? `${sig(n / 1e6)} million` : n >= 1e4 ? `${sig(n / 1e3)} thousand` : sig(n);
+const words = n => n >= 1e18 ? `${sig(n / 1e18)} billion billion` : n >= 1e15 ? `${sig(n / 1e15)} million billion` : n >= 1e12 ? `${sig(n / 1e12)} trillion` : n >= 1e9 ? `${sig(n / 1e9)} billion` : n >= 1e6 ? `${sig(n / 1e6)} million` : n >= 1e4 ? `${sig(n / 1e3)} thousand` : sig(n);
 export function compareWithYou(m, you = 1.6) {
   const r = m / you;
   if (r > 0.5 && r < 2) return 'about your own height';
