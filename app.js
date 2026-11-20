@@ -256,7 +256,8 @@ const info = document.getElementById('info');
 function focus(b, opts = {}) {
   if (!opts.silent && hooks.intercept && hooks.intercept(b)) return;
   focused = b; fly.dur = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? .01 : opts.dur || 1.2; hooks.focusMul = opts.mul || 0; hooks.outside = !!opts.outside;
-  fly.fromPos.copy(camera.position); fly.fromTgt.copy(controls.target); fly.t = 0;
+  fly.fromPos.copy(camera.position); fly.fromTgt.copy(controls.target); fly.t = 0; fly.steer = !!opts.steer;
+  if (opts.steer) return; // steer: only the centre of view glides to the body; the zoom keeps the distance and no card opens
   document.getElementById('i-name').textContent = b.data.name;
   document.getElementById('i-blurb').textContent = b.data.blurb;
   document.getElementById('i-facts').innerHTML = b.data.facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
@@ -264,7 +265,7 @@ function focus(b, opts = {}) {
   if (!opts.silent && hooks.onFocus) hooks.onFocus(b);
 }
 function unfocus(goHome, dur) {
-  focused = null; info.hidden = true; fly.dur = dur || 1.2;
+  focused = null; info.hidden = true; fly.dur = dur || 1.2; fly.steer = false;
   if (goHome) { fly.fromPos.copy(camera.position); fly.fromTgt.copy(controls.target); fly.t = 0; fly.home = true; }
 }
 document.getElementById('info-close').onclick = () => unfocus(false);
@@ -457,8 +458,8 @@ function frame(now) {
       dir.y = Math.max(dir.y, 0.35); dir.normalize();
       pos = tgt.clone().add(dir.multiplyScalar(focused.radius * (hooks.focusMul || Math.max(focused.data.rings?5:4, (focused.data.rings ? 5.8 : 2.8) / view.aspect))));
     } else { tgt = HOME.target; pos = HOME.pos; }
-    controls.target.lerpVectors(fly.fromTgt, tgt, k);
-    camera.position.lerpVectors(fly.fromPos, pos, k);
+    if (fly.steer) { offset.copy(camera.position).sub(controls.target); controls.target.lerpVectors(fly.fromTgt, tgt, k); camera.position.copy(controls.target).add(offset); }
+    else { controls.target.lerpVectors(fly.fromTgt, tgt, k); camera.position.lerpVectors(fly.fromPos, pos, k); }
     if (fly.t >= 1 && focused) prevFocus.copy(tgt);
   } else if (focused) {
     // Follow the focused body as it orbits, and turn with it around the Sun, so the view keeps the
@@ -595,7 +596,7 @@ export function solarAnchor(out, bounds) { anchorTmp.set(0, 0, 0).project(camera
 const zoomOff = new THREE.Vector3();
 export function setSolarDistance(d) { zoomOff.copy(camera.position).sub(controls.target); const l = zoomOff.length() || 1; camera.position.copy(controls.target).addScaledVector(zoomOff, d / l); }
 export const solarDistance = () => camera.position.distanceTo(controls.target);
-export const solarBusy = () => fly.t < 1;
+export const solarBusy = () => fly.t < 1 && !fly.steer; // steering the centre to Earth does not hold the zoom
 export const isRealScale = () => realScale;
 export const solarFocused = () => focused;
 export const solarEdge = () => edgeDistance;
