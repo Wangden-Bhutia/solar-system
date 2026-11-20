@@ -247,20 +247,19 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   });
   // one carbon atom: its six electrons as a cloud of where they are likely to be (two close in, four further out in
   // lobes); the nucleus, 60,000 times smaller, is far too small to draw and is marked by a ring (the 'mark' layer).
-  layer('atom', 4e-9, 1.9e-9, 2.4e-10, 1e-10, () => {
-    const g = new THREE.Group(), N = 1e-9, r = rng(83), n = 24000, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), tc = new THREE.Color();
+  layer('atom', 4e-9, 1.9e-9, 2.4e-10, 1e-10, () => { /* built in picometres (the clouds' helpers are under 'inside the atom') */
+    const g = new THREE.Group(), r = rng(83), P = 1e12, c = C('#fff');
     const HQ = new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), SPOOLS.axis); /* the helix's own turn */
-    const nb = HELIX.filter(a => { const d = Math.hypot(a[1], a[2], a[3]); return d > 1e-12 && d < 0.2 * N; }).map(a => V(a[1], a[2], a[3]).applyQuaternion(HQ).normalize());
-    for (const d of [[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]]) if (nb.length < 4) nb.push(V(...d).normalize()); /* its four bonds */
-    for (let i = 0; i < n; i++) { let x, y, z; if (r() < 0.1) { /* the two inner electrons, held close */ const rr = -Math.log(r() * r()) * 0.01 * N, u = r() * 2 - 1, a = r() * 6.283, s = Math.sqrt(1 - u * u); x = rr * s * Math.cos(a); y = rr * u; z = rr * s * Math.sin(a); tc.set('#6a5a40'); } /* dimmer, or they pile up into a white blot */
-      else { /* the four outer electrons, a cloud bulging toward each bond */ const d = nb[Math.floor(r() * nb.length)], rr = (0.04 + -Math.log(r() * r()) * 0.05) * N, sp = rr * 0.55; /* about 0.3 nm across in all */
-        x = d.x * rr + gauss(r) * sp; y = d.y * rr + gauss(r) * sp; z = d.z * rr + gauss(r) * sp; tc.setHSL(0.57 + r() * 0.04, 0.7, 0.5 + r() * 0.25); }
-      pos.set([x, y, z], i * 3); col.set([tc.r, tc.g, tc.b], i * 3); }
-    const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); pg.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const dot = canvasTex(64, (x) => { const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); }); /* soft round points */
-    g.add(new THREE.Points(pg, new THREE.PointsMaterial({ size: 0.022 * N, map: dot, vertexColors: true, transparent: true, opacity: 0.06, depthWrite: false, blending: THREE.AdditiveBlending })));
-    /* its bonded neighbours, faint, as clouds too */
-    for (const a of HELIX) { const d = Math.hypot(a[1], a[2], a[3]); if (d < 1e-12 || d > 0.32 * N) continue; const s2 = new THREE.Mesh(new THREE.SphereGeometry(0.075 * N, 20, 14), new THREE.MeshBasicMaterial({ color: C(ELEMENT[a[0]][0]), transparent: true, opacity: 0.22, depthWrite: false })); s2.position.set(a[1], a[2], a[3]).applyQuaternion(HQ); g.add(s2); }
+    const nb = HELIX.map(a => [a[0], V(a[1], a[2], a[3]).multiplyScalar(P)]).filter(([, p]) => p.length() > 1 && p.length() < 200).map(([el, p]) => [el, p.applyQuaternion(HQ)]);
+    while (nb.length < 4) { /* the helix leaves out hydrogens: the missing bonds point away from the others */ const sum = nb.reduce((a, [, p]) => a.add(p.clone().normalize()), V(0, 0, 0)), d = sum.lengthSq() > 1e-6 ? sum.normalize().negate() : V(0, 1, 0);
+      nb.push(['H', (nb.length === 3 ? d : d.applyAxisAngle(V(1, 0, 0), 1.9)).multiplyScalar(109)]); }
+    /* its six electrons: the two inner ones close in, the four outer ones a round cloud around them (bonding barely changes its shape) */
+    g.add(shell(87, 4000, 3, 52.9 / 5.7 / 2, 7e-12, 0.07, 0.09), shell(85, 30000, 5, 52.9 / 3.14, 22e-12, 0.06, 0.57));
+    /* its four neighbours in the DNA, faint clouds in their own colours, a bond's length away */
+    for (const [el, p] of nb) { const n = 2600, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), sg = el === 'H' ? 34 : 50; c.set(el === 'H' ? '#d8d8d8' : ELEMENT[el][0]);
+      for (let i = 0; i < n; i++) { pos.set([p.x + gauss(r) * sg, p.y + gauss(r) * sg, p.z + gauss(r) * sg], i * 3); col.set([c.r, c.g, c.b], i * 3); }
+      g.add(cloud(pos, col, 30e-12, 0.009)); }
+    g.scale.setScalar(1e-12);
     g.userData.update = t => { g.rotation.y = t * 0.08; }; return g;
   });
   // The nucleus, far too small to see from the whole atom down to about a picometre: a ring that keeps its size on screen.
@@ -284,21 +283,21 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
     return cloud(pos, col, size, op); };
   // The four outer electrons (2s, 2p: effective charge about 3.1, so a scale of 17 pm) as a thin haze, and
   // the two inner ones (1s: effective charge 5.7, scale 9 pm) as a small bright cloud, about 30 pm across.
-  layer('haze', 2.5e-10, 1e-10, 4e-11, 1.8e-11, () => { const g = new THREE.Group(); g.add(shell(93, 9000, 5, 52.9 / 3.14, 5e-12, 0.035, 0.57)); g.scale.setScalar(1e-12); return g; });
-  layer('inner', 2.5e-10, 1e-10, 1.2e-11, 4e-12, () => { const g = new THREE.Group(); g.add(shell(91, 16000, 3, 52.9 / 5.7 / 2, 2e-12, 0.14, 0.09)); g.scale.setScalar(1e-12); return g; });
+  layer('haze', 2.5e-10, 1e-10, 4e-11, 1.8e-11, () => { const g = new THREE.Group(); g.add(shell(93, 16000, 5, 52.9 / 3.14, 4e-12, 0.026, 0.57)); g.scale.setScalar(1e-12); return g; });
+  layer('inner', 2.5e-10, 1e-10, 1.2e-11, 4e-12, () => { const g = new THREE.Group(); g.add(shell(91, 30000, 3, 52.9 / 5.7 / 2, 1.5e-12, 0.1, 0.09)); g.scale.setScalar(1e-12); return g; });
   // The nucleus (built in femtometres): carbon-12's six protons and six neutrons, each about 1.7 fm across, at the corners
   // of an icosahedron, close enough to overlap (the nucleus is about 5 fm across). It turns so that the proton nearest the
   // camera always sits at the origin, where the zoom goes on.
   const ICO = (() => { const t = (1 + Math.sqrt(5)) / 2, v = []; for (const [a, b] of [[1, t], [-1, t], [1, -t], [-1, -t]]) v.push(V(0, a, b), V(a, b, 0), V(b, 0, a)); return v.map(p => p.normalize()); })();
   layer('core', 1.5e-13, 4e-14, 6e-15, 3.2e-15, () => {
-    const g = new THREE.Group(), inner = new THREE.Group(), RC = 1.45, sg = new THREE.SphereGeometry(0.85, 32, 24);
-    const pM = M('#d9785f', { emissive: C('#3a140c'), emissiveIntensity: 0.6 }), nM = M('#8ea4c8', { emissive: C('#0e1a2e'), emissiveIntensity: 0.6 });
+    const g = new THREE.Group(), inner = new THREE.Group(), RC = 1.4, sg = new THREE.SphereGeometry(0.82, 40, 28);
+    const pM = M('#d9785f', { roughness: 0.85, emissive: C('#4a1a10'), emissiveIntensity: 0.7 }), nM = M('#8ea4c8', { roughness: 0.85, emissive: C('#16243c'), emissiveIntensity: 0.7 });
     const isP = []; let pairs = 0; /* one of each opposite pair is a proton: six of each, spread round */
     ICO.forEach((v, i) => { const j = ICO.findIndex(u => u.dot(v) < -0.99); if (isP[j] !== undefined) isP[i] = !isP[j]; else isP[i] = pairs++ % 2 === 0; });
     const fz = [], fc = [], c = C('#fff'), r = rng(97);
     ICO.forEach((v, i) => { const m = new THREE.Mesh(sg, isP[i] ? pM : nM); m.position.copy(v).multiplyScalar(RC); inner.add(m);
-      c.set(isP[i] ? '#ff9a78' : '#a8c0ff'); for (let k = 0; k < 500; k++) { fz.push(v.x * RC + gauss(r) * 0.75, v.y * RC + gauss(r) * 0.75, v.z * RC + gauss(r) * 0.75); fc.push(c.r, c.g, c.b); } });
-    inner.add(cloud(new Float32Array(fz), new Float32Array(fc), 0.4, 0.05)); /* a soft edge: nucleons are fuzzy, not hard balls */
+      c.set(isP[i] ? '#ff9a78' : '#a8c0ff'); for (let k = 0; k < 900; k++) { fz.push(v.x * RC + gauss(r) * 0.7, v.y * RC + gauss(r) * 0.7, v.z * RC + gauss(r) * 0.7); fc.push(c.r, c.g, c.b); } });
+    inner.add(cloud(new Float32Array(fz), new Float32Array(fc), 0.45, 0.07)); /* a soft edge: nucleons are fuzzy, not hard balls */
     g.add(inner);
     const v0 = ICO[0], qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), d = V(0, 0, 0);
     g.userData.update = t => { d.copy(cam.position).normalize(); qb.setFromAxisAngle(v0, t * 0.12); qa.setFromUnitVectors(v0, d).multiply(qb);
@@ -316,10 +315,10 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
   layer('proton', 9e-15, 4.5e-15, 4e-16, 1.5e-16, () => {
     const g = new THREE.Group(), r = rng(101), hp = [], hc = [], c = C('#fff');
     for (let i = 0; i < 9000; i++) { hp.push(QC.x + gauss(r) * 0.9, QC.y + gauss(r) * 0.9, QC.z + gauss(r) * 0.9); c.setHSL(0.03 + r() * 0.08, 0.7, 0.45 + r() * 0.2); hc.push(c.r, c.g, c.b); }
-    g.add(cloud(new Float32Array(hp), new Float32Array(hc), 0.18, 0.032));
+    g.add(cloud(new Float32Array(hp), new Float32Array(hc), 0.2, 0.042));
     const qs = [null, quark(), quark()]; g.add(qs[1], qs[2]);
-    const AN = 520, ap = new Float32Array(3 * AN * 3), ac = new Float32Array(3 * AN * 3), off = [], arms = cloud(ap, ac, 0.07, 0.6);
-    for (let i = 0; i < 3 * AN; i++) off.push([r(), gauss(r) * 0.04, gauss(r) * 0.04, gauss(r) * 0.04, r() * 6.283]);
+    const AN = 900, ap = new Float32Array(3 * AN * 3), ac = new Float32Array(3 * AN * 3), off = [], arms = cloud(ap, ac, 0.1, 0.32);
+    for (let i = 0; i < 3 * AN; i++) off.push([r(), gauss(r) * 0.075, gauss(r) * 0.075, gauss(r) * 0.075, r() * 6.283]);
     const SEA = 16, sp = new Float32Array(SEA * 2 * 3), sc = new Float32Array(SEA * 2 * 3), sea = cloud(sp, sc, 0.09, 0.9), life = [];
     for (let k = 0; k < SEA; k++) life.push({ ph: r(), at: V(0, 0, 0), dir: V(0, 0, 0), sp: 0.35 + r() * 0.4 });
     g.add(arms, sea);
