@@ -34,5 +34,6 @@ export const FINALE = {
   ],
   home: 'Go home',
   save: 'Save this moment',
+  other: 'Now go the other way: into an atom',
   caption: 'A Mote in a Sunbeam · from the Sun to the edge of the universe'
 };

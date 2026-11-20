@@ -10,7 +10,8 @@ const GAIN = 2,
 const reducedMotion = () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const ease = k => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 
-export function createInward({ onOpen, onClose } = {}) {
+// onOutward: the end screen's link to the tour, the same journey the other way.
+export function createInward({ onOpen, onClose, onOutward } = {}) {
   let root,
     canvas,
     card,
@@ -133,8 +134,12 @@ export function createInward({ onOpen, onClose } = {}) {
       endEl = document.createElement('section');
       endEl.className = 'finale iw-end';
       endEl.setAttribute('aria-label', 'The end of the journey inward');
-      endEl.innerHTML = `<h2>${END.title}</h2>${END.lines.map(t => `<p>${t}</p>`).join('')}<div class="finale-actions"><button type="button" class="primary iw-home">${END.home}</button><button type="button" class="iw-again">${END.again}</button></div>`;
+      endEl.innerHTML = `<h2>${END.title}</h2>${END.lines.map(t => `<p>${t}</p>`).join('')}<div class="finale-actions"><button type="button" class="primary iw-home">${END.home}</button><button type="button" class="iw-again">${END.again}</button></div><button type="button" class="finale-other iw-other">${END.other}</button>`;
       endEl.querySelector('.iw-home').onclick = close;
+      endEl.querySelector('.iw-other').onclick = () => {
+        close();
+        onOutward?.();
+      };
       endEl.querySelector('.iw-again').onclick = () => {
         hideEnd();
         stopPlay();

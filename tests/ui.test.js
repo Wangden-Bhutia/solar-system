@@ -17,6 +17,7 @@ import * as hereMod from '../here.js';
 import * as mySkyMod from '../my-sky.js';
 import * as cYearMod from '../cosmic-year.js';
 import * as inwardMod from '../inward.js';
+import * as inwardDataMod from '../inward-data.js';
 import * as cBackMod from '../cosmic-backdrop.js';
 import * as cWorldMod from '../cosmic-world.js';
 import * as timelineMod from '../timeline.js';
@@ -182,6 +183,7 @@ async function setup(width = 390, height = 844, stored = {}) {
     './my-sky.js': mySkyMod,
     './cosmic-year.js': cYearMod,
     './inward.js': inwardMod,
+    './inward-data.js': inwardDataMod,
     './cosmic-backdrop.js': cBackMod,
     './cosmic-world.js': cWorldMod,
     './timeline.js': timelineMod,
@@ -1369,6 +1371,7 @@ test('Explore: one hub for everything guided; the top bar is Tour, Explore and t
   assert.deepEqual(
     [...list.querySelectorAll('button')].map(b => b.dataset.act),
     [
+      'inward',
       'journey:scale',
       'journey:seasons',
       'journey:moon',
@@ -1376,10 +1379,10 @@ test('Explore: one hub for everything guided; the top bar is Tour, Explore and t
       'journey:giants',
       'journey:small',
       'cyear',
-      'inward',
       'mysky',
       'adventure'
-    ]
+    ],
+    'the journey inward leads the Journeys; the tour keeps its own chip'
   );
   assert.equal(list.querySelector('.voyage-card'), null, 'the voyage was folded into the tour');
   const g = globalThis,
