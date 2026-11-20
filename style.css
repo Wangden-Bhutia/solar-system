@@ -588,4 +588,7 @@ body.touring .hud .hud-time,body.story .hud .hud-time{display:none}
 .inward .cy-text{font-size:16px;line-height:1.45;max-width:30em}
 .inward .iw-note{font-size:12px;font-style:italic;color:rgba(240,236,228,.7);margin:2px 0 0}.inward .iw-note[hidden]{display:none}
 .inward .cy-main.travel .cy-text,.inward .cy-main.travel .iw-note{opacity:.35;transition:opacity .35s ease}
+/* the journey inward's end screen (the tour finale's look); the step card and controls step aside for it */
+.inward .iw-end.finale{display:block;position:absolute;z-index:6}.inward .iw-end.finale[hidden]{display:none}
+.inward .cy-main,.inward .cy-nav{transition:opacity .6s ease}.inward.end-on .cy-main,.inward.end-on .cy-nav{opacity:0;pointer-events:none}
 .inward::before{background:linear-gradient(180deg,rgba(2,5,14,.6) 0%,rgba(2,5,14,0) 16%,rgba(2,5,14,0) 52%,rgba(2,5,14,.55) 72%,rgba(2,5,14,.85) 100%)}
