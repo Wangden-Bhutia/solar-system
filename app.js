@@ -443,8 +443,11 @@ for (const b of bodies) {
 }
 
 // Simulation state
+// The app opens on today's real sky running slowly: about a day a second in the overview (where motion is shown at
+// a fifth), about five in a close-up, so the date can be read; the speed slider goes up to 5 years a second.
+export const START_SPEED = -0.56;
 let playing = true,
-  speedExp = 0,
+  speedExp = START_SPEED,
   trailsOn = true,
   focused = null;
 let lastSize = [0, 0];
@@ -544,6 +547,7 @@ function focus(b, opts = {}) {
   fly.dur = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0.01 : opts.dur || 1.2;
   hooks.focusMul = opts.mul || 0;
   hooks.outside = !!opts.outside;
+  hooks.focusDir = opts.dir || null; /* a direction to look from, when the caller needs one (the adventure's Moon stop) */
   fly.fromPos.copy(camera.position);
   fly.fromTgt.copy(controls.target);
   fly.t = 0;
@@ -901,15 +905,17 @@ function frame(now) {
     let tgt, pos;
     if (focused) {
       tgt = focused.mesh.getWorldPosition(tmp).clone();
-      const dir = hooks.outside
-        ? (() => {
-            const sw = tgt.clone().setY(0).normalize().negate();
-            return sw
-              .multiplyScalar(0.8)
-              .add(new THREE.Vector3(-sw.z / 0.8, 0, sw.x / 0.8).multiplyScalar(0.6))
-              .normalize();
-          })()
-        : fly.fromPos.clone().sub(tgt).normalize();
+      const dir = hooks.focusDir
+        ? hooks.focusDir.clone()
+        : hooks.outside
+          ? (() => {
+              const sw = tgt.clone().setY(0).normalize().negate();
+              return sw
+                .multiplyScalar(0.8)
+                .add(new THREE.Vector3(-sw.z / 0.8, 0, sw.x / 0.8).multiplyScalar(0.6))
+                .normalize();
+            })()
+          : fly.fromPos.clone().sub(tgt).normalize();
       dir.y = Math.max(dir.y, 0.35);
       dir.normalize();
       pos = tgt

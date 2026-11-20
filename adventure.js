@@ -223,8 +223,21 @@ export function initAdventure(api, doc = document) {
     const st = trip.current,
       dur = reduced() ? 0.01 : 1.6;
     if (trip.index === 0) unfocus(true, dur);
-    else if (trip.index === 1) focus(body('Earth'), { silent: true, mul: moonFrameMul(camera.aspect, camera.fov), outside: true });
-    else {
+    else if (trip.index === 1) {
+      /* the Moon is at its real place, so look across the line from the Earth to the Moon (from the sunlit side),
+         never along it, where the Moon would hide behind the Earth or sit on top of it */
+      const e = body('Earth').mesh.getWorldPosition(camera.position.clone()),
+        m = body('Moon')?.mesh.getWorldPosition(camera.position.clone());
+      let dir = null;
+      if (m) {
+        const d = m.sub(e).setY(0),
+          side = d.clone().set(-d.z, 0, d.x).normalize(),
+          sun = e.clone().negate().setY(0).normalize();
+        if (side.dot(sun) < 0) side.negate();
+        dir = side.addScaledVector(sun, 0.3).normalize();
+      }
+      focus(body('Earth'), { silent: true, mul: moonFrameMul(camera.aspect, camera.fov), outside: true, dir });
+    } else {
       if (st.target === 'Saturn' && hooks.homeScope !== 'all') {
         scopeBefore = scopeBefore || hooks.homeScope;
         setHomeScope('all');

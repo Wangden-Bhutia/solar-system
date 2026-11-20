@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import * as THREE from '../vendor/three.module.min.js';
 import * as data from '../data.js';
 import path from 'node:path';
+import { FixedDate } from './integration-harness.js';
 // app.js with three, OrbitControls, data.js and textures.js replaced; its other modules (sky, lod, stars data…) are
 // the real files, loaded into the same context.
 function linker(context, fake, swap) {
@@ -45,6 +46,7 @@ test('Moon is independently focusable; default/real scale keep radius ratios and
   const els = {};
   let frame;
   const context = vm.createContext({
+    Date: FixedDate,
     document: { getElementById: id => (els[id] ||= element()), createElement: element, body: element(), addEventListener() {} },
     window: {},
     innerWidth: 320,
@@ -239,6 +241,7 @@ async function loadScene(width = 390, height = 844) {
   const els = {};
   let frame;
   const context = vm.createContext({
+    Date: FixedDate,
     document: { getElementById: id => (els[id] ||= element()), createElement: element, body: element(), addEventListener() {} },
     window: {},
     innerWidth: width,
@@ -546,8 +549,9 @@ test('orbits run at 1/5 speed in the overview and full speed in a close-up', asy
   s.step(40);
   const close = sweep();
   /* the Earth now moves at its real, uneven pace (about 3% faster near perihelion in January, slower in July) */
-  assert.ok(Math.abs(close - 18) < 0.7, `close-up: ${close.toFixed(2)}° per second (1 year / 20 s)`);
-  assert.ok(Math.abs(overview - 3.6) < 0.3, `overview: ${overview.toFixed(2)}° per second`);
+  const k = 10 ** s.START_SPEED; /* the app opens running slowly (app.js START_SPEED) */
+  assert.ok(Math.abs(close - 18 * k) < 0.7 * k, `close-up: ${close.toFixed(2)}° per second (1 year / ${(20 / k).toFixed(0)} s)`);
+  assert.ok(Math.abs(overview - 3.6 * k) < 0.3 * k, `overview: ${overview.toFixed(2)}° per second`);
 });
 test('a page first laid out at another size re-frames the overview when it becomes 412x915 (stale framing bug)', async () => {
   const s = await loadScene(800, 800);
