@@ -1,7 +1,6 @@
 // The cosmic year screen: step through 18 moments of the 13.8 billion years, each on its date in one calendar year.
 // A bar shows where each falls in the year (nearly everything happens in the last weeks). Data and maths: cosmic-calendar.js.
 import { createBackdrop } from './cosmic-backdrop.js';
-import { createWorld } from './cosmic-world.js';
 import { EVENTS, YEAR_SECONDS, AGE_YEARS, yearSeconds, eventDate, calendarAt, spanOnCalendar, agoText } from './cosmic-calendar.js';
 
 // The bar is a lens on the year, always ending at midnight on 31 December. Each step picks the smallest window that holds it,
@@ -89,6 +88,7 @@ export function createCosmicYear({ onOpen, onClose } = {}) {
     if (worldTry) return; worldTry = true;
     const c = root.querySelector('.cy-3d');
     try {
+      const { createWorld } = await import('./cosmic-world.js'); /* 190 KB, fetched only when the cosmic year first opens */
       const w = await createWorld(c, { reduced: reducedMotion });
       world = w; c.addEventListener('webglcontextlost', e => { e.preventDefault(); worldFailed = true; useFlat(); world = null; }, { once: true });
       if (!root.hidden) useWorld();

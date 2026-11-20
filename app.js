@@ -72,7 +72,7 @@ const sunBody = { data: SUN, mesh: sunMesh, radius: SUN.size };
 bodies.push(sunBody); addLabel(sunBody);
 
 const TRAIL_N = 160;
-const PHOTO = { Mercury:{ map:'mercury', normal:'mercury-normal' }, Earth:{ map:'earth' }, Mars:{ map:'mars', normal:'mars-normal' }, Jupiter:{ map:'jupiter' }, Saturn:{ map:'saturn' }, Uranus:{ map:'uranus' }, Neptune:{ map:'neptune' } };
+const PHOTO = { Mercury:{ map:'mercury', normal:'mercury-normal', lazy:true }, Earth:{ map:'earth' }, Mars:{ map:'mars', normal:'mars-normal', lazy:true }, Jupiter:{ map:'jupiter' }, Saturn:{ map:'saturn' }, Uranus:{ map:'uranus' }, Neptune:{ map:'neptune' } };
 for (const d of PLANETS) {
   const pivot = new THREE.Object3D(); scene.add(pivot);
   // With a photo on the way, start from a plain colour rather than painting a map that is about to be replaced.
@@ -89,7 +89,7 @@ for (const d of PLANETS) {
   if (d.name === 'Earth') {
     const cl = new THREE.Mesh(new THREE.SphereGeometry(d.size * 1.012, 48, 32), new THREE.MeshStandardMaterial({ map: canPhoto() ? null : tex('EarthClouds'), transparent: true, depthWrite: false, roughness: 1 }));
     cl.visible = !canPhoto(); // clouds appear with their photo (or the procedural map if it fails)
-    mesh.add(cl); mesh.userData.clouds = cl; photo(cl.material, 'earth-clouds', { fallback: () => tex('EarthClouds'), onLoad: () => { cl.visible = true; } });
+    mesh.add(cl); mesh.userData.clouds = cl; photo(cl.material, 'earth-clouds', { lazy: true, fallback: () => tex('EarthClouds'), onLoad: () => { cl.visible = true; } });
     const axis = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-d.size*1.5,0),new THREE.Vector3(0,d.size*1.5,0)]), new THREE.LineBasicMaterial({color:0xffd286}));
     tiltG.add(axis); mesh.userData.axis = axis;
   }
@@ -112,7 +112,7 @@ for (const d of PLANETS) {
   if (d.moon) {
     const mp = new THREE.Object3D(); pivot.add(mp);
     const mm = new THREE.Mesh(new THREE.SphereGeometry(MOON.size, 64, 40), new THREE.MeshStandardMaterial({ map: tex('Moon').map, bumpMap: tex('Moon').bump, bumpScale: MOON.size * .04, roughness: 0.95 }));
-    mm.position.x = MOON.dist; mp.add(mm); body.moonPivot = mp; body.moonMesh = mm; photo(mm.material, 'moon', { normal:'moon-normal' });
+    mm.position.x = MOON.dist; mp.add(mm); body.moonPivot = mp; body.moonMesh = mm; photo(mm.material, 'moon', { normal:'moon-normal', lazy: true });
   }
   bodies.push(body); addLabel(body);
 }
@@ -255,6 +255,8 @@ function updateTrails() {
 const info = document.getElementById('info');
 function focus(b, opts = {}) {
   if (!opts.silent && hooks.intercept && hooks.intercept(b)) return;
+  b.mesh?.traverse?.(o => o.material?.userData?.loadDetail?.()); /* close-up maps (textures.js photo, lazy) arrive as we fly in */
+  if (b.data?.name === 'Earth') b.moonMesh?.material?.userData?.loadDetail?.(); /* the Moon is in the Earth's close-up too */
   focused = b; fly.dur = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? .01 : opts.dur || 1.2; hooks.focusMul = opts.mul || 0; hooks.outside = !!opts.outside;
   fly.fromPos.copy(camera.position); fly.fromTgt.copy(controls.target); fly.t = 0; fly.steer = !!opts.steer;
   if (opts.steer) return; // steer: only the centre of view glides to the body; the zoom keeps the distance and no card opens
