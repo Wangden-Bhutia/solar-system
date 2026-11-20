@@ -15,7 +15,7 @@ export function createPlacer(capacity = 512) {
 // Width of a label tag (matches .lbl: 8 px text, 5 px side padding), cached per text.
 // 5.4 px per character (bold 8 px text, measured wider than the old 4.9 estimate: QA saw faint Universe labels touch)
 // plus 2 px clearance, so boxes that test free do not overlap on screen.
-export function labelWidth(item) { const t = item.el.textContent; if (item.wText !== t) { item.wText = t; item.w = t.length * 5.4 + 12; } return item.w; }
+export function labelWidth(item) { const t = item.el.textContent; if (item.wText !== t) { item.wText = t; item.w = t.length * 7.4 + 14; /* 11 px bold text, 6 px padding each side */ } return item.w; }
 // Screen band kept clear of labels: the top controls (Journeys, menu, scale ladder). Set by lab.js on layout.
 export const SAFE = { top: 0 };
 
@@ -28,7 +28,7 @@ export const SAFE = { top: 0 };
 // Hysteresis, so names do not flicker in a continuous zoom: a label already on screen keeps its place while its box
 // is clear; a label not on screen comes back only once its box is clear by HYST_PX on every side and, if it was
 // hidden by a collision, at least HOLD_FRAMES frames after that. Typed arrays allocated once; no per-frame allocation.
-export const HYST_PX = 4, HOLD_FRAMES = 8, FRAME_CAP = 1024;
+export const HYST_PX = 8, HOLD_FRAMES = 8, FRAME_CAP = 1024;
 const FB = new Float64Array(FRAME_CAP * 4), FI = new Array(FRAME_CAP); let fn = 0, frameNo = 1;
 export const EXCL = { n: 0, r: new Float64Array(16 * 4), w: Infinity, h: Infinity };
 export function beginLabelFrame() { fn = 0; frameNo++; }
@@ -91,7 +91,7 @@ export function placeAll(items, count, placer, bounds, project, { enabled = true
     const it = items[i];
     if (!enabled || (visible && !visible(it)) || !project(it, ndc) || ndc.z >= 1 || Math.abs(ndc.x) >= 1.02 || Math.abs(ndc.y) >= 1.02) { showLabel(it, false); continue; }
     const x = bounds.left + (ndc.x + 1) / 2 * bounds.width, y = bounds.top + (1 - ndc.y) / 2 * bounds.height;
-    const w = labelWidth(it), off = (it.px || 0) / 2 + 4, x0 = x - w / 2, y0 = y - off - 13, x1 = x + w / 2, y1 = y - off;
+    const w = labelWidth(it), off = (it.px || 0) / 2 + 4, x0 = x - w / 2, y0 = y - off - 16, x1 = x + w / 2, y1 = y - off;
     if (!placer.free(x0, y0, x1, y1) || !mayShow(it, x0, y0, x1, y1)) { if (it.c?.on) it._hid = frameNo; showLabel(it, false); continue; }
     placer.add(x0, y0, x1, y1); frameClaim(it, x0, y0, x1, y1); showLabel(it, true, x, y, off, opacity ? opacity(it) : 1);
   }

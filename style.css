@@ -24,7 +24,7 @@ html,body{touch-action:pan-x pan-y}
 #stage{position:fixed;inset:0}
 #c{display:block;width:100%;height:100%;touch-action:none}
 #labels{position:fixed;inset:0;pointer-events:none;z-index:2}
-.lbl{position:absolute;left:0;top:0;pointer-events:auto;min-height:0;padding:1px 5px;font-size:8px;font-weight:600;line-height:11px;letter-spacing:.03em;color:#e6eefa;background:rgba(8,14,26,.55);border:0;border-radius:5px;text-shadow:0 1px 2px #000;cursor:pointer;white-space:nowrap;touch-action:manipulation}
+.lbl{position:absolute;left:0;top:0;pointer-events:auto;min-height:0;padding:1px 6px;font-size:11px;font-weight:600;line-height:14px;letter-spacing:.03em;color:#e6eefa;background:rgba(8,14,26,.55);border:0;border-radius:5px;text-shadow:0 1px 2px #000;cursor:pointer;white-space:nowrap;touch-action:manipulation}
 .lbl:hover{background:rgba(30,48,76,.8)}
 .lbl::after{content:'';position:absolute;inset:-14px -10px}/* hit area larger than the visible tag */
 .lbl[hidden]{display:none}
@@ -48,8 +48,8 @@ html,body{touch-action:pan-x pan-y}
 .mrow:first-child{border-top:0}
 .mrow-stack{flex-wrap:wrap;row-gap:0}
 .mlabel{flex:1;font-size:14px;color:#e9f0fb}
-.mlabel small{display:block;font-size:11px;color:var(--muted)}
-.mnote{flex-basis:100%;margin:-4px 0 4px;font-size:11.5px;color:var(--muted)}
+.mlabel small{display:block;font-size:12px;color:var(--muted)}
+.mnote{flex-basis:100%;margin:-4px 0 4px;font-size:12.5px;color:var(--muted)}
 .mvalue{flex:none;min-width:62px;text-align:right;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .mrow input[type=range]{flex:1;min-height:32px}
 .icon-btn{flex:none;width:36px;height:36px;min-height:36px;padding:0;display:grid;place-items:center;border-radius:50%;background:#1b2c45;border:0}
@@ -114,11 +114,11 @@ dl{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px}dt{color:va
 #compare-visual{display:flex;align-items:flex-end;justify-content:center;gap:24px;padding:14px 0 4px}
 #compare-visual figure{margin:0;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}
 #compare-visual .disk{border-radius:50%;border:1px solid #ffffff55;box-shadow:inset -8px -8px 24px #0005}
-#compare-visual figcaption{font-size:13px}#compare-visual small{display:block;font-size:11px;color:var(--muted)}
+#compare-visual figcaption{font-size:13px}#compare-visual small{display:block;font-size:12px;color:var(--muted)}
 #conditions{font-size:13px}#conditions h3{font-size:15px;margin:14px 0 2px}
 /* Experiment inset sits in the visible scene, below the top bar. */
 #orbit-map{position:fixed;z-index:5;top:calc(var(--safe-t) + 64px);right:calc(var(--safe-r) + 10px);width:120px;background:#0b1624e6;border:1px solid var(--line);border-radius:14px;padding:6px;pointer-events:none}
-#orbit-map svg{display:block;width:100%;height:auto}#orbit-map p{font-size:9px;margin:0;text-align:center;color:var(--muted)}
+#orbit-map svg{display:block;width:100%;height:auto}#orbit-map p{font-size:11px;margin:0;text-align:center;color:var(--muted)}
 /* Landscape phones: the sheet docks to the right so the scene stays wide. */
 @media (orientation:landscape) and (max-height:520px){
  #sheet{left:auto;right:0;top:auto;width:min(400px,50vw);margin:0;border-radius:18px 0 0 0;border-right:0;padding-left:14px;padding-right:calc(var(--safe-r) + 12px)}
@@ -173,7 +173,7 @@ dl{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px}dt{color:va
 /* Its moons: one button per big moon, size underneath. */
 #moon-count{margin:10px 0 2px!important}
 #moon-list button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 12px;min-height:44px;text-align:left}
-#moon-list small{font-size:11px;color:var(--muted)}
+#moon-list small{font-size:12px;color:var(--muted)}
 /* Beyond the Solar System: zoom control, fade, star labels and panels. */
 #labels .lbl.space{display:none}
 body.space-mode #labels .lbl:not(.space){display:none}
@@ -193,7 +193,7 @@ body.space-mode #labels .lbl.space:not([hidden]){display:block}
 .plist em{color:#7fd69a;font-style:normal}
 /* Scale ladder: where you are (Solar System · Stars · Milky Way); tap to jump, or zoom out past the edge. */
 #ladder{position:fixed;z-index:20;top:calc(var(--safe-t) + 56px);left:calc(var(--safe-l) + 12px);display:flex;padding:3px;gap:2px;border-radius:15px;background:rgba(12,20,36,.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(170,195,235,.14)}
-#ladder button{position:relative;min-height:24px;height:24px;padding:0 9px;border:0;border-radius:12px;background:none;font-size:11px;font-weight:550;color:#9fb0c9;white-space:nowrap}
+#ladder button{position:relative;min-height:24px;height:24px;padding:0 9px;border:0;border-radius:12px;background:none;font-size:12px;font-weight:550;color:#9fb0c9;white-space:nowrap}
 #ladder button::before{content:'';position:absolute;inset:-8px -2px}/* larger tap target */
 #ladder button[aria-pressed=true]{background:rgba(194,223,243,.92);color:#102336}
 #ladder button[data-going=true]:not([aria-pressed=true]){box-shadow:inset 0 0 0 1.5px rgba(194,223,243,.75);color:#dbe8f6}/* trip in progress: the target, not yet arrived */
@@ -209,7 +209,7 @@ body.bridging #hint,body.bridging #sheet{visibility:hidden}
 #gtime .grow{display:flex;align-items:center;gap:10px}
 #gtime input[type=range]{flex:1;min-width:0;margin:0;accent-color:#c2dff3}
 #gplay[data-state=playing] .i-play,#gplay[data-state=paused] .i-pause{display:none}
-#gtime .gnow{flex:none;min-height:28px;height:28px;padding:0 10px;border-radius:14px;border:1px solid rgba(170,195,235,.22);background:none;font-size:11.5px;color:#c2dff3}
+#gtime .gnow{flex:none;min-height:28px;height:28px;padding:0 10px;border-radius:14px;border:1px solid rgba(170,195,235,.22);background:none;font-size:12.5px;color:#c2dff3}
 #gtime .gread{margin:5px 2px 0;font-size:12px;line-height:1.35;color:#9fb0c9}
 #gtime .gread strong{color:#e8eef7;font-weight:600;margin-right:4px}
 body.bridging #gtime{visibility:hidden}
@@ -274,8 +274,8 @@ body.bridging #gtime{visibility:hidden}
 .mbtn{min-height:36px;height:36px;padding:0 16px;border-radius:18px;font-size:13.5px;font-weight:600}
 @media (min-width:640px){.menu{left:auto;width:380px}}
 /* Scale readout (hud.js): width of view, distance from the Sun, light-crossing time. Never takes taps. */
-.hud{position:fixed;left:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:5;pointer-events:none;font:11px/1.35 system-ui,sans-serif;color:#c9d4ea;text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;padding:4px 7px;max-width:62vw;font-variant-numeric:tabular-nums}
-.hud .hud-note{color:#8f9bb5;font-size:10px}
+.hud{position:fixed;left:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:5;pointer-events:none;font:12px/1.35 system-ui,sans-serif;color:#c9d4ea;text-shadow:0 0 2px #000,0 0 4px #000,0 1px 2px #000;padding:4px 7px;max-width:62vw;font-variant-numeric:tabular-nums}
+.hud .hud-note{color:#8f9bb5;font-size:11px}
 .hud .hud-note:empty{display:none}
 
 /* The time bar eases in once a zoom has come to rest (lab.js updateTimeBar), never mid-zoom; the scale readout
@@ -297,7 +297,7 @@ body.time-resting .hud{opacity:0;pointer-events:none}
 .story-step{flex:1;margin:0;font:600 13px/1.3 system-ui,sans-serif;color:var(--muted)}
 .story-icon{min-width:44px;min-height:44px;border-radius:22px;border:1px solid var(--line);background:transparent;color:var(--text);font-size:15px}
 .story-caption{margin:8px 0 4px;font:500 17px/1.45 system-ui,sans-serif;max-height:30dvh;overflow:auto}
-.story-note{margin:0;font-size:11px;color:var(--muted)}
+.story-note{margin:0;font-size:12px;color:var(--muted)}
 .story-note:empty,.story-status:empty{display:none}
 .story-status{margin:4px 0 0;font-size:12px;color:var(--gold)}
 .story-actions{display:flex;gap:8px;margin-top:10px}
@@ -326,7 +326,7 @@ body.story #hint{display:none}
 .tour-more p{margin:0 0 6px}
 .tour[data-open="true"]{background:rgba(8,14,26,.82)}
 .tour-note{color:var(--muted);font-size:12px;font-style:italic}
-.tour-sources{font-size:11.5px;color:var(--muted)}
+.tour-sources{font-size:12.5px;color:var(--muted)}
 .tour-sources a{color:var(--accent)}
 .tour-nav{display:flex;justify-content:space-between;gap:4px;height:44px;margin-top:4px}
 .tour-nav button{flex:1;max-width:72px;height:44px;min-width:44px;min-height:44px;padding:0;border:0;border-radius:22px;background:rgba(255,255,255,.06);color:var(--text);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
@@ -366,11 +366,11 @@ body:not([data-sheet="closed"]) .tour-hint{display:none}
 .src-links{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .src-links a,.src-ill a{color:var(--accent)}
 .src-more,.tour-all{background:none;border:0;padding:6px 0;min-height:32px;font-size:12.5px;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
-.tour-all{padding:0 0 0 4px;min-height:0;font-size:11.5px}
+.tour-all{padding:0 0 0 4px;min-height:0;font-size:12.5px}
 body.sources-open #tour,body.sources-open #tour-hint{visibility:hidden}
 /* "You are here": one line at the top of the scale readout, and the quiet finale at the end of the tour */
 .hud{display:flex;flex-direction:column}
-.hud .hud-here{order:-1;color:#e9d9a6;font-size:11px;margin-bottom:3px;max-width:min(78vw,340px);line-height:1.35;transition:opacity .4s ease}
+.hud .hud-here{order:-1;color:#e9d9a6;font-size:12px;margin-bottom:3px;max-width:min(78vw,340px);line-height:1.35;transition:opacity .4s ease}
 .hud .hud-here:empty{display:none}
 .finale{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%,12px);width:min(92vw,440px);box-sizing:border-box;padding:18px 20px 16px;border-radius:18px;background:rgba(3,6,16,.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#e7e3d6;z-index:30;opacity:0;transition:opacity 1.6s ease,transform 1.6s ease}
 .finale.in{opacity:1;transform:translate(-50%,0)}
@@ -397,13 +397,13 @@ body.finale-on #labels{opacity:0}
 .mysky-bar{position:absolute;left:12px;right:12px;bottom:calc(max(16px,env(safe-area-inset-bottom)) + 62px);display:flex;gap:8px;align-items:center;max-width:440px;margin:0 auto}
 .mysky-time{flex:1;display:flex;gap:8px;align-items:center;font-size:12px;color:#b9c4dc}.mysky-time input{flex:1;min-width:0}
 .mysky-sel,.mysky-now{min-height:40px;border-radius:20px;border:1px solid rgba(255,255,255,.25);background:rgba(8,12,24,.75);color:inherit;font:inherit;font-size:13px;padding:0 10px}
-.mysky-src{position:absolute;left:12px;right:12px;bottom:calc(max(16px,env(safe-area-inset-bottom)) - 12px);margin:0;font-size:9.5px;color:#6f7a96;text-align:center}
+.mysky-src{position:absolute;left:12px;right:12px;bottom:calc(max(16px,env(safe-area-inset-bottom)) - 12px);margin:0;font-size:11px;color:#6f7a96;text-align:center}
 body.mysky-on .hud,body.mysky-on .finale{display:none}
 
 .mysky-chips{position:absolute;left:0;right:0;top:calc(max(10px,env(safe-area-inset-top)) + 62px);display:flex;gap:8px;overflow-x:auto;padding:2px 12px 6px;scrollbar-width:none}
 .mysky-chips::-webkit-scrollbar{display:none}
 .mysky-chip{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-height:44px;max-width:190px;padding:6px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.2);background:rgba(6,10,24,.78);color:#e8e6da;font:inherit;text-align:left}
-.mysky-chip b{font-size:14px}.mysky-chip span{font-size:11px;color:#b9c4dc;line-height:1.25}
+.mysky-chip b{font-size:14px}.mysky-chip span{font-size:12px;color:#b9c4dc;line-height:1.25}
 .mysky-chip.up{border-color:#f3c887}.mysky-chip.up b{color:#f3c887}.mysky-chip.later{border-color:rgba(243,200,135,.45)}.mysky-chip.no{opacity:.55}
 .mysky-note{position:absolute;left:12px;right:12px;top:calc(max(10px,env(safe-area-inset-top)) + 128px);margin:0;font-size:12px;color:#f3c887;text-shadow:0 0 4px #000}
 .mysky-acts{position:absolute;left:12px;right:12px;bottom:calc(max(16px,env(safe-area-inset-bottom)) + 14px);display:flex;gap:10px;max-width:440px;margin:0 auto}
@@ -424,7 +424,7 @@ body.mysky-on .hud,body.mysky-on .finale{display:none}
 .cy-barwrap{padding:6px 2px 4px}.cy-bar{position:relative;height:10px;border-radius:5px;background:linear-gradient(90deg,#14203f,#2a3a66)}
 .cy-tick{position:absolute;top:-3px;width:2px;height:16px;margin-left:-1px;background:rgba(243,200,135,.35);border-radius:1px}.cy-tick.on{background:#f3c887}
 .cy-marker{position:absolute;top:-6px;width:12px;height:22px;margin-left:-6px;border-radius:6px;background:#f3c887;box-shadow:0 0 10px rgba(243,200,135,.7);transition:left .5s ease}
-.cy-months{display:flex;justify-content:space-between;font-size:10px;color:#6f7a96;margin-top:4px}.cy-months span{flex:1;text-align:center}
+.cy-months{display:flex;justify-content:space-between;font-size:11px;color:#6f7a96;margin-top:4px}.cy-months span{flex:1;text-align:center}
 body.cyear-on .hud,body.cyear-on .finale{display:none}
 @media (prefers-reduced-motion:reduce){.cy-marker{transition:none}}
 .cy-bg{position:absolute;inset:0;width:100%;height:100%;z-index:0}
@@ -435,7 +435,7 @@ body.cyear-on .hud,body.cyear-on .finale{display:none}
 
 /* the time lens */
 .cy-barwrap{padding:8px 2px 4px}.cy-lens{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px}
-.cy-scale{white-space:nowrap;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#f3c887;font-weight:600}.cy-gap{font-size:11px;color:#8f9bb5;font-style:normal;text-align:right}
+.cy-scale{white-space:nowrap;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#f3c887;font-weight:600}.cy-gap{font-size:12px;color:#8f9bb5;font-style:normal;text-align:right}
 .cy-bar{height:26px;border-radius:13px;background:linear-gradient(90deg,#070b18,#141f3c);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
 .cy-bar .cy-tick{top:3px;height:20px;width:3px;margin-left:-1.5px;border-radius:2px;background:rgba(243,200,135,.45)}.cy-bar .cy-tick.on{background:#f3c887;box-shadow:0 0 8px #f3c887}.cy-tick[hidden]{display:none}
 .cy-bar .cy-marker{top:-6px;height:38px;width:14px;margin-left:-7px;border-radius:7px;transition:none}
@@ -444,7 +444,7 @@ body.cyear-on .hud,body.cyear-on .finale{display:none}
 .cy-spans b:nth-child(2){background:#fff;box-shadow:0 0 10px #fff}
 /* a life is far too short to see on the bar (80 years: 0.18 of 15 seconds), so it gets a minimum width, drawn over the marker */
 .cy-spans b:nth-child(2){min-width:8px;z-index:5} /* drawn over the marker at the end */
-.cy-axis{display:flex;justify-content:space-between;font-size:11px;color:#8f9bb5;margin-top:8px}.cy-hi{text-align:right}
+.cy-axis{display:flex;justify-content:space-between;font-size:12px;color:#8f9bb5;margin-top:8px}.cy-hi{text-align:right}
 
 /* play the year */
 .cy-main>*{transition:opacity .5s ease}.cy-main.travel .cy-title,.cy-main.travel .cy-when,.cy-main.travel .cy-text,.cy-main.travel .cy-age{opacity:0;transition:opacity .35s ease}
@@ -566,7 +566,7 @@ body.explore-on .hud,body.explore-on #tour,body.explore-on .home-earth{visibilit
 #journey-panel .jn-onward{min-height:44px;border-radius:22px;border:none;background:#f3c887;color:#1a1305;font-weight:700;font-size:14px;padding:0 16px;white-space:nowrap}
 #journey-panel .jn-back{min-height:44px;padding:0 14px;white-space:nowrap;border-radius:22px;border:1px solid rgba(255,255,255,.22);background:rgba(10,14,26,.45);color:#e8e6da;font-weight:600;font-size:14px}
 #journey-panel .jn-onward:disabled,#journey-panel .jn-back:disabled{opacity:.35}
-.jn-note{margin:10px 0 0!important;font-size:11px!important;color:rgba(240,236,228,.45)!important}
+.jn-note{margin:10px 0 0!important;font-size:12px!important;color:rgba(240,236,228,.45)!important}
 /* Explore: a finished journey */
 .explore .experiment-card.is-done{border-color:rgba(243,200,135,.35)}
 .explore .ex-done{display:inline-block;margin-top:6px;font-style:normal;font-size:12px;font-weight:600;color:#f3c887}.explore .ex-done[hidden]{display:none}

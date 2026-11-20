@@ -221,15 +221,23 @@ export const canPhoto = () => typeof document !== 'undefined' && typeof document
 // that would be thrown away a moment later (painting them all cost about a second at start-up on phones).
 export function swatch(color) { const c = new THREE.Color(color), t = new THREE.DataTexture(new Uint8Array([c.r * 255, c.g * 255, c.b * 255, 255]), 1, 1); t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true; return t; }
 // fallback: a function giving the procedural map, used only if the photo cannot be loaded. onLoad: called when it arrives.
-export function photo(material, name, { normal, normalScale = 0.6, keepBump = false, fallback = null, onLoad = null } = {}) {
+// lazy: start with a small preview (<name>-lo.webp) and fetch the full map and the bump map only when
+// material.userData.loadDetail() is called (app.js does, when the body is chosen), so the first visit does not
+// download close-up detail for worlds seen as dots.
+export function photo(material, name, { normal, normalScale = 0.6, keepBump = false, fallback = null, onLoad = null, lazy = false } = {}) {
   if (!canPhoto()) return false;
   const load = (file, srgb) => (photoCache[file] ||= new Promise(resolve => new THREE.TextureLoader().load(`textures/${file}.webp`, t => {
     if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; resolve(t);
   }, undefined, () => resolve(null))));
-  load(name, true).then(t => {
-    if (!t) { if (fallback) { const f = fallback(); material.map = f.map || f; material.bumpMap = f.bump || null; material.needsUpdate = true; onLoad?.(); } return; }
-    onLoad?.(); material.map = t; if (!keepBump) material.bumpMap = null; material.color?.set?.(0xffffff); material.needsUpdate = true;
-  });
-  if (normal) load(normal, false).then(t => { if (!t || !material.isMeshStandardMaterial) return; material.normalMap = t; material.normalScale.set(normalScale, normalScale); material.needsUpdate = true; });
+  let shown = 0; /* 1: the preview is on, 2: the full map is on */
+  const show = (t, level) => { if (level < shown) return; const first = !shown; shown = level; if (first) onLoad?.(); material.map = t; if (!keepBump) material.bumpMap = null; material.color?.set?.(0xffffff); material.needsUpdate = true; };
+  const failed = () => { if (shown || !fallback) return; shown = 1; const f = fallback(); material.map = f.map || f; material.bumpMap = f.bump || null; material.needsUpdate = true; onLoad?.(); };
+  const detail = () => {
+    load(name, true).then(t => t ? show(t, 2) : failed());
+    if (normal) load(normal, false).then(t => { if (!t || !material.isMeshStandardMaterial) return; material.normalMap = t; material.normalScale.set(normalScale, normalScale); material.needsUpdate = true; });
+  };
+  if (!lazy) { detail(); return true; }
+  load(name + '-lo', true).then(t => t ? show(t, 1) : failed());
+  let asked = false; material.userData.loadDetail = () => { if (!asked) { asked = true; detail(); } };
   return true;
 }
