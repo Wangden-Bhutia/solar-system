@@ -90,7 +90,8 @@ export function createMySky({ onLeave, onOpen, onClose } = {}) {
       tonightList.push({ name, kind, text, v });
     }
     tonightList.sort((a, b) => ({ up: 0, later: 1, no: 2 }[a.kind] - { up: 0, later: 1, no: 2 }[b.kind]));
-    chipsEl.innerHTML = ''; for (const t of tonightList) { const b = document.createElement('button'); b.type = 'button'; b.className = 'mysky-chip ' + t.kind; b.setAttribute('role', 'listitem'); b.innerHTML = `<b>${t.name}</b><span>${t.text}</span>`; b.onclick = () => goTo(t); chipsEl.appendChild(b); }
+    chipsEl.innerHTML = ''; for (const t of tonightList) { const b = document.createElement('button'); b.type = 'button'; b.className = 'mysky-chip ' + t.kind; b.innerHTML = `<b>${t.name}</b><span>${t.text}</span>`; b.onclick = () => goTo(t);
+      const li = document.createElement('div'); li.setAttribute('role', 'listitem'); li.className = 'mysky-li'; li.appendChild(b); chipsEl.appendChild(li); } /* each chip is a button inside a list item, not a button pretending to be one */
   }
   function bodyNow(name) { return name === 'Moon' ? sky.moon : sky.planets.find(o => o.name === name); }
   // Turn the view to a body (the sky is drawn for the displayed time); keep an arrow on it until you tap empty sky.
