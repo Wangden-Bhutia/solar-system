@@ -107,6 +107,7 @@ import { mountOffline } from './offline-ui.js';
 import { createMySky } from './my-sky.js';
 import { createCosmicYear } from './cosmic-year.js';
 import { createInward } from './inward.js';
+import { RUNGS as INWARD_STEPS } from './inward-data.js';
 import { lightLeft } from './timeline.js';
 import {
   PREDICTIONS,
@@ -1812,7 +1813,12 @@ $('light-go').onclick = () => {
 };
 // Guided journeys: a list, then ordered steps that move the camera and the sheet together.
 // ---- The quiet finale (finale.js): after the tour's last stop. Any zoom or tap on the scene lets it go.
-const finale = createFinale({ doc: document, onHome: () => goLevel('solar'), canvas: () => renderer.domElement });
+const finale = createFinale({
+  doc: document,
+  onHome: () => goLevel('solar'),
+  onOther: () => backToEarth(() => openInward(entryView())) /* home to Earth first, then down into the atom */,
+  canvas: () => renderer.domElement
+});
 // ---- Explore: one panel for everything guided except the tour (it has its own chip in the top bar), opened at any scale. It is its own panel, not the
 // planet card (that card belongs to the Solar System, and the zoom puts the view back at other scales). Journeys glide
 // home first; the tour and the adventure find Earth themselves; the cosmic year and My sky open over wherever you are.
@@ -1827,17 +1833,17 @@ function buildExplore() {
   exploreEl.setAttribute('aria-label', 'Explore');
   exploreEl.tabIndex = -1;
   exploreEl.innerHTML =
-    '<div class="ex-head"><div><p class="ex-kicker">Explore</p><h2 class="ex-title">Where to go</h2><p class="ex-fact">Guided trips, the sky over you tonight, and the whole story of time.</p></div><button type="button" class="ex-x" aria-label="Close Explore"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="journey-list" class="ex-list"></div>';
+    '<div class="ex-head"><div><p class="ex-kicker">Explore</p><h2 class="ex-title">Where to go</h2><p class="ex-fact">Guided trips, down into an atom, the sky over you tonight, and the whole story of time.</p></div><button type="button" class="ex-x" aria-label="Close Explore"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="journey-list" class="ex-list"></div>';
   document.body.appendChild(exploreEl);
   const card = (act, title, blurb, cls = '') =>
     `<button type="button" class="experiment-card${cls}" data-act="${act}"${act.startsWith('journey:') ? ` data-journey="${act.slice(8)}"` : ''}><strong>${title}</strong><span>${blurb}</span>${act.startsWith('journey:') ? '<em class="ex-done" hidden>✓ Done</em>' : ''}</button>`;
   const list = exploreEl.querySelector('#journey-list');
   list.innerHTML =
     '<p class="xsec">Journeys</p>' +
+    card('inward', 'Journey inward', `From Earth down into an atom in a leaf, a power of ten at a time. · ${INWARD_STEPS.length} stops`) +
     JOURNEYS.map(x => card('journey:' + x.id, x.title, `${x.blurb} · ${x.steps.length} stops`)).join('') +
     '<p class="xsec">Time and the sky</p>' +
     card('cyear', 'The cosmic year', '13.8 billion years squeezed into one calendar year.') +
-    card('inward', 'Journey inward', 'From Earth down into an atom in a leaf, a power of ten at a time.') +
     card('mysky', 'My sky', 'What is up over you tonight, and where to look.') +
     '<p class="xsec">For young explorers</p>' +
     card('adventure', 'The Earth and Moon adventure', 'A short spoken story: find Earth, then fly to the Moon.');
@@ -3088,6 +3094,7 @@ const cYear = createCosmicYear({
 });
 let inwardPausedTour = false;
 const inward = createInward({
+  onOutward: () => tourRef?.start(0) /* the tour finds Earth itself */,
   onOpen: () => {
     hooks.covered = true;
     pushLayer('inward');
@@ -3350,7 +3357,8 @@ function awayFromEarth() {
   const f = solarFocused?.();
   return !!f && f.data.name !== 'Earth';
 }
-function backToEarth() {
+// then: called once the view has settled on Earth (the tour's finale uses it to go on into the journey inward).
+function backToEarth(then) {
   dropResume();
   dismissHint();
   stopAudio();
@@ -3373,6 +3381,7 @@ function backToEarth() {
     cameraKey = 'overview';
     render();
     focus(earth, { silent: true, outside: true });
+    if (typeof then === 'function') tourAfter(() => !solarBusy(), then);
   };
   if (levelOf(state.value.view) !== 'solar' || bridge) {
     goLevel('solar', land);
@@ -3393,7 +3402,7 @@ function backToEarth() {
     animateTo(hz, land);
   } else land();
 }
-homeBtn.onclick = backToEarth;
+homeBtn.onclick = () => backToEarth();
 spotFrame = () => {
   const s = state.value;
   if (

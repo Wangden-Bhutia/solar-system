@@ -201,7 +201,8 @@ export const END = {
     'Like the edge of the universe, this is the edge of what we can see, not the edge of what there is.'
   ],
   home: 'Go home',
-  again: 'Back to Earth'
+  again: 'Back to Earth',
+  other: 'Now go the other way: out to the edge of the universe'
 };
 export const Z_MAX = Math.log(W_MAX),
   Z_MIN = Math.log(W_MIN);

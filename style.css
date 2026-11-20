@@ -380,8 +380,10 @@ body.sources-open #tour,body.sources-open #tour-hint{visibility:hidden}
 .finale-actions{display:flex;gap:10px;margin-top:12px}
 .finale-actions button{flex:1;min-height:44px;border-radius:22px;border:1px solid rgba(255,255,255,.25);background:transparent;color:inherit;font:inherit;font-size:14px}
 .finale-actions .primary{background:#f3c887;border-color:#f3c887;color:#1a1305}
+.finale-other{display:block;margin:12px auto 0;padding:6px 4px;min-height:36px;border:0;background:none;color:#f3c887;font:inherit;font-size:14px;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(243,200,135,.5);cursor:pointer}
+.finale .finale-other{opacity:0;transition:opacity 1.4s ease}.finale.in .finale-other{opacity:1;transition-delay:6.6s} /* after the last line */
 body.finale-on .hud{opacity:0;pointer-events:none}
-@media (prefers-reduced-motion:reduce){.finale,.finale p{transition:none;transition-delay:0s!important}}
+@media (prefers-reduced-motion:reduce){.finale,.finale p,.finale .finale-other{transition:none;transition-delay:0s!important}}
 #labels{transition:opacity 1.2s ease}
 body.finale-on #labels{opacity:0}
 /* My sky: the real sky overhead */
@@ -590,6 +592,6 @@ body.touring .hud .hud-time,body.story .hud .hud-time{display:none}
 .inward .iw-note{font-size:12px;font-style:italic;color:rgba(240,236,228,.7);margin:2px 0 0}.inward .iw-note[hidden]{display:none}
 .inward .cy-main.travel .cy-text,.inward .cy-main.travel .iw-note{opacity:.35;transition:opacity .35s ease}
 /* the journey inward's end screen (the tour finale's look); the step card and controls step aside for it */
-.inward .iw-end.finale{display:block;position:absolute;z-index:6}.inward .iw-end.finale[hidden]{display:none}
+.inward .iw-end.finale{display:block;position:absolute;z-index:6}.inward .iw-end .finale-other{background:none;border:0;box-shadow:none;width:auto;min-width:0;color:#f3c887}.inward .iw-end.finale[hidden]{display:none}
 .inward .cy-main,.inward .cy-nav{transition:opacity .6s ease}.inward.end-on .cy-main,.inward.end-on .cy-nav{opacity:0;pointer-events:none}
 .inward::before{background:linear-gradient(180deg,rgba(2,5,14,.6) 0%,rgba(2,5,14,0) 16%,rgba(2,5,14,0) 52%,rgba(2,5,14,.55) 72%,rgba(2,5,14,.85) 100%)}

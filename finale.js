@@ -2,7 +2,7 @@
 // Built here, shown by lab.js after the tour's last stop; "Save picture" saves the next frame drawn, with the caption.
 import { FINALE } from './here.js';
 
-export function createFinale({ doc, onHome, canvas }) {
+export function createFinale({ doc, onHome, onOther, canvas }) {
   let el = null,
     saveNext = false;
   function show() {
@@ -12,11 +12,15 @@ export function createFinale({ doc, onHome, canvas }) {
       el.className = 'finale';
       el.setAttribute('aria-label', 'The end of the tour');
       el.hidden = true;
-      el.innerHTML = `<h2>${FINALE.title}</h2>${FINALE.lines.map(t => `<p>${t}</p>`).join('')}<div class="finale-actions"><button type="button" id="finale-home" class="primary">${FINALE.home}</button><button type="button" id="finale-save">${FINALE.save}</button></div>`;
+      el.innerHTML = `<h2>${FINALE.title}</h2>${FINALE.lines.map(t => `<p>${t}</p>`).join('')}<div class="finale-actions"><button type="button" id="finale-home" class="primary">${FINALE.home}</button><button type="button" id="finale-save">${FINALE.save}</button></div><button type="button" id="finale-other" class="finale-other">${FINALE.other}</button>`;
       doc.body.appendChild(el);
       el.querySelector('#finale-home').onclick = () => {
         hide();
         onHome();
+      };
+      el.querySelector('#finale-other').onclick = () => {
+        hide();
+        onOther?.();
       };
       el.querySelector('#finale-save').onclick = () => {
         saveNext = true;
