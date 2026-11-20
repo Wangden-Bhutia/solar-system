@@ -2,7 +2,7 @@
 // against them, and every "where to look" moment is checked from Siliguri: the target is up and the sky is dark.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SKY_EVENTS, upcoming } from '../sky-events.js';
+import { SKY_EVENTS, upcoming, nextToJoin, isNew, joinsAt } from '../sky-events.js';
 import {
   planetEquatorial,
   moonEquatorial,
@@ -32,7 +32,12 @@ test('oppositions: the app puts each planet opposite the Sun within a day of the
   for (const [id, n] of [
     ['jupiter-opp-2027', 'Jupiter'],
     ['mars-opp-2027', 'Mars'],
-    ['saturn-opp-2027', 'Saturn']
+    ['saturn-opp-2027', 'Saturn'],
+    ['jupiter-opp-2028', 'Jupiter'],
+    ['saturn-opp-2028', 'Saturn'],
+    ['mars-opp-2029', 'Mars'],
+    ['jupiter-opp-2029', 'Jupiter'],
+    ['saturn-opp-2029', 'Saturn']
   ]) {
     const e = ev(id),
       m = extreme(t => sep(n, 'Sun', t), e.at, 6, 1);
@@ -44,7 +49,8 @@ test('oppositions: the app puts each planet opposite the Sun within a day of the
 test('close pairs: closest within a day of the published moment, at the published separation', () => {
   for (const [id, a, b, deg] of [
     ['venus-saturn-2027', 'Venus', 'Saturn', 0.61],
-    ['venus-mars-2027', 'Venus', 'Mars', 0.31]
+    ['venus-mars-2027', 'Venus', 'Mars', 0.31],
+    ['venus-jupiter-2028', 'Venus', 'Jupiter', 0.61]
   ]) {
     const e = ev(id),
       m = extreme(t => sep(a, b, t), e.at, 5, -1);
@@ -53,17 +59,26 @@ test('close pairs: closest within a day of the published moment, at the publishe
   }
 });
 
-test('Venus: farthest from the Sun (about 47°) within two days of the published moment', () => {
-  const e = ev('venus-west-2027'),
-    m = extreme(t => sep('Venus', 'Sun', t), e.at, 8, 1);
-  assert.ok(Math.abs(m.t - e.at) < 2 * D, new Date(m.t).toISOString());
-  assert.ok(Math.abs(m.v - 47) < 1, m.v.toFixed(1));
+test('Venus: farthest from the Sun (46–47°) within two days of each published moment', () => {
+  for (const [id, deg] of [
+    ['venus-west-2027', 47],
+    ['venus-east-2028', 46],
+    ['venus-west-2028', 46],
+    ['venus-east-2029', 47]
+  ]) {
+    const e = ev(id),
+      m = extreme(t => sep('Venus', 'Sun', t), e.at, 8, 1);
+    assert.ok(Math.abs(m.t - e.at) < 2 * D, `${id}: ${new Date(m.t).toISOString()}`);
+    assert.ok(Math.abs(m.v - deg) < 1, `${id}: ${m.v.toFixed(1)}°`);
+  }
 });
 
 test('eclipses: Sun, Earth and Moon line up at the published moments', () => {
   const lun = ev('lunar-eclipse-2027'),
     sol = ev('solar-eclipse-2027');
   assert.ok(sep('Moon', 'Sun', lun.at) > 178.5, 'the full Moon is in line with the shadow');
+  for (const id of ['lunar-eclipse-jul-2028', 'lunar-eclipse-dec-2028', 'lunar-eclipse-dec-2029'])
+    assert.ok(sep('Moon', 'Sun', ev(id).at) > 178.5, `${id}: the full Moon is in line with the shadow`);
   assert.ok(sep('Moon', 'Sun', sol.at) < 1.5, 'the new Moon is in front of the Sun');
 });
 
@@ -92,13 +107,34 @@ test('every event has a title, text, India time, sources and a valid space view;
     if (e.space)
       assert.ok(e.space.focus ? worlds.has(e.space.focus) : worlds.has(e.space.fitTo) || ['inner', 'all'].includes(e.space.fit), e.id);
   }
-  const all = upcoming(Date.UTC(2026, 10, 20));
-  assert.equal(all.length, SKY_EVENTS.length);
+  const t0 = Date.UTC(2026, 10, 20),
+    shown = upcoming(t0);
+  assert.ok(SKY_EVENTS.length >= 25 && Math.max(...SKY_EVENTS.map(e => e.at)) > Date.UTC(2029, 11, 1), 'three years are listed');
+  assert.ok(shown.length > 5 && shown.every(e => e.at < t0 + 366 * D), 'only the next 12 months are shown');
   assert.deepEqual(
-    all.map(e => e.at),
-    [...all.map(e => e.at)].sort((a, b) => a - b)
+    shown.map(e => e.at),
+    [...shown.map(e => e.at)].sort((a, b) => a - b)
+  );
+  const nx = nextToJoin(t0);
+  assert.equal(nx.id, 'venus-mars-2027', 'the next event is held back until it is a year away');
+  assert.ok(!upcoming(joinsAt(nx) - H).includes(nx) && upcoming(joinsAt(nx) + H).some(e => e.id === nx.id), 'and joins on time');
+  assert.ok(
+    isNew(nx, joinsAt(nx) + 5 * D) && !isNew(nx, joinsAt(nx) + 40 * D) && !isNew(nx, joinsAt(nx) - D),
+    'marked New for its first month'
   );
   const later = upcoming(Date.UTC(2027, 6, 1));
   assert.equal(later[0].id, 'solar-eclipse-2027', 'events in the past drop off');
-  assert.equal(upcoming(Date.UTC(2028, 0, 1)).length, 0);
+  assert.ok(
+    later.some(e => e.id === 'jupiter-opp-2028'),
+    'and later ones have joined'
+  );
+  for (let t = t0; t < Date.UTC(2029, 0, 1); t += 30 * D)
+    assert.ok(upcoming(t).length >= 4, `at least four events shown at ${new Date(t).toISOString().slice(0, 10)}`);
+  assert.equal(
+    new Date(joinsAt(ev('venus-east-2028'))).toISOString().slice(0, 10),
+    '2027-03-22',
+    'a calendar year, even across 29 February'
+  );
+  assert.equal(upcoming(Date.UTC(2030, 0, 1)).length, 0);
+  assert.equal(nextToJoin(Date.UTC(2029, 0, 1)), null);
 });
