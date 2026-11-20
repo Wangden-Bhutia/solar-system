@@ -1,1 +1,1 @@
-{"name":"solar-system","private":true,"type":"module","scripts":{"test":"node --experimental-vm-modules --test tests/*.test.js"},"devDependencies":{"linkedom":"0.18.12"}}
+{"name":"solar-system","private":true,"type":"module","scripts":{"test":"node --experimental-vm-modules --test tests/*.test.js","format":"prettier --write \"*.js\" \"tools/*.mjs\" \"tests/*.js\"","format:check":"prettier --check \"*.js\" \"tools/*.mjs\" \"tests/*.js\""},"devDependencies":{"linkedom":"0.18.12","prettier":"3.3.3"}}

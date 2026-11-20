@@ -6,36 +6,62 @@
 export const SPOT_KEY = 'solar.spot.v1';
 export const SPOT_VERSION = 1;
 export const SPOT_MAX_AGE_MS = 90 * 24 * 3600 * 1000; // older than about three months: start fresh
-export const SAVE_EVERY_MS = 1500;                    // at most one write every 1.5 s while exploring
-export const AWAY_Z = Math.log(2);                    // "meaningfully away": twice as far, or half as far, as home
+export const SAVE_EVERY_MS = 1500; // at most one write every 1.5 s while exploring
+export const AWAY_Z = Math.log(2); // "meaningfully away": twice as far, or half as far, as home
 export const SAVE_VIEWS = new Set(['explore', 'stars', 'galaxy', 'local', 'super', 'universe']);
 const LEVEL_OF = { explore: 'solar', stars: 'stars', galaxy: 'galaxy', local: 'local', super: 'super', universe: 'universe' };
-const SCALE_NAMES = { solar: 'Solar System', stars: 'nearby stars', galaxy: 'Milky Way', local: 'Local Group', super: 'Laniakea', universe: 'observable universe' };
+const SCALE_NAMES = {
+  solar: 'Solar System',
+  stars: 'nearby stars',
+  galaxy: 'Milky Way',
+  local: 'Local Group',
+  super: 'Laniakea',
+  universe: 'observable universe'
+};
 
 // The record written to storage (numbers rounded: a direction to 4 decimals, Z to 5).
 export function makeSpot({ view, Z, dir, world = null, star = null, landmark = null, now = Date.now() }) {
   const r = (x, n) => Math.round(x * 10 ** n) / 10 ** n;
   const level = LEVEL_OF[view];
-  return { v: SPOT_VERSION, t: now, level, view, Z: r(Z, 5), dir: [r(dir.x, 4), r(dir.y, 4), r(dir.z, 4)],
-    world: level === 'solar' ? world : null, star: view === 'stars' ? star : null, landmark: level !== 'solar' && view !== 'stars' ? landmark : null };
+  return {
+    v: SPOT_VERSION,
+    t: now,
+    level,
+    view,
+    Z: r(Z, 5),
+    dir: [r(dir.x, 4), r(dir.y, 4), r(dir.z, 4)],
+    world: level === 'solar' ? world : null,
+    star: view === 'stars' ? star : null,
+    landmark: level !== 'solar' && view !== 'stars' ? landmark : null
+  };
 }
 
 // Read a stored value back. ctx: { now, levelAt(Z) → { level, pair }, zMin, zMax, names: { worlds, stars, landmarks } (Sets or
 // functions of a level returning a Set) }. Returns a clean spot or null.
 export function parseSpot(raw, ctx) {
-  let s; try { s = typeof raw === 'string' ? JSON.parse(raw) : null; } catch { return null; }
+  let s;
+  try {
+    s = typeof raw === 'string' ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
   if (!s || typeof s !== 'object' || s.v !== SPOT_VERSION) return null;
   if (!Number.isFinite(s.t) || ctx.now - s.t > SPOT_MAX_AGE_MS || s.t - ctx.now > 60e3) return null;
   if (!SAVE_VIEWS.has(s.view) || LEVEL_OF[s.view] !== s.level) return null;
   if (!Number.isFinite(s.Z) || s.Z < ctx.zMin) return null;
-  if (s.level === 'universe' && s.Z > (typeof ctx.zMax === 'function' ? ctx.zMax() : ctx.zMax ?? Infinity)) return null; // read only when needed (it builds the scale)
-  const lay = ctx.levelAt(s.Z); if (!lay || lay.pair || lay.level !== s.level) return null; // rests in its own scale, not in a seam
+  if (s.level === 'universe' && s.Z > (typeof ctx.zMax === 'function' ? ctx.zMax() : (ctx.zMax ?? Infinity))) return null; // read only when needed (it builds the scale)
+  const lay = ctx.levelAt(s.Z);
+  if (!lay || lay.pair || lay.level !== s.level) return null; // rests in its own scale, not in a seam
   if (!Array.isArray(s.dir) || s.dir.length !== 3 || !s.dir.every(Number.isFinite)) return null;
-  const len = Math.hypot(...s.dir); if (len < 0.5 || len > 1.5) return null;
+  const len = Math.hypot(...s.dir);
+  if (len < 0.5 || len > 1.5) return null;
   const dir = { x: s.dir[0] / len, y: s.dir[1] / len, z: s.dir[2] / len };
   const known = (set, name) => name == null || (typeof name === 'string' && !!set?.has(name));
   if (!known(ctx.names?.worlds, s.world) || !known(ctx.names?.stars, s.star)) return null;
-  if (s.landmark != null) { const lm = typeof ctx.names?.landmarks === 'function' ? ctx.names.landmarks(s.level) : ctx.names?.landmarks; if (!known(lm, s.landmark)) return null; }
+  if (s.landmark != null) {
+    const lm = typeof ctx.names?.landmarks === 'function' ? ctx.names.landmarks(s.level) : ctx.names?.landmarks;
+    if (!known(lm, s.landmark)) return null;
+  }
   if ([s.world, s.star, s.landmark].filter(x => x != null).length > 1) return null;
   return { level: s.level, view: s.view, Z: s.Z, dir, world: s.world ?? null, star: s.star ?? null, landmark: s.landmark ?? null, t: s.t };
 }

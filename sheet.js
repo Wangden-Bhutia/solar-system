@@ -17,7 +17,9 @@ export function swipe(s, dir) {
   return { sheet: SHEETS[Math.max(0, i - 1)] };
 }
 // Tapping empty space: close the world card. Labs are not dismissed by stray taps.
-export function emptyTap(s) { return isExperiment(s) ? null : { sheet: 'closed' }; }
+export function emptyTap(s) {
+  return isExperiment(s) ? null : { sheet: 'closed' };
+}
 // Gesture classification for a vertical drag on the sheet grip/header.
 export function classifyDrag(dy, ms = 300) {
   if (Math.abs(dy) < 36 && !(Math.abs(dy) >= 18 && ms < 180)) return null;
