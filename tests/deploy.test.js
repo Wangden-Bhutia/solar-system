@@ -5,7 +5,11 @@ import { precacheList } from '../tools/stamp.mjs';
 
 test('the deploy runs the whole test suite first, and only deploys main', () => {
   const wf = fs.readFileSync('.github/workflows/pages.yml', 'utf8');
-  assert.match(wf, /\n  test:\n[\s\S]*?run: npm ci\n\s+- run: npm test/, 'a test job runs npm test');
+  assert.match(
+    wf,
+    /\n  test:\n[\s\S]*?run: npm ci\n[\s\S]*?- run: npm run format:check[\s\S]*?- run: npm test/,
+    'a test job runs npm test'
+  );
   assert.match(wf, /\n  deploy:\n    needs: test\n/, 'the deploy waits for the tests');
   assert.match(wf, /if: github\.ref == 'refs\/heads\/main'/, 'pull requests run the tests but never deploy');
   assert.match(wf, /group: pages-\$\{\{ github\.ref \}\}/, 'a pull request never cancels a deploy of main');

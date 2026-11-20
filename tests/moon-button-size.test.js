@@ -117,7 +117,7 @@ test('button labels match what the narration says: the Moon stop shows "Visit Mo
   assert.equal(STOPS[0].next, 'On to the Moon →');
 });
 
-test('Save for offline shows the real download size, written at deploy from precache.json (95 files ≈ 9.1 MB, with the Sources screen, Continue and the journey inward)', () => {
+test('Save for offline shows the real download size, written at deploy from precache.json (97 files ≈ 9.1 MB, with the Sources screen, Continue and the journey inward)', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-'));
   const copy = fs
     .readFileSync('.github/workflows/pages.yml', 'utf8')
@@ -128,23 +128,23 @@ test('Save for offline shows the real download size, written at deploy from prec
   writePrecache(dir, 'abc123def456', { strict: true });
   const list = JSON.parse(fs.readFileSync(path.join(dir, 'precache.json'), 'utf8')),
     label = sizeLabel(list.bytes);
-  assert.equal(list.files.length, 95);
+  assert.equal(list.files.length, 97);
   assert.equal(label, 'about 9.1 MB', `${list.bytes} bytes`);
-  assert.ok(fs.readFileSync(path.join(dir, 'lab.js'), 'utf8').includes(`const OFFLINE_SIZE = '${label}'`));
+  assert.ok(fs.readFileSync(path.join(dir, 'offline-ui.js'), 'utf8').includes(`const OFFLINE_SIZE = '${label}'`));
   assert.ok(fs.readFileSync(path.join(dir, 'index.html'), 'utf8').includes(`Keeps the whole app (${label})`));
   // The source files carry the same figure, so a local run or preview also shows it.
-  assert.ok(fs.readFileSync('lab.js', 'utf8').includes(`const OFFLINE_SIZE = '${label}'`));
+  assert.ok(fs.readFileSync('offline-ui.js', 'utf8').includes(`const OFFLINE_SIZE = '${label}'`));
   assert.ok(fs.readFileSync('index.html', 'utf8').includes(`Keeps the whole app (${label})`));
-  assert.doesNotMatch(fs.readFileSync('lab.js', 'utf8') + fs.readFileSync('index.html', 'utf8'), /4\.5 MB/);
+  assert.doesNotMatch(fs.readFileSync('offline-ui.js', 'utf8') + fs.readFileSync('index.html', 'utf8'), /4\.5 MB/);
   assert.equal(sizeLabel(3991623), 'about 4.0 MB');
   assert.equal(sizeLabel(5286540), 'about 5.3 MB');
   const bad = fs.mkdtempSync(path.join(os.tmpdir(), 'site-'));
-  fs.writeFileSync(path.join(bad, 'lab.js'), 'no marker');
+  fs.writeFileSync(path.join(bad, 'offline-ui.js'), 'no marker');
   assert.throws(() => writeOfflineSize(bad, 1, { strict: true }), /marker missing/);
 });
 
 test('the menu note shows the size before any save', async () => {
   const a = await bootApp();
   assert.ok(a.$('offline-note'));
-  assert.match(fs.readFileSync('lab.js', 'utf8'), /Keeps the whole app \(\$\{OFFLINE_SIZE\}\)/);
+  assert.match(fs.readFileSync('offline-ui.js', 'utf8'), /Keeps the whole app \(\$\{OFFLINE_SIZE\}\)/);
 });

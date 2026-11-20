@@ -74,12 +74,12 @@ export function precacheList(dir, v) {
 export const sizeLabel = bytes => `about ${(bytes / 1e6).toFixed(1)} MB`;
 export const precacheBytes = (dir, files) =>
   files.reduce((s, f) => s + fs.statSync(path.join(dir, f === './' ? 'index.html' : f.split('?')[0])).size, 0);
-// Write the offline download's size where the menu shows it (lab.js OFFLINE_SIZE and index.html's first paint).
+// Write the offline download's size where the menu shows it (offline-ui.js OFFLINE_SIZE and index.html's first paint).
 // strict (the deploy): a missing marker is an error, so the menu can never keep a stale figure.
 export function writeOfflineSize(dir, bytes, { strict = false } = {}) {
   const label = sizeLabel(bytes),
     edits = [
-      ['lab.js', /(const OFFLINE_SIZE\s*=\s*')[^']*(')/],
+      ['offline-ui.js', /(const OFFLINE_SIZE\s*=\s*')[^']*(')/],
       ['index.html', /(id="offline-note"[^>]*>Keeps the whole app \()[^)]*(\))/]
     ];
   for (const [f, re] of edits) {

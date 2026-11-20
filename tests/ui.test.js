@@ -2,6 +2,8 @@
 import * as sourcesData from '../sources.js';
 import * as sourcesPage from '../sources-page.js';
 import * as resumeMod from '../resume.js';
+import * as finaleMod from '../finale.js';
+import * as offlineMod from '../offline-ui.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -190,6 +192,8 @@ async function setup(width = 390, height = 844, stored = {}) {
     './sources.js': sourcesData,
     './sources-page.js': sourcesPage,
     './resume.js': resumeMod,
+    './finale.js': finaleMod,
+    './offline-ui.js': offlineMod,
     './learn.js': learn,
     './stars-data.js': starsData,
     './galaxy-data.js': galaxyData,

@@ -101,7 +101,9 @@ import { REFS, LAB_REFS } from './sources.js';
 import { mountSources, refLinks } from './sources-page.js';
 import { SPOT_KEY, SAVE_EVERY_MS, AWAY_Z, makeSpot, parseSpot, isAway, spotLabel } from './resume.js';
 import * as solarApp from './app.js';
-import { hereLine, hereMore, FINALE } from './here.js';
+import { hereLine, hereMore } from './here.js';
+import { createFinale } from './finale.js';
+import { mountOffline } from './offline-ui.js';
 import { createMySky } from './my-sky.js';
 import { createCosmicYear } from './cosmic-year.js';
 import { createInward } from './inward.js';
@@ -1068,8 +1070,8 @@ function updateTimeBar() {
   }
 }
 hooks.afterFrame = () => {
-  if (saveNext) saveFinale();
-  if (finaleEl && !finaleEl.hidden && (zoom.moving || animating || bridge)) hideFinale();
+  finale.afterFrame();
+  if (finale.shown && (zoom.moving || animating || bridge)) finale.hide();
   updateHud();
   updateTimeBar();
   tourUi?.frame();
@@ -1796,84 +1798,8 @@ $('light-go').onclick = () => {
   race.id = requestAnimationFrame(tick);
 };
 // Guided journeys: a list, then ordered steps that move the camera and the sheet together.
-// ---- The quiet finale: after the tour's last stop, still words over the whole universe. Any zoom or tap on the scene lets it go.
-let finaleEl = null,
-  saveNext = false;
-function showFinale() {
-  if (!finaleEl) {
-    finaleEl = document.createElement('section');
-    finaleEl.id = 'finale';
-    finaleEl.className = 'finale';
-    finaleEl.setAttribute('aria-label', 'The end of the tour');
-    finaleEl.hidden = true;
-    finaleEl.innerHTML = `<h2>${FINALE.title}</h2>${FINALE.lines.map(t => `<p>${t}</p>`).join('')}<div class="finale-actions"><button type="button" id="finale-home" class="primary">${FINALE.home}</button><button type="button" id="finale-save">${FINALE.save}</button></div>`;
-    document.body.appendChild(finaleEl);
-    finaleEl.querySelector('#finale-home').onclick = () => {
-      hideFinale();
-      goLevel('solar');
-    };
-    finaleEl.querySelector('#finale-save').onclick = () => {
-      saveNext = true;
-    };
-  }
-  finaleEl.hidden = false;
-  document.body.classList.add('finale-on');
-  globalThis.requestAnimationFrame?.(() => finaleEl.classList.add('in'));
-  if (!globalThis.requestAnimationFrame) finaleEl.classList.add('in');
-  finaleEl.querySelector('#finale-home').focus?.({ preventScroll: true });
-}
-function hideFinale() {
-  if (!finaleEl || finaleEl.hidden) return;
-  finaleEl.classList.remove('in');
-  finaleEl.hidden = true;
-  document.body.classList.remove('finale-on');
-}
-// Saved from the frame just drawn (the canvas is only readable straight after a render), with the caption on a dark strip.
-function saveFinale() {
-  saveNext = false;
-  const src = renderer.domElement,
-    w = src.width,
-    h = src.height,
-    c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  const x = c.getContext('2d');
-  x.drawImage(src, 0, 0);
-  const pad = Math.round(w * 0.05),
-    fs = Math.max(14, Math.round(w * 0.034)),
-    lh = Math.round(fs * 1.35),
-    max = w - 2 * pad;
-  x.font = `${fs}px system-ui,sans-serif`;
-  const rows = [];
-  let cur = '';
-  for (const word of FINALE.lines[0].split(' ')) {
-    const t = cur ? cur + ' ' + word : word;
-    if (x.measureText(t).width > max && cur) {
-      rows.push(cur);
-      cur = word;
-    } else cur = t;
-  }
-  rows.push(cur);
-  const strip = pad * 0.6 + rows.length * lh + lh * 1.4;
-  x.fillStyle = 'rgba(2,4,12,.74)';
-  x.fillRect(0, h - strip, w, strip);
-  x.fillStyle = '#f1ead8';
-  x.textBaseline = 'top';
-  rows.forEach((r, i) => x.fillText(r, pad, h - strip + pad * 0.4 + i * lh));
-  x.fillStyle = '#b9c4dc';
-  x.font = `${Math.round(fs * 0.72)}px system-ui,sans-serif`;
-  x.fillText(FINALE.caption, pad, h - lh * 1.1, max);
-  c.toBlob(b => {
-    if (!b) return;
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(b);
-    a.download = 'a-mote-in-a-sunbeam.png';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  }, 'image/png');
-}
+// ---- The quiet finale (finale.js): after the tour's last stop. Any zoom or tap on the scene lets it go.
+const finale = createFinale({ doc: document, onHome: () => goLevel('solar'), canvas: () => renderer.domElement });
 // ---- Explore: one panel for everything guided except the tour (it has its own chip in the top bar), opened at any scale. It is its own panel, not the
 // planet card (that card belongs to the Solar System, and the zoom puts the view back at other scales). Journeys glide
 // home first; the tour and the adventure find Earth themselves; the cosmic year and My sky open over wherever you are.
@@ -1942,7 +1868,7 @@ function openExplore() {
   if (!exploreEl) buildExplore();
   $('settings').open = false;
   dismissHint();
-  hideFinale();
+  finale.hide();
   stopAudio();
   if (state.value.sheet !== 'closed') setSheet({ sheet: 'closed' });
   if (adventure?.phase && adventure.phase !== 'off') adventure.end?.(true); // the story and Explore share the bottom of the screen: choosing where to go ends it
@@ -3072,7 +2998,7 @@ tourRef = createTour({
   halt: tourHalt,
   onStart: () => {
     tourEnded = false;
-    hideFinale();
+    finale.hide();
     dropResume?.();
     if (adventure && adventure.phase !== 'off') adventure.end(true);
   }, // one guided story at a time
@@ -3082,7 +3008,7 @@ tourRef = createTour({
     if (tourRef?.finished && !tourEnded) {
       tourEnded = true;
       tourRef.exit();
-      showFinale();
+      finale.show();
     }
   }
 });
@@ -3125,7 +3051,7 @@ const mySky = createMySky({
 });
 function openMySky() {
   $('settings').open = false;
-  hideFinale();
+  finale.hide();
   cYear.close();
   inward.close();
   mySky.open();
@@ -3176,7 +3102,7 @@ function leaveInward(width) {
 }
 function openInward(view) {
   $('settings').open = false;
-  hideFinale();
+  finale.hide();
   cYear.close();
   mySky.close();
   zoom.stop();
@@ -3184,7 +3110,7 @@ function openInward(view) {
 }
 function openCosmicYear(id) {
   $('settings').open = false;
-  hideFinale();
+  finale.hide();
   mySky.close();
   inward.close();
   if (id) cYear.openAt(id);
@@ -3482,101 +3408,8 @@ spotFrame = () => {
   saveSpot(false);
 };
 offerResume();
-// ---- Install and offline ----
-// "Install app" uses the browser's own install prompt where it offers one (Android, desktop Chrome/Edge); on
-// iPhone and iPad the note explains Share → Add to Home Screen. Installing, or "Save for offline", stores the
-// whole app on the device (sw.js saveAll), so it opens fast and works with no signal. An installed app
-// refreshes its saved copy on each launch (only changed files are downloaded).
-let installEvent = null,
-  offline = null;
-const nav = globalThis.navigator || {},
-  sw = globalThis.isSecureContext && nav.serviceWorker;
-const standalone = () => !!globalThis.matchMedia?.('(display-mode: standalone)').matches || nav.standalone === true;
-const appleTouch =
-  /iphone|ipad|ipod/i.test(nav.userAgent || '') || (/macintosh/i.test(nav.userAgent || '') && (nav.maxTouchPoints || 0) > 1);
-const savedBefore = () => {
-  try {
-    return localStorage.getItem('offline-saved');
-  } catch {
-    return null;
-  }
-};
-function saveOffline() {
-  if (!sw) return;
-  offline = { done: 0, total: 0 };
-  paintOffline();
-  sw.ready.then(reg => reg.active?.postMessage({ saveAll: true }));
-}
-// What Save for offline downloads: precache.json's total, written in here (and in index.html) by tools/stamp.mjs at deploy.
-const OFFLINE_SIZE = 'about 9.1 MB';
-function paintOffline() {
-  $('install').hidden = !installEvent;
-  $('save-offline').hidden = !sw;
-  $('save-offline').disabled = !!offline && !offline.finished && !offline.error;
-  const note = offline?.error
-    ? 'Couldn’t save just now. Check the connection and try again.'
-    : offline && !offline.finished
-      ? `Saving… ${offline.done} of ${offline.total || '…'} files`
-      : offline?.finished
-        ? offline.failed
-          ? `Saved, except ${offline.failed} files. Try again with a better connection.`
-          : 'Saved ✓ The whole app is on this device and opens even with no signal.'
-        : savedBefore()
-          ? 'Saved for offline ✓ New versions are saved as you use them.'
-          : !sw
-            ? 'Offline use needs the secure (https) version of the site.'
-            : appleTouch && !standalone()
-              ? 'To install on iPhone or iPad: tap Share, then “Add to Home Screen”. Or save for offline here.'
-              : `Keeps the whole app (${OFFLINE_SIZE}) on this device so it opens fast, even with no signal.`;
-  $('offline-note').textContent = note;
-  $('save-offline').textContent = (offline?.finished && !offline.failed) || savedBefore() ? 'Save again' : 'Save for offline';
-}
-globalThis.addEventListener?.('beforeinstallprompt', e => {
-  e.preventDefault();
-  installEvent = e;
-  paintOffline();
-});
-globalThis.addEventListener?.('appinstalled', () => {
-  installEvent = null;
-  saveOffline();
-});
-if (sw)
-  sw.addEventListener('message', e => {
-    const m = e.data?.offline;
-    if (!m) return;
-    offline = m;
-    if (m.finished && !m.failed) {
-      try {
-        localStorage.setItem('offline-saved', m.version || '1');
-      } catch {}
-    }
-    paintOffline();
-  });
-$('install').onclick = async () => {
-  if (!installEvent) return;
-  const e = installEvent;
-  e.prompt();
-  const r = await e.userChoice.catch(() => ({}));
-  installEvent = null;
-  if (r.outcome === 'accepted') saveOffline();
-  paintOffline();
-};
-$('save-offline').onclick = saveOffline;
-paintOffline();
-if (sw && standalone() && typeof setTimeout === 'function') setTimeout(saveOffline, 4000);
-// Offline: cache what has been loaded, so the app opens again without a connection (sw.js).
-if (globalThis.isSecureContext && 'serviceWorker' in navigator)
-  navigator.serviceWorker
-    .register('sw.js')
-    .then(() => navigator.serviceWorker.ready)
-    .then(reg =>
-      setTimeout(
-        () =>
-          reg.active?.postMessage({ cache: [location.href.split('#')[0], ...performance.getEntriesByType('resource').map(e => e.name)] }),
-        3000
-      )
-    )
-    .catch(() => {});
+// ---- Install and offline (offline-ui.js) ----
+mountOffline({ $, win: globalThis });
 window.__lab = {
   inward,
   sources: sourcesUi,
