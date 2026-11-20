@@ -677,11 +677,19 @@ canvas.addEventListener('click', e => {
 
 // Controls
 const playBtn = document.getElementById('play');
-playBtn.onclick = () => {
-  playing = !playing;
+function paintPlay() {
   playBtn.dataset.state = playing ? 'playing' : 'paused';
   playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+}
+playBtn.onclick = () => {
+  playing = !playing;
+  paintPlay();
 };
+// Hold the clock (Coming up shows a line-up on its date: it should stay lined up until you press Play).
+export function setPlaying(on) {
+  playing = !!on;
+  paintPlay();
+}
 const speed = document.getElementById('speed'),
   speedTxt = document.getElementById('speedTxt');
 function fmtSpeed() {

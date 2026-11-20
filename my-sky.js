@@ -2,7 +2,7 @@
 // zoom, tap anything to learn what it is and how far away. Positions come from sky-math.js (see docs/sources.md).
 // Finding things: a Tonight list says what is up and when; tapping a name turns the view to it, with an arrow at the
 // screen's edge when it is out of view; Aim uses the phone's compass and tilt. Your location is read once, only when you tap, and is never stored or sent anywhere.
-import { skyAt, lookText, compass, visibility, heightWord, aimDirection, turnBy, bodyAltAz } from './sky-math.js';
+import { skyAt, lookText, compass, visibility, heightWord, aimDirection, turnBy, bodyAltAz, horizontal } from './sky-math.js';
 
 const RAD = Math.PI / 180;
 export const PLACES = [
@@ -45,7 +45,7 @@ export function skyColor(sunAlt, alt) {
 export const starAlpha = sunAlt => Math.max(0.3, clamp((-sunAlt - 1) / 9, 0, 1));
 const fmtTime = d => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-export function createMySky({ onLeave, onOpen, onClose } = {}) {
+export function createMySky({ onLeave, onOpen, onClose, onSpace } = {}) {
   let root = null,
     cv,
     ctx,
@@ -66,7 +66,9 @@ export function createMySky({ onLeave, onOpen, onClose } = {}) {
     aimVec = null,
     aimSeen = false,
     turning = 0,
-    auto = true;
+    auto = true,
+    base = null, // a set moment (ms) the sky is shown from (an event in Coming up); null: now
+    pin = null; // what an event asked to look at: { body } or { radiant: { ra, dec, label }, say }
   let sky = null,
     place = PLACES[0],
     located = false,
@@ -116,11 +118,21 @@ export function createMySky({ onLeave, onOpen, onClose } = {}) {
     aimBtn.onclick = () => (aiming ? stopAim() : startAim());
     sel.innerHTML = '<option value="gps">My location</option>' + PLACES.map((p, i) => `<option value="${i}">${p.name}</option>`).join('');
     root.querySelector('.mysky-x').onclick = close;
+    // See it in space: the Solar System on the same date, flown to this body.
+    info.onclick = e => {
+      if (!e.target.closest?.('.mysky-space') || !selected?.kind) return;
+      const name = selected.name,
+        ms = now().getTime();
+      close();
+      onSpace?.(name, ms);
+    };
     root.querySelector('.mysky-leave').onclick = () => {
       close();
       onLeave?.();
     };
     root.querySelector('.mysky-now').onclick = () => {
+      base = null;
+      pin = null;
       offsetH = 0;
       slider.value = 0;
       jumped = false;
@@ -229,7 +241,7 @@ export function createMySky({ onLeave, onOpen, onClose } = {}) {
     dirty = true;
     schedule();
   }
-  const now = () => new Date(Date.now() + offsetH * 3600000);
+  const now = () => new Date((base ?? Date.now()) + offsetH * 3600000);
   function recompute(recentre) {
     const key = selected && (selected.kind ? 'b:' + selected.name : 's:' + selected.i);
     sky = skyAt(now(), place.lat, place.lon);
@@ -242,7 +254,7 @@ export function createMySky({ onLeave, onOpen, onClose } = {}) {
       az0 = place.lat >= 0 ? 180 : 0;
       alt0 = 26;
     }
-    if (recentre && !jumped && offsetH === 0 && sky.sun.alt > -2) {
+    if (recentre && !jumped && base == null && offsetH === 0 && sky.sun.alt > -2) {
       const h = tonight();
       if (h != null) {
         offsetH = h;
@@ -255,13 +267,15 @@ export function createMySky({ onLeave, onOpen, onClose } = {}) {
       (located ? 'Where you are' : place.name) +
       ` · ${Math.abs(place.lat).toFixed(1)}°${place.lat >= 0 ? 'N' : 'S'} ${Math.abs(place.lon).toFixed(1)}°${place.lon >= 0 ? 'E' : 'W'}`;
     whenEl.textContent =
-      (offsetH === 0 ? 'Now · ' : `${offsetH > 0 ? '+' : '−'}${Math.abs(offsetH)} h · `) +
+      (offsetH === 0 ? (base == null ? 'Now · ' : '') : `${offsetH > 0 ? '+' : '−'}${Math.abs(offsetH)} h · `) +
       now().toLocaleDateString([], { day: 'numeric', month: 'short' }) +
       ' ' +
       fmtTime(now());
     const sa = sky.sun.alt;
     const lines = [];
-    if (jumped && offsetH > 0) lines.push('It is daytime here, so this is tonight’s sky. Tap Now for the sky right now.');
+    if (pin?.say) lines.push(pin.say);
+    if (base != null) lines.push('Tap Now for tonight’s sky.');
+    else if (jumped && offsetH > 0) lines.push('It is daytime here, so this is tonight’s sky. Tap Now for the sky right now.');
     else if (sa > -0.8) lines.push('The Sun is up. The stars are still there, drawn faintly.');
     else if (sa > -12) lines.push('Twilight: only the brightest stars show yet.');
     if (!located && sel.value === 'gps') lines.push('Showing ' + place.name + ' until your location is found.');
@@ -307,7 +321,32 @@ export function createMySky({ onLeave, onOpen, onClose } = {}) {
     } /* each chip is a button inside a list item, not a button pretending to be one */
   }
   function bodyNow(name) {
-    return name === 'Moon' ? sky.moon : sky.planets.find(o => o.name === name);
+    return name === 'Moon' ? sky.moon : name === 'Sun' ? sky.sun : sky.planets.find(o => o.name === name);
+  }
+  // A meteor shower's radiant (the spot its meteors seem to come from), where it stands at the displayed time.
+  function radiantNow() {
+    const r = pin?.radiant;
+    if (!r || !sky) return null;
+    return { ...horizontal(r.ra, r.dec, place.lat, sky.lst), name: r.label };
+  }
+  // An event from Coming up: turn to what it asked for (a body, or a shower's radiant) and say what to look for.
+  function aimPin() {
+    if (!pin || !sky) return false;
+    if (pin.radiant) {
+      const r = radiantNow();
+      target = { name: r.name, radiant: true };
+      selected = null;
+      info.hidden = true;
+      turnTo(r.az, r.alt);
+    } else {
+      const o = bodyNow(pin.body);
+      if (!o) return false;
+      target = { name: pin.body };
+      selected = o;
+      turnTo(o.az, o.alt);
+      paintCard();
+    }
+    return true;
   }
   // Turn the view to a body (the sky is drawn for the displayed time); keep an arrow on it until you tap empty sky.
   function goTo(t) {
@@ -317,7 +356,7 @@ export function createMySky({ onLeave, onOpen, onClose } = {}) {
       return;
     }
     if (t.kind === 'later') {
-      const h = (t.v.next.getTime() + 600000 - Date.now()) / 3600000;
+      const h = (t.v.next.getTime() + 600000 - (base ?? Date.now())) / 3600000;
       if (Math.abs(h) <= 12) {
         offsetH = Math.round(h * 4) / 4;
         slider.value = offsetH;
@@ -360,6 +399,7 @@ export function createMySky({ onLeave, onOpen, onClose } = {}) {
   }
   // On opening, turn to the brightest planet that is up (else the Moon), so there is something to see straight away.
   function autoAim() {
+    if (aimPin()) return;
     const t = ['Venus', 'Jupiter', 'Saturn', 'Mars', 'Mercury', 'Moon']
       .map(n => tonightList.find(x => x.name === n))
       .find(x => x && x.kind === 'up');
@@ -435,7 +475,8 @@ export function createMySky({ onLeave, onOpen, onClose } = {}) {
   let aimSeenAbs = false;
   // After dark, at least 14° of Sun below the horizon, within the slider's 12 hours (else stay on now).
   function tonight() {
-    for (let h = 0.25; h <= 12; h += 0.25) if (skyAt(new Date(Date.now() + h * 3600000), place.lat, place.lon).sun.alt < -14) return h;
+    for (let h = 0.25; h <= 12; h += 0.25)
+      if (skyAt(new Date((base ?? Date.now()) + h * 3600000), place.lat, place.lon).sun.alt < -14) return h;
     return null;
   }
   const resetTime = () => {
@@ -655,8 +696,34 @@ export function createMySky({ onLeave, onOpen, onClose } = {}) {
         ctx.stroke();
       }
     }
+    const rad = radiantNow();
+    if (rad && rad.alt > -2) {
+      const p = proj(rad.alt, rad.az);
+      if (p) {
+        ctx.save();
+        ctx.strokeStyle = '#f3c887';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 26, 0, 6.2832);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        for (let i = 0; i < 8; i++) {
+          const a = (i * Math.PI) / 4 + 0.3;
+          ctx.beginPath();
+          ctx.moveTo(p.x + Math.cos(a) * 34, p.y + Math.sin(a) * 34);
+          ctx.lineTo(p.x + Math.cos(a) * 58, p.y + Math.sin(a) * 58);
+          ctx.stroke();
+        } /* short streaks pointing away: meteors seem to fly out of this spot */
+        ctx.font = '600 12px system-ui,sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#f3c887';
+        ctx.fillText(rad.name, p.x, p.y + 76);
+        ctx.restore();
+      }
+    }
     if (target) {
-      const o = bodyNow(target.name);
+      const o = target.radiant ? rad : bodyNow(target.name);
       if (o && o.alt > -2) {
         const p = proj(o.alt, o.az),
           inside = p && p.x > 20 && p.x < W - 20 && p.y > 90 && p.y < H - 170;
@@ -743,11 +810,15 @@ export function createMySky({ onLeave, onOpen, onClose } = {}) {
       fact = `${(Math.round(o.distKm / 1000) * 1000).toLocaleString('en-US')} km away, ${Math.round(o.lit * 100)}% lit. Its light left ${(o.distKm / 299792.458).toFixed(1)} seconds ago.`;
     else
       fact = `About ${o.ly < 100 ? Math.round(o.ly) : Math.round(o.ly / 10) * 10} light-years away. The light you see left it around ${yr - Math.round(o.ly)}.`;
-    info.innerHTML = `<strong>${title}</strong><span>${where}</span><span>${fact}</span>`;
+    const space = onSpace && o.kind ? '<button type="button" class="mysky-space">See it in space ↗</button>' : '';
+    info.innerHTML = `<strong>${title}</strong><span>${where}</span><span>${fact}</span>${space}`;
     info.hidden = false;
   }
-  function open() {
+  // opts.at: show the sky at that moment (ms) instead of now; opts.look: { body } or { radiant, say } to turn to.
+  function open(opts = {}) {
     if (!root) build();
+    base = Number.isFinite(opts.at) ? opts.at : null;
+    pin = opts.look || null;
     root.hidden = false;
     document.body.classList.add('mysky-on');
     onOpen?.();
@@ -757,7 +828,7 @@ export function createMySky({ onLeave, onOpen, onClose } = {}) {
     slider.value = 0;
     sel.value = 'gps';
     located = false;
-    jumped = false;
+    jumped = base != null;
     target = null;
     recompute(true);
     buildTonight();
