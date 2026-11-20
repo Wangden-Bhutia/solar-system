@@ -41,6 +41,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Calendar files for Coming up's Remind me
+        run: node tools/ics.mjs _site
       - name: Cache-bust CSS and module URLs with the commit
         run: node tools/stamp.mjs _site "${GITHUB_SHA::12}"
       - uses: actions/configure-pages@v5

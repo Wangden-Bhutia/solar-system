@@ -1410,7 +1410,7 @@ test('Explore: one hub for everything guided; the top bar is Tour, Explore and t
     assert.equal(cu.hidden, false, 'Coming up opens from Explore');
     assert.equal(a.$('explore').hidden, true, 'in place of Explore');
     assert.ok(cu.querySelectorAll('.cu-ev').length >= 1, 'with the events still to come');
-    for (const ev of cu.querySelectorAll('.cu-ev')) assert.ok(ev.querySelector('[data-do="look"]'), 'each has Where to look');
+    for (const ev of cu.querySelectorAll('.cu-ev')) assert.ok(ev.querySelector('a.cu-remind[href^="ics/"]'), 'each has Remind me');
     cu.querySelector('.ex-x').onclick();
     assert.equal(cu.hidden, true);
     assert.equal(a.app.hooks.covered, false);
