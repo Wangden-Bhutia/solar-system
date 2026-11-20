@@ -15,6 +15,8 @@ import * as state from '../lab-state.js';
 import * as sheetMod from '../sheet.js';
 import * as hereMod from '../here.js';
 import * as mySkyMod from '../my-sky.js';
+import * as comingUpMod from '../coming-up.js';
+import * as skyEventsMod from '../sky-events.js';
 import * as cYearMod from '../cosmic-year.js';
 import * as inwardMod from '../inward.js';
 import * as inwardDataMod from '../inward-data.js';
@@ -109,6 +111,7 @@ async function setup(width = 390, height = 844, stored = {}) {
     solarCamera: () => ({ au: 40, metric: 0 }),
     solarDate: () => Date.UTC(2026, 10, 20, 12),
     setSolarDate() {},
+    setPlaying() {},
     hideSunLabel() {},
     solarAnchor(out) {
       out.x = 206;
@@ -183,6 +186,8 @@ async function setup(width = 390, height = 844, stored = {}) {
     './sheet.js': sheetMod,
     './here.js': hereMod,
     './my-sky.js': mySkyMod,
+    './coming-up.js': comingUpMod,
+    './sky-events.js': skyEventsMod,
     './cosmic-year.js': cYearMod,
     './inward.js': inwardMod,
     './inward-data.js': inwardDataMod,
@@ -192,7 +197,7 @@ async function setup(width = 390, height = 844, stored = {}) {
     './insights.js': insights,
     './voice/lines.js': lines,
     './voice-player.js': audio,
-    './adventure.js': { initAdventure: () => ({ sync() {} }) },
+    './adventure.js': { initAdventure: () => ({ sync() {} }), moonFrameMul: () => 1 },
     './sources.js': sourcesData,
     './sources-page.js': sourcesPage,
     './resume.js': resumeMod,
@@ -862,7 +867,7 @@ test('journeys: list → steps that move the camera; a question gates Next; labs
   assert.equal(a.sheet, 'closed', 'not inside the planet card');
   assert.equal(
     a.$('journey-list').querySelectorAll('button').length,
-    10,
+    11,
     'six Solar System journeys, the cosmic year, the journey inward, My sky and the adventure (the tour has its own chip)'
   );
   a.$('journey-list').querySelector('[data-journey="scale"]').onclick();
@@ -1382,6 +1387,7 @@ test('Explore: one hub for everything guided; the top bar is Tour, Explore and t
       'journey:small',
       'cyear',
       'mysky',
+      'comingup',
       'adventure'
     ],
     'the journey inward leads the Journeys; the tour keeps its own chip'
@@ -1398,6 +1404,16 @@ test('Explore: one hub for everything guided; the top bar is Tour, Explore and t
     assert.equal(a.app.hooks.covered, true, 'the scene behind it is paused');
     a.document.querySelector('#cyear .cy-x').onclick();
     assert.equal(a.app.hooks.covered, false, 'and runs again when it closes');
+    a.$('journeys').onclick();
+    list.querySelector('[data-act="comingup"]').onclick();
+    const cu = a.document.getElementById('comingup');
+    assert.equal(cu.hidden, false, 'Coming up opens from Explore');
+    assert.equal(a.$('explore').hidden, true, 'in place of Explore');
+    assert.ok(cu.querySelectorAll('.cu-ev').length >= 1, 'with the events still to come');
+    for (const ev of cu.querySelectorAll('.cu-ev')) assert.ok(ev.querySelector('[data-do="look"]'), 'each has Where to look');
+    cu.querySelector('.ex-x').onclick();
+    assert.equal(cu.hidden, true);
+    assert.equal(a.app.hooks.covered, false);
   } finally {
     Object.assign(g, saved);
   }

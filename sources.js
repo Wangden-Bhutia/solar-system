@@ -20,6 +20,7 @@ import {
 import { LINES } from './voice/lines.js';
 import { PREDICTIONS, JOURNEYS } from './learn.js';
 import { SOURCES as TOUR_SOURCES, TOUR_STOPS, sourcesOf } from './tour.js';
+import { SKY_EVENTS } from './sky-events.js';
 import { STOPS as ADVENTURE_STOPS, SCALE_NOTE } from './adventure.js';
 import { NEARBY } from './science.js';
 import { LANDMARKS, GALAXY_FACTS } from './galaxy-data.js';
@@ -637,6 +638,27 @@ function cosmicYear() {
     }
   ];
 }
+// Coming up: each event as listed, with its own sources (dates, times and visibility from India).
+function comingUp() {
+  const key = r => {
+    const k = `cu:${r.url}`;
+    if (!REFS[k]) REFS[k] = { label: r.label, url: r.url, secondary: /wikipedia/i.test(r.url) };
+    return k;
+  };
+  return [
+    {
+      id: 'comingup-events',
+      title: 'Sky events',
+      claims: [
+        C(
+          'Where to look is worked out with the app’s own sky maths for the moment given, from your location or the place you pick; the times in the list are India times. Sky events are listed until a day after they happen.',
+          ['jplApprox']
+        ),
+        ...SKY_EVENTS.map(e => C(`${e.title} (${e.when}). ${e.text}`, e.src.map(key)))
+      ]
+    }
+  ];
+}
 // The journey inward: each step's fact, with its sources (steps that only say where we are have none).
 function inward() {
   const key = r => {
@@ -662,7 +684,8 @@ export function claimGroups() {
     { id: 'beyond', title: 'Stars, galaxies and the universe', sections: beyond() },
     { id: 'scale', title: 'Scale readout', sections: scale() },
     { id: 'cosmicyear', title: 'The cosmic year', sections: cosmicYear() },
-    { id: 'inward', title: 'Journey inward', sections: inward() }
+    { id: 'inward', title: 'Journey inward', sections: inward() },
+    { id: 'comingup', title: 'Coming up in the sky', sections: comingUp() }
   ];
 }
 

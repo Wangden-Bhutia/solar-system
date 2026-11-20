@@ -61,7 +61,8 @@ import {
   solarCamera,
   hideSunLabel,
   solarDate,
-  setSolarDate
+  setSolarDate,
+  setPlaying
 } from './app.js';
 import { createZoomController, wheelZ, pinchZ } from './zoom.js';
 import { createZoomLog } from './zoomlog.js';
@@ -98,7 +99,7 @@ import {
 } from './insights.js';
 import { LINES, VOICE } from './voice/lines.js';
 import { createVoicePlayer } from './voice-player.js';
-import { initAdventure } from './adventure.js';
+import { initAdventure, moonFrameMul } from './adventure.js';
 import { REFS, LAB_REFS } from './sources.js';
 import { mountSources, refLinks } from './sources-page.js';
 import { SPOT_KEY, SAVE_EVERY_MS, AWAY_Z, makeSpot, parseSpot, isAway, spotLabel } from './resume.js';
@@ -107,6 +108,7 @@ import { hereLine, hereMore } from './here.js';
 import { createFinale } from './finale.js';
 import { mountOffline } from './offline-ui.js';
 import { createMySky } from './my-sky.js';
+import { createComingUp } from './coming-up.js';
 import { createCosmicYear } from './cosmic-year.js';
 import { createInward } from './inward.js';
 import { RUNGS as INWARD_STEPS } from './inward-data.js';
@@ -204,6 +206,7 @@ globalThis.addEventListener?.('popstate', () => {
   else if (top === 'cyear') cYear?.close();
   else if (top === 'inward') inward?.close();
   else if (top === 'mysky') mySky?.close();
+  else if (top === 'comingup') comingUp?.close();
   else if (top === 'sheet' && state.value.sheet !== 'closed') $('close').onclick();
 });
 let sheetLayerOpen = false;
@@ -1847,6 +1850,7 @@ function buildExplore() {
     '<p class="xsec">Time and the sky</p>' +
     card('cyear', 'The cosmic year', '13.8 billion years squeezed into one calendar year.') +
     card('mysky', 'My sky', 'What is up over you tonight, and where to look.') +
+    card('comingup', 'Coming up', 'Eclipses, meteor showers and planets lining up over the next year.') +
     '<p class="xsec">For young explorers</p>' +
     card('adventure', 'The Earth and Moon adventure', 'A short spoken story: find Earth, then fly to the Moon.');
   const startJourney = id => {
@@ -1866,6 +1870,10 @@ function buildExplore() {
     mysky: () => {
       closeExplore(true);
       openMySky();
+    },
+    comingup: () => {
+      closeExplore(true);
+      openComingUp();
     },
     adventure: () => {
       closeExplore(true);
@@ -3061,6 +3069,7 @@ const sourcesUi = mountSources(document, {
 });
 const mySky = createMySky({
   onLeave: () => goLevel('stars'),
+  onSpace: (name, ms) => showInSpace(ms, { focus: name }),
   onOpen: () => {
     hooks.covered = true;
     pushLayer('mysky');
@@ -3070,12 +3079,65 @@ const mySky = createMySky({
     dropLayer('mysky');
   }
 });
-function openMySky() {
+function openMySky(opts) {
   $('settings').open = false;
   finale.hide();
   cYear.close();
   inward.close();
-  mySky.open();
+  comingUp.close(true);
+  mySky.open(opts);
+}
+// The Solar System on a date (My sky's See it in space, and Coming up's): the clock is set and held, then the view
+// flies to one world (focus) or frames the inner or all planets (fit) so the line-up can be seen.
+function showInSpace(ms, { focus: name, fit, fitTo, side } = {}) {
+  setSolarDate(ms);
+  setPlaying(false);
+  goLevel('solar', () => {
+    const b = name && bodies.find(x => x.data.name === name);
+    if (b && side) {
+      // An eclipse: look across the Sun–Earth line, so the Sun is to one side and the Moon sits on the line.
+      const e = b.mesh.getWorldPosition(camera.position.clone()),
+        sun = e.clone().negate().setY(0).normalize(),
+        dir = sun.clone().set(-sun.z, 0.25, sun.x).normalize();
+      focus(b, { silent: true, outside: true, mul: moonFrameMul(camera.aspect, camera.fov), dir });
+    } else if (b) {
+      state.update({ world: b.data.name, feature: 'overview' });
+      focus(b, { outside: true });
+    } else {
+      if (solarFocused?.()) unfocus(false);
+      // fitTo: frame the Sun's neighbourhood out to that planet (a little beyond it), wherever it stands.
+      const far = fitTo && bodies.find(x => x.data.name === fitTo);
+      if (far) {
+        const r = $('c').getBoundingClientRect(),
+          asp = (r.width || 1) / (r.height || 1),
+          d = far.mesh.getWorldPosition(camera.position.clone()).length() * 1.15;
+        animateTo(solarZ(fitHomeDistance(d, camera.fov, asp, homeDirection(asp)), real()), () => {});
+      } else animateTo(tourZ({ at: { fit: fit || 'inner' } }), () => {});
+    }
+  });
+}
+const comingUp = createComingUp({
+  onOpen: () => {
+    hooks.covered = true;
+    pushLayer('comingup');
+  },
+  onClose: () => {
+    hooks.covered = false;
+    dropLayer('comingup');
+  },
+  onLook: ev => {
+    const lk = ev.look;
+    openMySky({ at: lk.at, look: lk.radiant ? { radiant: lk.radiant, say: lk.say } : { body: lk.body, say: `${ev.title}: ${ev.when}.` } });
+  },
+  onSpace: ev => showInSpace(ev.at, ev.space)
+});
+function openComingUp() {
+  $('settings').open = false;
+  finale.hide();
+  cYear.close();
+  inward.close();
+  mySky.close();
+  comingUp.open();
 }
 let cYearPausedTour = false;
 const cYear = createCosmicYear({
