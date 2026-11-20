@@ -1,5 +1,5 @@
-// Coming up: real sky events from India, December 2026 to December 2029. The list shows the next 12 months only
-// (window): an event drops off a day after it happens, and the next one joins when it comes within a year. Each is a moment (at, UT) with a good time to
+// Coming up: real sky events from India, December 2026 to December 2029. The list shows the next 6 months only
+// (window): an event drops off a day after it happens, and the next one joins when it comes within six months. Each is a moment (at, UT) with a good time to
 // look from north Bengal (look.at, UT; checked with sky-math.js for Siliguri: the target is up and the sky is dark) and,
 // where the arrangement in space explains it, a view of the Solar System on that date (space: fit the inner planets,
 // fitTo out to a planet, or focus a world; side: look across the Sun–Earth line to see the Moon on it). Dates and times are
@@ -256,6 +256,17 @@ export const SKY_EVENTS = [
     src: [HEMEL28, TL28]
   },
   {
+    id: 'mercury-east-2028',
+    kind: 'Evening star',
+    at: ut(2028, 5, 9, 6, 13),
+    title: 'Mercury at its best after sunset',
+    text: 'Mercury, the hardest of the bright planets to catch, stands 21° from the Sun: about as far as it gets. Look low in the west half an hour after sunset for a steady point of light. Binoculars help find it; put them away before the Sun is in view.',
+    when: '9 May, about 6.50 pm, low in the west',
+    look: { at: ist(2028, 5, 9, 18, 50), body: 'Mercury' },
+    space: { fit: 'inner' },
+    src: [HEMEL28, TL28]
+  },
+  {
     id: 'saturn-opp-2028',
     kind: 'Opposition',
     at: ut(2028, 10, 30, 17, 34),
@@ -338,6 +349,38 @@ export const SKY_EVENTS = [
     src: [hemel('Jupiter', 'jupiter/opposities/jupiteroppositie_20290412.html', '2029'), TL29]
   },
   {
+    id: 'mercury-east-apr-2029',
+    kind: 'Evening star',
+    at: ut(2029, 4, 21, 13),
+    title: 'Mercury at its best after sunset',
+    text: 'Mercury swings out to 20° east of the Sun. Spring evenings are the best time for it from the north, because its path stands steeply above the sunset. Low in the west, soon after sunset.',
+    when: '21 Apr, about 6.45 pm, low in the west',
+    look: { at: ist(2029, 4, 21, 18, 45), body: 'Mercury' },
+    space: { fit: 'inner' },
+    src: [TL29]
+  },
+  {
+    id: 'apophis-2029',
+    kind: 'Asteroid',
+    at: ut(2029, 4, 13, 21, 46),
+    title: 'Apophis skims past Earth',
+    text: 'A 340-metre asteroid passes about 31,000 km above us, closer than the satellites that carry television. It will look like a star as bright as those of the Plough, sliding slowly across the sky; most of Asia can see it. It will not hit us: its path is known well enough to rule that out. The exact track across India’s sky will be published nearer the date.',
+    when: 'Night of 13–14 Apr, track to be announced',
+    look: null,
+    space: null,
+    src: [
+      {
+        label: 'Live Science: Apophis could be visible to 90% of Earth’s population',
+        url: 'https://livescience.com/space/asteroids/shared-cosmic-experience-potentially-hazardous-asteroid-apophis-could-be-visible-to-90-percent-of-earths-population-during-ultraclose-2029-flyby-new-maps-reveal'
+      },
+      {
+        label: 'ESA: Apophis orbit diverted by Earth’s gravity',
+        url: 'https://www.esa.int/ESA_Multimedia/Images/2021/03/Apophis_orbit_diverted_by_Earth_s_gravity'
+      },
+      TL29
+    ]
+  },
+  {
     id: 'perseids-2029',
     kind: 'Meteors',
     at: ut(2029, 8, 12, 21),
@@ -350,6 +393,17 @@ export const SKY_EVENTS = [
       say: 'Meteors seem to fly out of this spot in Perseus, in the north-east.'
     },
     space: null,
+    src: [TL29]
+  },
+  {
+    id: 'mercury-east-aug-2029',
+    kind: 'Evening star',
+    at: ut(2029, 8, 19, 21),
+    title: 'Mercury at its best after sunset',
+    text: 'Mercury reaches 27° from the Sun, its widest this year, but August evenings set its path at a shallow slant, so it stays low. A clear western horizon between monsoon clouds is the challenge.',
+    when: '19 Aug, about 6.45 pm, very low in the west',
+    look: { at: ist(2029, 8, 19, 18, 45), body: 'Mercury' },
+    space: { fit: 'inner' },
     src: [TL29]
   },
   {
@@ -393,15 +447,15 @@ export const SKY_EVENTS = [
   }
 ];
 
-// The window: events from a day ago to a year ahead, soonest first. An event joins the list on the same date a year
-// before it happens (a calendar year, so 22 Mar 2028 joins on 22 Mar 2027) and is marked New for its first month.
+// The window: events from a day ago to six months ahead, soonest first. An event joins the list on the same date six
+// months before it happens (calendar months, so 22 Mar 2028 joins on 22 Sep 2027) and is marked New for its first month.
 export const joinsAt = e => {
   const d = new Date(e.at);
-  d.setUTCFullYear(d.getUTCFullYear() - 1);
+  d.setUTCMonth(d.getUTCMonth() - 6);
   return d.getTime();
 };
 export const upcoming = (now = Date.now(), list = SKY_EVENTS) =>
-  list.filter(e => e.at + 86400000 > now && e.look.at + 6 * 3600000 > now && now >= joinsAt(e)).sort((a, b) => a.at - b.at);
+  list.filter(e => e.at + 86400000 > now && (e.look?.at ?? e.at) + 6 * 3600000 > now && now >= joinsAt(e)).sort((a, b) => a.at - b.at);
 // The next event not yet in the list, if any.
 export const nextToJoin = (now = Date.now(), list = SKY_EVENTS) =>
   list.filter(e => now < joinsAt(e)).sort((a, b) => a.at - b.at)[0] || null;
