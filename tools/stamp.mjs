@@ -49,7 +49,7 @@ export function stampSite(dir, v) {
 export const isClip = f => /^voice\/.*\.mp3$/.test(f);
 export function precacheList(dir, v) {
   return walk(dir).map(f => path.relative(dir, f).split(path.sep).join('/'))
-    .filter(f => f !== 'sw.js' && f !== 'precache.json' && !f.startsWith('.') && !f.endsWith('.md') && !f.endsWith('.txt') && !isClip(f))
+    .filter(f => f !== 'sw.js' && f !== 'precache.json' && f !== 'og-image.jpg' /* only for link previews */ && !f.startsWith('.') && !f.endsWith('.md') && !f.endsWith('.txt') && !isClip(f))
     .map(f => f === 'index.html' ? './' : /\.(m?js|css)$/.test(f) ? `${f}?v=${v}` : f).sort();
 }
 // "about 4.0 MB": decimal megabytes, one decimal (what phones' storage settings show).

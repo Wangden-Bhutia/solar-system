@@ -1,7 +1,9 @@
 // Offline support. After one visit with a connection, the app opens without one.
 // - The page itself: network first (so a new deploy shows at once), the cached copy when offline.
-// - Everything else (modules, styles, textures, voice clips): cache first. Deploys stamp each file URL
-//   with ?v=<commit>, so a cached file is never stale; older stamps of the same file are dropped.
+// - Versioned files (modules and styles carry ?v=<commit>, voice clips ?h=<hash>): cache first. A new deploy
+//   gives them a new URL, so a cached copy is never stale; older stamps of the same file are dropped.
+// - Unversioned files (textures, icons, data files): the cached copy at once, and a check in the background
+//   that saves a newer copy when the file has changed, so a redrawn picture reaches people on their next visit.
 const CACHE = 'our-solar-system';
 const put = async (req, res) => {
   const cache = await caches.open(CACHE), url = new URL(req.url);
@@ -33,5 +35,7 @@ self.addEventListener('fetch', e => {
       .catch(async () => (await caches.match(req, { ignoreSearch: true })) || (await caches.match(new URL('./', self.location).href, { ignoreSearch: true })) || Response.error()));
     return;
   }
-  e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => { if (res.ok && res.status === 200) put(req, res.clone()); return res; })));
+  const fresh = () => fetch(req).then(res => { if (res.ok && res.status === 200) put(req, res.clone()); return res; });
+  if (/[?&][vh]=/.test(new URL(req.url).search)) { e.respondWith(caches.match(req).then(hit => hit || fresh())); return; }
+  e.respondWith(caches.match(req).then(hit => { if (!hit) return fresh(); e.waitUntil(fresh().catch(() => {})); return hit; }));
 });
