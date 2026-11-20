@@ -204,5 +204,5 @@ export const COSMOS_FACTS = {
   laniakeaMass: 'about 10¹⁷ Suns',
   age: '13.8 billion years',
   edge: '46.5 billion',
-  galaxies: 'as many as 2 trillion (estimate)'
+  galaxies: 'hundreds of billions (estimate)'
 };

@@ -26,7 +26,7 @@ export function mountOffline({ $, win }) {
     sw.ready.then(reg => reg.active?.postMessage({ saveAll: true }));
   }
   // What Save for offline downloads: precache.json's total, written in here (and in index.html) by tools/stamp.mjs at deploy.
-  const OFFLINE_SIZE = 'about 9.1 MB';
+  const OFFLINE_SIZE = 'about 9.3 MB';
   function paintOffline() {
     $('install').hidden = !installEvent;
     $('save-offline').hidden = !sw;

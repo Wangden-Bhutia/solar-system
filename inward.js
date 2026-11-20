@@ -314,7 +314,14 @@ export function createInward({ onOpen, onClose } = {}) {
     zc.set(Math.log(w0));
     handover =
       view && startW
-        ? { lat: view.lat, lon: view.lon, wEntry: w0, wCity: 3e6 } /* the turn is done by 3,000 km, before the flat pictures appear */
+        ? {
+            lat: view.lat,
+            lon: view.lon,
+            sun: view.sun,
+            roll: view.roll || 0,
+            wEntry: w0,
+            wCity: 3e6
+          } /* the turn is done by 3,000 km, before the flat pictures appear */
         : null;
     world?.setHandover(handover);
     if (handover) fadeIn();

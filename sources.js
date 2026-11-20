@@ -582,6 +582,7 @@ function beyond() {
       C(`Age of the universe ${COSMOS_FACTS.age} · edge about ${COSMOS_FACTS.edge} light-years away · galaxies: ${COSMOS_FACTS.galaxies}`, [
         'planck2018',
         'davis2004',
+        'lauer2021',
         wiki('Observable universe')
       ]),
       C('The cosmic microwave background: the oldest light, released about 380,000 years after the Big Bang; redshift about 1,090.', [
