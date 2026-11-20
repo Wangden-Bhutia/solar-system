@@ -252,6 +252,30 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
               ) /* the made-up town meets the real fields over a wider edge */
       );
     }
+    // the person resting in the tree's shade (in the tree picture, inward-05, at pixel 1000, 1070 of 1280): a gold ring
+    // that keeps its size on screen, so a small figure is easy to find at the tree step
+    layer('person', 40, 22, 6, 3.5, () => {
+      const W5 = CHAIN_W[4],
+        g = new THREE.Group(),
+        ring = new THREE.Sprite(
+          new THREE.SpriteMaterial({
+            map: canvasTex(128, x => {
+              x.strokeStyle = '#f3c887';
+              x.lineWidth = 7;
+              x.beginPath();
+              x.arc(64, 64, 52, 0, 6.283);
+              x.stroke();
+            }),
+            transparent: true,
+            depthTest: false,
+            sizeAttenuation: false
+          })
+        );
+      ring.scale.setScalar(0.07);
+      g.position.set(centre[4][0] + (1000 / 1280 - 0.5) * W5, 0, centre[4][1] + (1070 / 1280 - 0.5) * W5);
+      g.add(ring);
+      return g;
+    });
   }
 
   // ---- the leaf, closer than the photograph can show (drawn) ----
@@ -350,7 +374,11 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
             if (r() < 0.08) continue; /* a few walls missing, as in a real leaf, where veinlets end inside an island */
             const mx = (A[0] + B[0]) / 2 + (r() - 0.5) * cs * 0.18,
               my = (A[1] + B[1]) / 2 + (r() - 0.5) * cs * 0.18;
-            stroke([A, [(A[0] + mx) / 2, (A[1] + my) / 2], [mx, my], [(B[0] + mx) / 2, (B[1] + my) / 2], B], 2.2, 'rgba(168,204,92,0.5)');
+            stroke(
+              [A, [(A[0] + mx) / 2, (A[1] + my) / 2], [mx, my], [(B[0] + mx) / 2, (B[1] + my) / 2], B],
+              3.2,
+              'rgba(172,208,96,0.66)'
+            ); /* bold enough to read on a phone */
           }
         }
       /* the branching veins: each grows in small curving steps and gives off thinner side veins */
@@ -378,11 +406,11 @@ export async function createInwardWorld(canvas, { reduced = () => false } = {}) 
           stroke(
             pts.slice(Math.floor((q * pts.length) / 3), Math.floor(((q + 1) * pts.length) / 3) + 1),
             wid * (1 - q * 0.22),
-            `rgba(176,210,96,${0.75 - depth * 0.08})`
+            `rgba(182,216,100,${0.9 - depth * 0.08})`
           );
         for (const k of kids) vein(...k);
       }
-      for (let k = 0; k < 3; k++) vein(r() * n, -n * 0.1 + k * n * 0.4, 0.55 + (r() - 0.5) * 0.15, n * 1.25, 15, 0);
+      for (let k = 0; k < 3; k++) vein(r() * n, -n * 0.1 + k * n * 0.4, 0.55 + (r() - 0.5) * 0.15, n * 1.25, 20, 0);
     });
     tile.wrapS = tile.wrapT = THREE.RepeatWrapping;
     tile.repeat.set(5, 5);
