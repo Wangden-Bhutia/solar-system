@@ -1,7 +1,7 @@
 {
   "name": "A Mote in a Sunbeam",
   "short_name": "Mote",
-  "description": "From the Sun to the edge of the universe.",
+  "description": "From an atom to the edge of the universe, and what’s in your sky tonight.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
