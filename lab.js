@@ -100,6 +100,8 @@ import {
 } from './insights.js';
 import { LINES, VOICE } from './voice/lines.js';
 import { createVoicePlayer } from './voice-player.js';
+import { createNarrator } from './narrator.js';
+import { tourClip, journeyClip, inwardClip, INWARD_END_CLIP, cosmicClip } from './narration.js';
 import { initAdventure, moonFrameMul } from './adventure.js';
 import { REFS, LAB_REFS } from './sources.js';
 import { mountSources, refLinks } from './sources-page.js';
@@ -1396,30 +1398,45 @@ const player = createVoicePlayer({
   durations: VOICE.dur,
   versions: VOICE.hash,
   onState: s => {
-    if (s === 'idle' && lastAudioState === 'retry') return;
+    if (narrator?.on) return narrator.state(s); // a story is reading: its own note shows the state
+    if (s === 'idle' && (lastAudioState === 'retry' || lastAudioState === 'offline')) return;
     lastAudioState = s;
     $('audio-status').textContent =
-      s === 'loading' ? 'Loading voice…' : s === 'speaking' ? 'Reading this card' : s === 'retry' ? 'Tap ♫ to try again.' : '';
+      s === 'loading'
+        ? 'Loading voice…'
+        : s === 'speaking'
+          ? 'Reading this card'
+          : s === 'retry'
+            ? 'Tap ♫ to try again.'
+            : s === 'offline'
+              ? 'The voice needs a connection the first time it plays.'
+              : '';
   }
 });
+// Voice in the menu: on or off for the whole app, remembered. A ♫ tap anywhere is the opt-in, so it switches Voice on.
+function setVoiceOn(on) {
+  $('sound').checked = on;
+  preferences.muted = !on;
+  try {
+    localStorage.setItem('solar.kids.v1', JSON.stringify(preferences));
+  } catch {}
+}
+const narrator = createNarrator({ player, has: id => !!LINES[id], voiceOn: () => $('sound').checked, setVoiceOn });
 function stopAudio() {
   player.stop();
 }
 $('listen').onclick = () => {
   if (!narration || !LINES[narration]) return;
-  if (!$('sound').checked) {
-    $('audio-status').textContent = 'Turn on Voice in the menu (top right).';
-    return;
-  }
+  if (!$('sound').checked) setVoiceOn(true);
   player.unlock();
   player.say(narration);
 };
 $('sound').onchange = () => {
-  preferences.muted = !$('sound').checked;
-  try {
-    localStorage.setItem('solar.kids.v1', JSON.stringify(preferences));
-  } catch {}
-  if (preferences.muted) stopAudio();
+  setVoiceOn($('sound').checked);
+  if (preferences.muted) {
+    narrator.off();
+    stopAudio();
+  }
 };
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
@@ -2068,7 +2085,7 @@ const nextJourney = id => {
 function paintJourney() {
   const s = state.value,
     j = journey(s.journey);
-  narration = null;
+  narration = j ? journeyClip(j.id, s.step) : null; /* ♫ reads this step, like a card */
   $('action').hidden = true;
   $('journey-step').hidden = !j;
   if (!j) {
@@ -3150,8 +3167,14 @@ tourRef = createTour({
     if (adventure && adventure.phase !== 'off') adventure.end(true);
   }, // one guided story at a time
   readout: () => (hudEl.hidden ? null : [hudB.textContent, hudA.textContent]),
+  hold: () => narrator.on && narrator.busy, // while ♫ reads a stop, the tour waits for the end of the line
   onChange: () => {
     tourUi?.paint();
+    if (narrator.on) {
+      if (!tourRef?.active) narrator.release();
+      else if (tourRef.paused) narrator.stop();
+      else if (tourRef.arrived) narrator.read(tourClip(tourRef.stops[tourRef.index]));
+    }
     if (tourRef?.finished && !tourEnded) {
       tourEnded = true;
       tourRef.exit();
@@ -3159,7 +3182,14 @@ tourRef = createTour({
     }
   }
 });
-tourUi = mountTour(document, tourRef, { storage: globalThis.localStorage, afterNode: $('journeys') });
+tourUi = mountTour(document, tourRef, {
+  storage: globalThis.localStorage,
+  afterNode: $('journeys'),
+  onVoice: (btn, note) => {
+    narrator.bind(btn, note);
+    narrator.toggle(tourRef.arrived && !tourRef.paused ? tourClip(tourRef.stops[tourRef.index]) : null);
+  }
+});
 {
   const t = $('tour-start');
   if (t) {
@@ -3260,6 +3290,7 @@ function openComingUp() {
 }
 let cYearPausedTour = false;
 const cYear = createCosmicYear({
+  narrator,
   onOpen: () => {
     hooks.covered = true;
     pushLayer('cyear');
@@ -3277,6 +3308,7 @@ const cYear = createCosmicYear({
 });
 let inwardPausedTour = false;
 const inward = createInward({
+  narrator,
   onOutward: () => tourRef?.start(0) /* the tour finds Earth itself */,
   onOpen: () => {
     hooks.covered = true;

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Regenerate the voice clips (world cards, labs, Earth–Moon adventure) from voice/lines.json so audio never drifts from on-screen text.
+"""Regenerate the voice clips (world cards, labs, Earth–Moon adventure, and the tour, journeys, journey inward and cosmic year)
+from voice/lines.json so audio never drifts from on-screen text. One voice for the whole app.
+When story text changes: node tools/voice-lines.mjs (rewrites their lines from the screen text), then this script.
 Voice: Kokoro-82M v1.0 (Apache-2.0 weights) via kokoro-onnx (MIT), speaker bm_george, speed 0.85.
 Needs: pip install kokoro-onnx soundfile; ffmpeg; model files (env KOKORO_MODEL, KOKORO_VOICES).
 Writes voice/<id>.mp3 (mono 24 kHz, 32 kbps), voice/lines.js and voice/manifest.json (text hash per clip; unchanged clips are skipped)."""

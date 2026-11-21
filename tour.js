@@ -336,7 +336,7 @@ export function createTour(deps, stops = TOUR_STOPS) {
     tick(dt) {
       if (!t.active || t.paused || t.moving || !t.arrived || t.finished) return;
       t.dwell += dt;
-      if (t.dwell < t.dwellS) return;
+      if (t.dwell < t.dwellS || deps.hold?.()) return; // hold: the narrator is still reading this stop
       if (t.index < stops.length - 1) goTo(t.index + 1);
       else {
         t.finished = true;
@@ -370,7 +370,7 @@ const ICON = {
   info: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 7.2v4M8 4.6v.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
   exit: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>'
 };
-export function mountTour(doc, tour, { storage, afterNode } = {}) {
+export function mountTour(doc, tour, { storage, afterNode, onVoice } = {}) {
   const el = (tag, props = {}, html = '') => {
     const e = doc.createElement(tag);
     for (const [k, v] of Object.entries(props)) e.setAttribute(k, v);
@@ -398,8 +398,10 @@ export function mountTour(doc, tour, { storage, afterNode } = {}) {
     `<div class="tour-nav"><button id="tour-prev" type="button" aria-label="Previous stop">${ICON.prev}</button>` +
     `<button id="tour-play" type="button" aria-label="Pause the tour">${ICON.pause}</button>` +
     `<button id="tour-next" type="button" aria-label="Next stop">${ICON.next}</button>` +
+    `<button id="tour-voice" type="button" class="tour-voice" aria-pressed="false" aria-label="Read aloud">♫</button>` +
     `<button id="tour-info" type="button" aria-expanded="false" aria-controls="tour-more" aria-label="More about this stop, with sources">${ICON.info}</button>` +
-    `<button id="tour-exit" type="button" aria-label="End the tour and explore from here">${ICON.exit}</button></div>`;
+    `<button id="tour-exit" type="button" aria-label="End the tour and explore from here">${ICON.exit}</button></div>` +
+    '<p id="tour-vnote" class="tour-vnote" aria-live="polite"></p>';
   const hint = el(
     'div',
     { id: 'tour-hint', class: 'tour-hint', role: 'note' },
@@ -508,6 +510,7 @@ export function mountTour(doc, tour, { storage, afterNode } = {}) {
   q('tour-next').onclick = () => tour.next();
   q('tour-play').onclick = () => tour.toggle();
   q('tour-exit').onclick = () => tour.exit();
+  q('tour-voice').onclick = () => onVoice?.(q('tour-voice'), q('tour-vnote'));
   doc.addEventListener('keydown', e => {
     if (e.key === 'Escape' && tour.active && !card.hidden) {
       if (open) setOpen(false);

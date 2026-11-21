@@ -10,7 +10,12 @@ import { LINES, VOICE } from '../voice/lines.js';
 import { INSIGHTS } from '../insights.js';
 import { SUN, PLANETS, MOON, MOONS, DWARFS } from '../data.js';
 import { STOPS } from '../adventure.js';
-import { createVoicePlayer, pickVoice, FALLBACK } from '../voice-player.js';
+import { createVoicePlayer } from '../voice-player.js';
+import { TOUR_STOPS } from '../tour.js';
+import { JOURNEYS } from '../learn.js';
+import { RUNGS } from '../inward-data.js';
+import { EVENTS } from '../cosmic-calendar.js';
+import { tourClip, journeyClip, inwardClip, INWARD_END_CLIP, cosmicClip } from '../narration.js';
 import { precacheList, stampSite, writePrecache, isClip } from '../tools/stamp.mjs';
 
 // What the code can ask the player to say: literal ids in the modules that narrate, the adventure's stops, and a
@@ -24,6 +29,12 @@ function reachableIds() {
     ids.add(s.fact);
   }
   for (const w of [SUN, ...PLANETS, MOON, ...DWARFS, ...MOONS]) ids.add(INSIGHTS[w.name]?.line || `f_${w.name}_0`);
+  // the guided stories, read by the one narrator (narration.js names their clips)
+  for (const s of TOUR_STOPS) ids.add(tourClip(s));
+  for (const j of JOURNEYS) j.steps.forEach((_, i) => ids.add(journeyClip(j.id, i)));
+  for (const r of RUNGS) ids.add(inwardClip(r.id));
+  ids.add(INWARD_END_CLIP);
+  for (const e of EVENTS) ids.add(cosmicClip(e.id));
   return ids;
 }
 test('every clip the app can play exists, and there are no orphan clips, texts or manifest entries', () => {
@@ -34,7 +45,7 @@ test('every clip the app can play exists, and there are no orphan clips, texts o
       .map(f => f.slice(0, -4))
   );
   const wanted = [...reachableIds()].filter(id => clips.has(id) || LINES[id]);
-  assert.equal(clips.size, 26);
+  assert.equal(clips.size, 26 + TOUR_STOPS.length + JOURNEYS.reduce((n, j) => n + j.steps.length, 0) + RUNGS.length + 1 + EVENTS.length);
   for (const id of clips) assert.ok(reachableIds().has(id), `${id}.mp3 is reachable from the code`);
   for (const id of wanted) assert.ok(clips.has(id) && LINES[id], `${id}: clip and text`);
   const manifest = JSON.parse(fs.readFileSync('voice/manifest.json', 'utf8'));
@@ -63,7 +74,7 @@ test('Save for offline / install precache lists no voice clips, still lists the 
   assert.equal(list.files.filter(f => /\.mp3/.test(f)).length, 0, 'no clips');
   assert.ok(list.files.includes('voice/lines.js?v=abc123def456'));
   assert.ok(list.files.includes('adventure.js?v=abc123def456'));
-  assert.equal(fs.readdirSync(path.join(dir, 'voice')).filter(f => f.endsWith('.mp3')).length, 26, 'clips are still deployed');
+  assert.equal(fs.readdirSync(path.join(dir, 'voice')).filter(f => f.endsWith('.mp3')).length, 103, 'clips are still deployed');
   assert.ok(isClip('voice/trip_earth.mp3'));
   assert.ok(!isClip('voice/lines.js'));
   assert.match(
@@ -202,25 +213,9 @@ test('the player asks for each clip with its content hash (so the cache-first wo
   delete globalThis.fetch;
 });
 
-test('speech fallback: a male English voice when the device has one, calm rate 0.9, normal pitch', () => {
-  assert.deepEqual({ ...FALLBACK }, { rate: 0.9, pitch: 1 });
-  assert.equal(
-    pickVoice([
-      { name: 'Samantha (Female)', lang: 'en-US' },
-      { name: 'Google UK English Male', lang: 'en-GB' }
-    ]).name,
-    'Google UK English Male'
-  );
-  assert.equal(
-    pickVoice([
-      { name: 'Karen', lang: 'en-AU' },
-      { name: 'Daniel', lang: 'en-GB' },
-      { name: 'Thomas', lang: 'fr-FR' }
-    ]).name,
-    'Daniel'
-  );
-  assert.equal(pickVoice([{ name: 'Female voice', lang: 'en-US' }]).name, 'Female voice', 'no male voice: the first English one');
-  assert.equal(pickVoice([{ name: 'Thomas', lang: 'fr-FR' }]), null, 'never a non-English voice');
+test('one voice: the recorded narrator only; no device speech anywhere, and the clips are recorded calmly', () => {
+  for (const f of ['voice-player.js', 'lab.js', 'adventure.js', 'narrator.js', 'tour.js', 'inward.js', 'cosmic-year.js'])
+    assert.doesNotMatch(fs.readFileSync(f, 'utf8'), /speechSynthesis|SpeechSynthesisUtterance/, f);
   assert.equal(VOICE.name, 'bm_george');
   assert.ok(VOICE.speed <= 0.9, 'recorded clips: calm pace');
 });

@@ -3,6 +3,7 @@
 // each step. Zooming out past Earth closes it; past the last step, a short end screen says why the journey stops there. Data: inward-data.js; the 3D scene: inward-world.js.
 import { RUNGS, Z_MAX, Z_MIN, END_W, END, rungAt, formatMetres, compareWithYou } from './inward-data.js';
 import { createZoomController, wheelZ, pinchZ } from './zoom.js';
+import { inwardClip, INWARD_END_CLIP } from './narration.js';
 
 // The journey spans 25 powers of ten, so the gestures move further than in space: twice the app's pinch and wheel.
 const GAIN = 2,
@@ -11,7 +12,13 @@ const reducedMotion = () => !!globalThis.matchMedia?.('(prefers-reduced-motion: 
 const ease = k => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 
 // onOutward: the end screen's link to the tour, the same journey the other way.
-export function createInward({ onOpen, onClose, onOutward } = {}) {
+// narrator (narrator.js, optional): ♫ reads each step in the app's one recorded voice as you reach it; play waits for it.
+export function createInward({ onOpen, onClose, onOutward, narrator } = {}) {
+  let readT = 0;
+  const readSoon = id => {
+    clearTimeout(readT);
+    if (narrator?.on) readT = setTimeout(() => narrator.read(id), 500); /* a fast zoom through many steps reads only where it stops */
+  };
   let root,
     canvas,
     card,
@@ -49,7 +56,7 @@ export function createInward({ onOpen, onClose, onOutward } = {}) {
     root.innerHTML = `<canvas class="iw-3d cy-3d" aria-hidden="true"></canvas><div class="cy-top"><button type="button" class="cy-x" aria-label="Close the journey inward"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="cy-head"><strong>Journey inward</strong><span>From Earth into an atom, a power of ten at a time. Pinch, scroll or drag to zoom.</span></div></div>
  <p class="iw-read" aria-live="off"></p>
  <div class="cy-main iw-card"><p class="cy-kick iw-here"></p><p class="cy-text iw-text"></p><p class="iw-note"></p></div>
- <div class="cy-nav"><span class="cy-dots" aria-live="polite"></span><div class="cy-ctl"><button type="button" class="cy-prev" aria-label="Zoom out a step"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="cy-play" aria-label="Play the journey" data-state="play"><svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg><svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg><svg class="i-replay" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 1 0 2.2-5.1M5 4.5v4h4"/></svg></button><button type="button" class="cy-next" aria-label="Zoom in a step"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div><span class="cy-spacer"></span></div>`;
+ <div class="cy-nav"><span class="cy-dots" aria-live="polite"></span><div class="cy-ctl"><button type="button" class="cy-prev" aria-label="Zoom out a step"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="cy-play" aria-label="Play the journey" data-state="play"><svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg><svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg><svg class="i-replay" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 1 0 2.2-5.1M5 4.5v4h4"/></svg></button><button type="button" class="cy-next" aria-label="Zoom in a step"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div><span class="cy-spacer"><button type="button" class="cy-voice" aria-pressed="false" aria-label="Read aloud">♫</button></span></div><p class="cy-vnote" aria-live="polite"></p>`;
     document.body.appendChild(root);
     const q = s => root.querySelector(s);
     canvas = q('.iw-3d');
@@ -66,6 +73,12 @@ export function createInward({ onOpen, onClose, onOutward } = {}) {
     prev.onclick = () => step(-1);
     next.onclick = () => step(1);
     playBtn.onclick = () => (play ? stopPlay() : startPlay());
+    const vb = q('.cy-voice');
+    vb.onclick = () => {
+      narrator?.bind(vb, q('.cy-vnote'));
+      narrator?.toggle(endEl && !endEl.hidden ? INWARD_END_CLIP : inwardClip(rungAt(W()).id));
+    };
+    if (!narrator) vb.hidden = true;
     root.addEventListener('keydown', e => {
       if (e.key === 'Escape') close();
       else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') step(1);
@@ -150,6 +163,7 @@ export function createInward({ onOpen, onClose, onOutward } = {}) {
     if (root.classList.contains('end-on')) return;
     endEl.hidden = false;
     root.classList.add('end-on');
+    readSoon(INWARD_END_CLIP);
     requestAnimationFrame(() => endEl.classList.add('in'));
     endEl.querySelector('.iw-home').focus?.({ preventScroll: true });
   }
@@ -176,6 +190,7 @@ export function createInward({ onOpen, onClose, onOutward } = {}) {
       const k = idx(r);
       dots.innerHTML = `<b>${k + 1}</b> / ${RUNGS.length}`;
       dots.setAttribute('aria-label', `Step ${k + 1} of ${RUNGS.length}`);
+      readSoon(inwardClip(r.id));
     }
     const k = idx(r),
       at = Math.abs(Math.log10(w / r.w)) < 0.05;
@@ -232,7 +247,12 @@ export function createInward({ onOpen, onClose, onOutward } = {}) {
     glideTo(Math.min(RUNGS.length - 1, k + (Math.abs(Math.log10(W() / RUNGS[k].w)) < 0.05 || W() < RUNGS[k].w ? 1 : 0)), () => {
       if (!play) return;
       const r = rungAt(W());
-      play = setTimeout(advance, Math.min(7000, 3000 + (r.text.length + (r.note || '').length) * 22));
+      const wait = () => {
+        if (!play) return;
+        if (narrator?.on && narrator.busy) play = setTimeout(wait, 300); /* the voice finishes the step first */
+        else advance();
+      };
+      play = setTimeout(wait, narrator?.on ? 1200 : Math.min(7000, 3000 + (r.text.length + (r.note || '').length) * 22));
     });
   }
   function stopPlay(done) {
@@ -365,6 +385,8 @@ export function createInward({ onOpen, onClose, onOutward } = {}) {
   function close(how) {
     if (!root || root.hidden || closing) return;
     stopPlay();
+    clearTimeout(readT);
+    narrator?.release();
     glide = null;
     cancelAnimationFrame(raf);
     world?.stop();

@@ -1,11 +1,6 @@
 // Tap-unlocked Web Audio; no autoplay on load or on returning from another app.
-// Device speech, when a clip can't play: a male English voice where the device has one, at a calm pace.
-export const FALLBACK = { rate: 0.9, pitch: 1 };
-export const MALE_VOICE = /male|george|daniel|david|james|arthur|oliver|guy|ryan|thomas|alex|fred|rishi|aaron/i;
-export const pickVoice = voices => {
-  const vs = voices.filter(v => /^en/i.test(v.lang));
-  return vs.find(v => MALE_VOICE.test(v.name) && !/female/i.test(v.name)) || vs[0] || null;
-};
+// One voice: only the recorded narrator ever speaks. When a clip can't be fetched (offline, before it was first heard)
+// the player says so ('offline') instead of handing the text to the device's own speech, which would be a different voice.
 // versions: clip id → content hash (voice/lines.js VOICE.hash). It goes in the clip URL, so a re-recorded clip is
 // fetched fresh while the service worker keeps serving a clip it already has (cache-first) offline.
 export function createVoicePlayer({ lines, durations, versions = {}, onState = () => {} }) {
@@ -25,7 +20,7 @@ export function createVoicePlayer({ lines, durations, versions = {}, onState = (
       s.connect(ctx.destination);
       s.start();
     } catch {
-      /* Web Speech is still available on some devices. */
+      /* no Web Audio here: say() reports 'retry' */
     }
   }
   function stop() {
@@ -36,7 +31,6 @@ export function createVoicePlayer({ lines, durations, versions = {}, onState = (
     source = null;
     finish?.();
     finish = null;
-    if ('speechSynthesis' in globalThis) speechSynthesis.cancel();
     state('idle');
   }
   async function clip(id) {
@@ -61,58 +55,21 @@ export function createVoicePlayer({ lines, durations, versions = {}, onState = (
     }
     return cache.get(id);
   }
-  function fallback(text, me) {
-    return new Promise(resolve => {
-      if (!('speechSynthesis' in globalThis)) {
-        state('retry');
-        return resolve();
-      }
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = FALLBACK.rate;
-      u.pitch = FALLBACK.pitch; // calm and unhurried, normal pitch
-      u.voice = pickVoice(speechSynthesis.getVoices());
-      let timer;
-      const done = () => {
-        clearTimeout(timer);
-        if (finish === done) finish = null;
-        resolve();
-      };
-      finish = done;
-      u.onend = done;
-      u.onerror = () => {
-        if (me === token) state('retry');
-        done();
-      };
-      timer = setTimeout(
-        () => {
-          if (me === token) {
-            speechSynthesis.cancel();
-            state('retry');
-          }
-          done();
-        },
-        2000 + text.length * 140
-      );
-      try {
-        speechSynthesis.speak(u);
-      } catch {
-        state('retry');
-        done();
-      }
-    });
-  }
   async function say(ids, muted = false) {
     stop();
     const me = token;
     ids = [].concat(ids);
     if (muted) return;
-    const text = ids.map(id => lines[id]).join(' ');
     state('loading');
     const buffers = await Promise.all(ids.map(clip));
     if (me !== token) return;
-    if (!ctx || ctx.state !== 'running' || buffers.some(b => !b)) {
-      state('speaking');
-      await fallback(text, me);
+    if (!ctx || ctx.state !== 'running') {
+      state('retry');
+      return;
+    }
+    if (buffers.some(b => !b)) {
+      state('offline');
+      return;
     } else {
       state('speaking');
       for (let i = 0; i < buffers.length && me === token; i++) {

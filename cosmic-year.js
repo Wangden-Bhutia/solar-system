@@ -1,6 +1,7 @@
 // The cosmic year screen: step through 18 moments of the 13.8 billion years, each on its date in one calendar year.
 // A bar shows where each falls in the year (nearly everything happens in the last weeks). Data and maths: cosmic-calendar.js.
 import { createBackdrop } from './cosmic-backdrop.js';
+import { cosmicClip } from './narration.js';
 import { EVENTS, YEAR_SECONDS, AGE_YEARS, yearSeconds, eventDate, calendarAt, spanOnCalendar, agoText } from './cosmic-calendar.js';
 
 // The bar is a lens on the year, always ending at midnight on 31 December. Each step picks the smallest window that holds it,
@@ -23,7 +24,13 @@ export function scaleFor(ago) {
   return pick;
 }
 
-export function createCosmicYear({ onOpen, onClose } = {}) {
+// narrator (narrator.js, optional): ♫ reads each step in the app's one recorded voice; Play waits for the end of a line.
+export function createCosmicYear({ onOpen, onClose, narrator } = {}) {
+  let readT = 0;
+  const readSoon = id => {
+    clearTimeout(readT);
+    if (narrator?.on) readT = setTimeout(() => narrator.read(id), 400);
+  };
   let root,
     bar,
     marker,
@@ -69,7 +76,7 @@ export function createCosmicYear({ onOpen, onClose } = {}) {
  <label class="cy-age" hidden>How old are you? <input type="number" inputmode="numeric" min="0" max="120" value="80" aria-label="Your age in years"> <span class="cy-ageout"></span></label>
 </div>
  <div class="cy-barwrap" aria-hidden="true"><div class="cy-lens"><b class="cy-scale"></b><em class="cy-gap"></em></div><div class="cy-bar"><i class="cy-spans"></i><i class="cy-marker"></i></div><div class="cy-axis"><span class="cy-lo"></span><span class="cy-hi">midnight, 31 Dec: now</span></div></div>
- <div class="cy-nav"><span class="cy-dots" aria-live="polite"></span><div class="cy-ctl"><button type="button" class="cy-prev" aria-label="Earlier"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="cy-play" aria-label="Play the year" data-state="play"><svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg><svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg><svg class="i-replay" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 1 0 2.2-5.1M5 4.5v4h4"/></svg></button><button type="button" class="cy-next" aria-label="Later"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div><span class="cy-spacer"></span></div>`;
+ <div class="cy-nav"><span class="cy-dots" aria-live="polite"></span><div class="cy-ctl"><button type="button" class="cy-prev" aria-label="Earlier"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="cy-play" aria-label="Play the year" data-state="play"><svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg><svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg><svg class="i-replay" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 1 0 2.2-5.1M5 4.5v4h4"/></svg></button><button type="button" class="cy-next" aria-label="Later"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div><span class="cy-spacer"><button type="button" class="cy-voice" aria-pressed="false" aria-label="Read aloud">♫</button></span></div><p class="cy-vnote" aria-live="polite"></p>`;
     document.body.appendChild(root);
     bg = createBackdrop(root.querySelector('.cy-bg'), {
       reduced: () => !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -103,6 +110,12 @@ export function createCosmicYear({ onOpen, onClose } = {}) {
     prev.onclick = () => nav(i - 1);
     next.onclick = () => nav(i + 1);
     playBtn.onclick = () => (play ? stopPlay() : startPlay());
+    const vb = q('.cy-voice');
+    vb.onclick = () => {
+      narrator?.bind(vb, q('.cy-vnote'));
+      narrator?.toggle(cosmicClip(EVENTS[i].id));
+    };
+    if (!narrator) vb.hidden = true;
     ageIn.oninput = () => {
       paintAge();
       paintSpans(EVENTS[i]);
@@ -207,7 +220,7 @@ export function createCosmicYear({ onOpen, onClose } = {}) {
     if (!play) return;
     const k = (now - play.t0) / play.dur;
     if (play.phase === 'dwell') {
-      if (k >= 1) {
+      if (k >= 1 && !(narrator?.on && narrator.busy)) {
         if (i >= EVENTS.length - 1) {
           stopPlay(true);
           return;
@@ -269,6 +282,7 @@ export function createCosmicYear({ onOpen, onClose } = {}) {
     next.disabled = i === EVENTS.length - 1;
     dots.innerHTML = `<b>${i + 1}</b> / ${EVENTS.length}`;
     dots.setAttribute('aria-label', `Step ${i + 1} of ${EVENTS.length}`);
+    readSoon(cosmicClip(e.id));
   }
   // The 3D world loads on first open (three.js is large). Until it is ready, and if WebGL fails, the 2D backdrop stays.
   const worldOff = () => root.querySelector('.cy-3d').hidden;
@@ -332,6 +346,8 @@ export function createCosmicYear({ onOpen, onClose } = {}) {
   function close() {
     if (!root || root.hidden) return;
     stopPlay();
+    clearTimeout(readT);
+    narrator?.release();
     root.hidden = true;
     bg.stop();
     world?.stop();
