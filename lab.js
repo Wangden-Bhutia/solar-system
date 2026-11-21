@@ -1206,6 +1206,7 @@ function zoomInput(dz, kind, now) {
     if (levelOf(state.value.view) === 'solar' && dz > 0 && solarFocused?.() && solarDistance() > 0.5 * solarEdge()) {
       unfocus(false);
       if (state.value.sheet !== 'closed') {
+        cameraKey = 'overview'; // the card closing must not also fly the camera home: the zoom carries on from here
         state.update({ sheet: 'closed' });
         render();
       }
