@@ -68,7 +68,7 @@ test('journey inward: its pictures and modules ship with the app, and Explore of
   const world = fs.readFileSync('inward-world.js', 'utf8');
   assert.ok(world.includes('textures/${CHAIN[k].f}.webp'));
   const lab = fs.readFileSync('lab.js', 'utf8');
-  assert.match(lab, /card\('inward',\s*'Journey inward'/);
+  assert.match(lab, /card\(\s*'inward',\s*'Journey inward'/);
   assert.match(lab, /top\s*===\s*'inward'\)\s*inward\?\.close\(\)/);
   assert.match(lab, /data\?\.name\s*===\s*'Earth'[\s\S]{0,400}?b\.gateIn\s*=\s*pushInward/);
 });

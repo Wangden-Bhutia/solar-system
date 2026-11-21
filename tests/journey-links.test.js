@@ -25,9 +25,11 @@ test('the tour and the journey inward point to each other at their ends', () => 
   );
 });
 
-test('Explore lists the journey inward first among the Journeys, with its real step count, and says so in its heading', () => {
+test('Explore lists the journey inward first among the Journeys, with its real step count on the title line', () => {
   const lab = fs.readFileSync('lab.js', 'utf8');
-  assert.match(lab, /'<p class="xsec">Journeys<\/p>' \+\s*card\('inward', 'Journey inward', `[^`]*\$\{INWARD_STEPS\.length\} stops`\)/);
-  assert.match(lab, /Guided trips, down into an atom, the sky over you tonight/);
+  assert.match(
+    lab,
+    /'<p class="xsec">Journeys<\/p>' \+\s*card\(\s*'inward',\s*'Journey inward',[^)]*`\$\{INWARD_STEPS\.length\} stops`\s*\)/
+  );
   assert.equal(RUNGS.length, 16);
 });

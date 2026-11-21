@@ -333,7 +333,7 @@ export const JOURNEYS = [
   {
     id: 'giants',
     title: 'The giants and their moons',
-    blurb: 'Worlds of gas, rings of ice, and oceans hidden under ice.',
+    blurb: 'Gas giants, icy rings and hidden oceans.',
     found: 'More than 1,000 Earths would fit inside Jupiter; Saturn would float; and under the ice of some of their moons are oceans.',
     steps: [
       {
@@ -368,7 +368,7 @@ export const JOURNEYS = [
   {
     id: 'small',
     title: 'Small worlds',
-    blurb: 'Asteroids, dwarf planets, and where comets come from.',
+    blurb: 'Asteroids, dwarf planets and comets.',
     found:
       'All the asteroids together have less mass than our Moon; Ceres and Pluto are dwarf planets; and many comets start in the icy belt beyond Neptune.',
     steps: [
