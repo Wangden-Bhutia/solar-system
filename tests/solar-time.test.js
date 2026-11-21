@@ -55,3 +55,13 @@ test('the first-visit tour hint goes once Explore has been opened, and stays gon
   const b = await bootApp({ stored: a.storage });
   assert.equal(b.$('tour-hint').hidden, true, 'and not back next time');
 });
+
+test('journey and orbit notes say the planets are where they really are on the date shown (no stale "not current positions")', async () => {
+  const a = await bootApp();
+  a.lab.go({ view: 'journey', journey: 'mars', step: 0, experiment: null });
+  a.step(2);
+  const note = a.$('journey-note').textContent;
+  assert.match(note, /where it really is on \d{1,2} [A-Z][a-z]{2} \d{4} · distances squeezed to fit/, note);
+  assert.doesNotMatch(note, /schematic|not current positions/);
+  assert.doesNotMatch(a.$('world-scale').textContent, /actual-date|circular mostly coplanar/);
+});

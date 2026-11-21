@@ -144,6 +144,8 @@ const LAB_TITLES = {
   tides: 'What makes the tides?',
   scale: 'How big is the Solar System?'
 };
+// Dwarf planets and asteroids are placed for illustration (app.js kepler bodies); the planets and the Moon at their real places.
+const DWARF_OR_SMALL = new Set(bodies.filter(b => b.kepler).map(b => b.data.name));
 let labScene = null;
 const $ = id => document.getElementById(id),
   state = createLabState(),
@@ -2074,8 +2076,8 @@ function paintJourney() {
   // the honest note about the picture goes to the foot of the card, below the controls
   $('view-caption').textContent = '';
   $('journey-note').textContent = st.world
-    ? `${st.world} · schematic view, not current positions`
-    : 'The whole Solar System · schematic view';
+    ? `${st.world} · where it really is on ${dateWord(solarDate())} · ${real() ? 'true sizes and distances' : 'distances squeezed to fit'}`
+    : `The Solar System on ${dateWord(solarDate())} · ${real() ? 'true sizes and distances' : 'distances squeezed to fit'}`;
   bindPredict($('journey-predict'), st.predict, paintJourney);
   const lab = st.lab || st.compare;
   $('journey-lab').parentElement.hidden = !lab;
@@ -2401,7 +2403,7 @@ function paintExplore() {
       `<a href="${url}" target="_blank" rel="noopener">NASA · ${s.world}</a>${info.source ? sourceNote : '<p class="fine">Baseline facts checked 8 November 2026 against NASA sources; see docs/sources.md. Changing moon counts are omitted.</p>'}`;
   $('world-sources').insertAdjacentHTML('beforeend', photoCredit);
   $('world-scale').textContent =
-    'Model caveats: spherical worlds, circular mostly coplanar orbits, accelerated time, procedural surfaces. Earth coastlines use Natural Earth data. Moon craters and weather are not live or mapped observations. Sun size is 1/5 in the default view and 1/10 in the overview (so the inner planets stay visible), where orbits also run at 1/5 speed; orbit gaps and Moon gap are compressed. Real scale restores size/distance ratios, not an actual-date sky. Faint fill light reveals the night-side shape.';
+    'Model caveats: the eight planets and the Moon stand where they really are on the date shown (to about a degree); dwarf planets and asteroids are placed for illustration; spherical worlds, time that can run fast, procedural surfaces. Earth coastlines use Natural Earth data. Moon craters and weather are not live or mapped observations. Sun size is 1/5 in the default view and 1/10 in the overview (so the inner planets stay visible), where orbits also run at 1/5 speed; orbit gaps and Moon gap are compressed. Real scale restores true size and distance ratios. Faint fill light reveals the night-side shape.';
   aimCamera(s, body);
   $('view-caption').textContent =
     s.feature === 'moons' && sysMoons.length
@@ -2410,8 +2412,8 @@ function paintExplore() {
         ? `${s.world} · a moon of ${body.data.parent} · drag to look around · illustrative colours`
         : s.feature === 'orbit'
           ? s.world === 'Sun'
-            ? 'The Sun and eight planets · schematic view, not current positions'
-            : `${s.world} orbits the Sun · schematic Solar System view; not current positions`
+            ? `The Sun and eight planets as they stand on ${dateWord(solarDate())} · ${real() ? 'true sizes and distances' : 'distances squeezed to fit'}`
+            : `${s.world} orbits the Sun · ${DWARF_OR_SMALL.has(s.world) ? 'placed for illustration' : `where it really is on ${dateWord(solarDate())}`} · ${real() ? 'true sizes and distances' : 'distances squeezed to fit'}`
           : s.world === 'Earth'
             ? 'Drag to look around · gold line: Earth’s tilted spin axis · day/night comes from sunlight'
             : s.world === 'Moon'
