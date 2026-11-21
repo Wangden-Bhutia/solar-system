@@ -21,11 +21,11 @@ test('every loaded relative module is present and packaged; no runtime CDN depen
   assert.ok(seen.has('land.js'));
   assert.ok(seen.has('experiments.js'));
 });
-test('26 voice texts, assets and manifest entries agree exactly', () => {
+test('103 voice texts (cards, labs, the adventure and the stories), assets and manifest entries agree exactly', () => {
   const source = JSON.parse(fs.readFileSync('voice/lines.json'));
   const manifest = JSON.parse(fs.readFileSync('voice/manifest.json'));
   assert.deepEqual(source, LINES);
-  assert.equal(Object.keys(source).length, 26);
+  assert.equal(Object.keys(source).length, 103);
   for (const [id, text] of Object.entries(source)) {
     assert.equal(manifest[id].text, text);
     assert.ok(manifest[id].dur > 0);

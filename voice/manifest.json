@@ -128,5 +128,390 @@
   "hash": "03a19985a6b3",
   "dur": 6.02,
   "text": "Tap a world to discover a fact. Tap Adventure whenever you want our trip again."
+ },
+ "tour_earth": {
+  "hash": "d5ee9d64200b",
+  "dur": 11.8,
+  "text": "Earth, our home. Earth is 12,756 kilometres wide at the equator. Hold on: each stop from here takes you much farther out."
+ },
+ "tour_inner": {
+  "hash": "f1c58a34ef77",
+  "dur": 18.56,
+  "text": "The inner planets. Earth circles the Sun 1 astronomical unit away: 149,597,870,700 metres. Sunlight takes about 8 minutes 19 seconds to reach us."
+ },
+ "tour_planets": {
+  "hash": "6b9e1dc988d9",
+  "dur": 13.93,
+  "text": "All eight planets. Neptune, the farthest planet, orbits 30.07 astronomical units from the Sun on average. Sunlight takes about 4 hours 10 minutes to get there."
+ },
+ "tour_heliosphere": {
+  "hash": "283614c381c7",
+  "dur": 21.29,
+  "text": "The edge of the solar wind. The Sun’s wind blows a bubble, the heliosphere. Voyager 1 crossed its edge in 2012 at 121.6 astronomical units, Voyager 2 in 2018 at about 119 astronomical units."
+ },
+ "tour_oort": {
+  "hash": "0d39dc5dfc5f",
+  "dur": 20.1,
+  "text": "The Oort cloud. A vast shell of icy bodies is thought to start 2,000 to 5,000 astronomical units from the Sun and end 10,000 to 100,000 astronomical units out. It has never been seen directly; long-period comets are thought to come from it."
+ },
+ "tour_proxima": {
+  "hash": "2f98af659eb3",
+  "dur": 12.74,
+  "text": "The nearest stars. The nearest star to our Solar System is Proxima Centauri, about 4.25 light-years away: its light takes more than four years to reach us."
+ },
+ "tour_bubble": {
+  "hash": "6e6a5b6fbbc6",
+  "dur": 12.48,
+  "text": "The Local Bubble. The Sun sits inside a hollow about 1,000 light-years wide, blown by supernovae that began exploding about 14 million years ago."
+ },
+ "tour_arm": {
+  "hash": "0476b4981c32",
+  "dur": 13.16,
+  "text": "Our spiral arm. The Sun lies in the Local Arm, a short arm of the Milky Way mapped by radio telescopes measuring the distances of young, star-forming regions."
+ },
+ "tour_milkyway": {
+  "hash": "2b832b838fca",
+  "dur": 14.12,
+  "text": "The Milky Way. Our galaxy is about 100,000 light-years across. The Sun is about 27,000 light-years from Sagittarius A-star, the black hole at its centre."
+ },
+ "tour_localgroup": {
+  "hash": "041baecb89e2",
+  "dur": 9.58,
+  "text": "The Local Group. The Andromeda Galaxy, the nearest major galaxy to ours, is about 2.5 million light-years away."
+ },
+ "tour_laniakea": {
+  "hash": "6e42d6a16466",
+  "dur": 12.57,
+  "text": "Laniakea. The Milky Way is on the outskirts of Laniakea, a supercluster about 500 million light-years across with some 100,000 galaxies."
+ },
+ "tour_lookback": {
+  "hash": "ab54a01356eb",
+  "dur": 16.43,
+  "text": "Looking back in time. Light takes time to reach us, so far away is long ago. Light from galaxies now about 5.5 billion light-years away set out 4.6 billion years ago, as the Sun was forming."
+ },
+ "tour_edge": {
+  "hash": "409fd99986a3",
+  "dur": 17.88,
+  "text": "The observable universe. Everything we could ever have seen: light has had 13.787 billion years to travel, and the space it crossed has grown, so the edge is now about 46 billion light-years away in every direction."
+ },
+ "jr_scale_0": {
+  "hash": "3dd117c78a12",
+  "dur": 9.41,
+  "text": "Our star. The Sun is about 1.39 million km wide. You could line up 109 Earths across it."
+ },
+ "jr_scale_1": {
+  "hash": "dbe6077c9c01",
+  "dur": 7.81,
+  "text": "Sunlight’s trip to Earth. Sunlight crosses about 150 million km of space to reach us."
+ },
+ "jr_scale_2": {
+  "hash": "b7180e0bbece",
+  "dur": 8.28,
+  "text": "To the edge of the planets. Neptune is the farthest planet, about 30 times farther from the Sun than Earth."
+ },
+ "jr_scale_3": {
+  "hash": "d930e0be94da",
+  "dur": 7.0,
+  "text": "Shrink it all down. Now shrink the Sun to a football and walk the planets out. How far would you walk?"
+ },
+ "jr_seasons_0": {
+  "hash": "2e9e74fb03c5",
+  "dur": 12.25,
+  "text": "A tilted spinning top. Earth spins around an axis tilted about 23.4 degrees. As it orbits, that axis keeps pointing the same way in space."
+ },
+ "jr_seasons_1": {
+  "hash": "51918131dce4",
+  "dur": 5.87,
+  "text": "Closer means warmer? Many people think summer comes when Earth is nearer the Sun."
+ },
+ "jr_seasons_2": {
+  "hash": "49050a01bcfd",
+  "dur": 7.36,
+  "text": "Test it yourself. Move Earth around the Sun and watch daylight change. Then take the tilt away."
+ },
+ "jr_seasons_3": {
+  "hash": "d93c3585df00",
+  "dur": 25.34,
+  "text": "Seasons on Mars. Mars is tilted about 25 degrees, close to Earth’s, so it has seasons too. Its year is 687 days, so each season lasts about twice as long. Its orbit is egg-shaped, so its seasons are not equal: the southern summer lasts 154 Martian days, the northern summer 178."
+ },
+ "jr_moon_0": {
+  "hash": "53aa27bcc0ef",
+  "dur": 7.91,
+  "text": "Our Moon. The Moon makes no light of its own. It reflects sunlight, and the same side always faces Earth."
+ },
+ "jr_moon_1": {
+  "hash": "9b224bda9586",
+  "dur": 5.29,
+  "text": "Phases. Move the Moon around Earth and see why its shape seems to change."
+ },
+ "jr_moon_2": {
+  "hash": "56d9be4ec68b",
+  "dur": 5.74,
+  "text": "Eclipses. Line up the Sun, Earth and Moon, and see when an eclipse can happen."
+ },
+ "jr_moon_3": {
+  "hash": "179d9f903309",
+  "dur": 9.22,
+  "text": "Tides. The Moon’s pull, with help from the Sun’s, stretches Earth’s oceans. Watch the high tides grow and shrink twice a month."
+ },
+ "jr_mars_0": {
+  "hash": "3bf662d3e5c0",
+  "dur": 6.1,
+  "text": "The red planet. Mars looks red because iron in its rocks and dust has rusted."
+ },
+ "jr_mars_1": {
+  "hash": "c94178f4332c",
+  "dur": 4.29,
+  "text": "A Martian day. Mars spins once in a little over a day."
+ },
+ "jr_mars_2": {
+  "hash": "81a71c9b8ab9",
+  "dur": 5.91,
+  "text": "Lighter on Mars. Mars is about half as wide as Earth and has much less mass."
+ },
+ "jr_mars_3": {
+  "hash": "f87e9dd9ea99",
+  "dur": 20.12,
+  "text": "Calling a rover. Radio signals travel at the speed of light. Between Earth and Mars they take from about 3 to 22 minutes each way, depending on where the planets are. So no one can steer a rover live: each day’s plan is sent ahead, and the rover steers round rocks on its own."
+ },
+ "jr_giants_0": {
+  "hash": "ddc4d6820b52",
+  "dur": 9.28,
+  "text": "The biggest planet. Jupiter is about 143,000 kilometres wide, 11 times wider than Earth."
+ },
+ "jr_giants_1": {
+  "hash": "d3f6af555985",
+  "dur": 9.34,
+  "text": "A storm bigger than Earth. The Great Red Spot is a storm wider than Earth. People have watched it for more than 300 years."
+ },
+ "jr_giants_2": {
+  "hash": "9790c5b715a0",
+  "dur": 13.8,
+  "text": "Rings of ice. Saturn’s rings are billions of chunks of ice and rock, from grains to boulders the size of a building. In the main rings they are typically only about 10 metres thick."
+ },
+ "jr_giants_3": {
+  "hash": "b7eabfdbf493",
+  "dur": 19.75,
+  "text": "Oceans under the ice. Under Europa’s icy shell, scientists believe there is a saltwater ocean with about twice as much water as all of Earth’s oceans. Saturn’s small moon Enceladus sprays its own hidden ocean into space through cracks in its ice."
+ },
+ "jr_giants_4": {
+  "hash": "6230586a4331",
+  "dur": 16.47,
+  "text": "Lakes of methane. Titan, Saturn’s biggest moon, has a thick atmosphere, mostly nitrogen, and lakes and seas of liquid methane and ethane. It is the only place besides Earth known to have liquid on its surface."
+ },
+ "jr_small_0": {
+  "hash": "87ceee4e9743",
+  "dur": 13.63,
+  "text": "The asteroid belt. Between Mars and Jupiter, between 1.1 and 1.9 million asteroids bigger than 1 kilometres circle the Sun, with millions of smaller ones."
+ },
+ "jr_small_1": {
+  "hash": "868f9ae5e1f1",
+  "dur": 13.1,
+  "text": "Ceres. Ceres, 939 kilometres across, is the largest object in the asteroid belt. In 2006 it was named a dwarf planet."
+ },
+ "jr_small_2": {
+  "hash": "b9bf55de9624",
+  "dur": 15.89,
+  "text": "Pluto. Pluto is about 2,377 kilometres across, smaller than our Moon. From its discovery in 1930 until 2006 it was called the ninth planet."
+ },
+ "jr_small_3": {
+  "hash": "fc84c1bd2a80",
+  "dur": 12.97,
+  "text": "Pluto and Charon. Charon is half the size of Pluto: no other moon is so big next to the world it circles. The same sides of Pluto and Charon always face each other."
+ },
+ "jr_small_4": {
+  "hash": "c398de920d10",
+  "dur": 20.89,
+  "text": "The Kuiper belt and comets. Beyond Neptune, from about 30 to 50 times Earth’s distance from the Sun, lies the Kuiper belt: millions of small, icy objects. Some are nudged towards the Sun and become comets; most long-period comets come from the far more distant Oort cloud."
+ },
+ "in_earth": {
+  "hash": "91862297b078",
+  "dur": 6.78,
+  "text": "Earth, about 12,700 kilometres across. We will drop onto a single tree."
+ },
+ "in_land": {
+  "hash": "fb3d5f4e1730",
+  "dur": 4.95,
+  "text": "Countryside from space: dark forest and a patchwork of fields."
+ },
+ "in_town": {
+  "hash": "3c6889f59011",
+  "dur": 4.33,
+  "text": "A small town among its fields, with a park at its heart."
+ },
+ "in_park": {
+  "hash": "1943a515ecd3",
+  "dur": 5.85,
+  "text": "In the park, one round tree stands alone on the lawn. That is where we are going."
+ },
+ "in_tree": {
+  "hash": "120f5512308f",
+  "dur": 5.65,
+  "text": "A linden tree from above. Its crown carries tens of thousands of leaves."
+ },
+ "in_leaf": {
+  "hash": "966a55d3c2fe",
+  "dur": 7.15,
+  "text": "One linden leaf, about 8 centimetres wide: a small factory that makes food from sunlight."
+ },
+ "in_veins": {
+  "hash": "68ce3a3faa1b",
+  "dur": 8.3,
+  "text": "Veins carry water in and sugar out. Between them the leaf is only about 0.2 millimetres thick."
+ },
+ "in_surface": {
+  "hash": "3bc633dc3753",
+  "dur": 9.9,
+  "text": "Tiny mouths called stomata, about 0.03 millimetres long, open in the leaf’s skin to let carbon dioxide in."
+ },
+ "in_cell": {
+  "hash": "578e42515f66",
+  "dur": 11.43,
+  "text": "A leaf cell, about 0.05 millimetres long, is packed with green chloroplasts. They turn light, water and carbon dioxide into sugar."
+ },
+ "in_nucleus": {
+  "hash": "fed795aa5923",
+  "dur": 5.27,
+  "text": "The nucleus, about 6 micrometres wide, keeps the cell’s DNA."
+ },
+ "in_spools": {
+  "hash": "0afa8c686d72",
+  "dur": 8.79,
+  "text": "DNA winds round tiny protein spools. Stretched out, the DNA in one cell would be about 2 metres long."
+ },
+ "in_helix": {
+  "hash": "095d61c1d3d9",
+  "dur": 7.77,
+  "text": "DNA is a twisted ladder, 2 nanometres wide. The order of its rungs spells the genetic code."
+ },
+ "in_atom": {
+  "hash": "cf2db32452e6",
+  "dur": 14.89,
+  "text": "One carbon atom, about 0.3 nanometres across: a cloud of electrons around a nucleus 60,000 times smaller. Not long ago it floated in the air as carbon dioxide."
+ },
+ "in_inner": {
+  "hash": "eb635c0a07ed",
+  "dur": 10.62,
+  "text": "The bright cloud is carbon’s two innermost electrons; the faint haze is its other four. A cloud shows where an electron is likely to be."
+ },
+ "in_core": {
+  "hash": "93bf10872053",
+  "dur": 11.5,
+  "text": "Six protons and six neutrons, pressed together. If the atom were a stadium, the nucleus would be a pea in the middle, yet it holds almost all the atom’s mass."
+ },
+ "in_proton": {
+  "hash": "e90aa2752067",
+  "dur": 14.91,
+  "text": "Three quarks, held by gluons: the strong force, the strongest there is. Pairs of quarks flicker in and out. Almost all of a proton’s mass is the energy of this motion, not the quarks themselves."
+ },
+ "in_end": {
+  "hash": "469815dcbc49",
+  "dur": 18.18,
+  "text": "As far as we can see. No experiment has ever found a size for a quark. They look like points. Below this, our instruments cannot reach. Any picture would be a guess. Like the edge of the universe, this is the edge of what we can see, not the edge of what there is."
+ },
+ "cy_bang": {
+  "hash": "6955b7ba5ae7",
+  "dur": 7.32,
+  "text": "The Big Bang. Space, time and everything in it begin expanding from an extremely hot, dense state."
+ },
+ "cy_cmb": {
+  "hash": "9ddfdd1f9ad4",
+  "dur": 17.56,
+  "text": "Light breaks free. The universe cools enough for the first atoms to form, and the glowing fog clears: light can travel freely. That light is still arriving, stretched by the expanding universe into microwaves: the cosmic microwave background."
+ },
+ "cy_galaxy": {
+  "hash": "bbb15b2d81a6",
+  "dur": 25.75,
+  "text": "The earliest galaxy seen so far. MoM zed 14, the earliest galaxy we have seen so far, as it was about 280 million years after the Big Bang. On its way to us, its light has been stretched about 15 times, out of visible light and into infrared. That is why we needed the James Webb Space Telescope, which sees in infrared, to find it."
+ },
+ "cy_disk": {
+  "hash": "5962a9a112d0",
+  "dur": 14.34,
+  "text": "The Milky Way’s disk forms. After a smaller galaxy, Gaia Enceladus, crashes into the young Milky Way, its gas settles into a flat, spinning disk: the disk where the Sun will one day form."
+ },
+ "cy_sun": {
+  "hash": "9bc1da5331ef",
+  "dur": 14.83,
+  "text": "The Sun and its planets form. A cloud of gas and dust collapses into the young Sun. The leftovers form a spinning disk, where dust clumps together and grows, over millions of years, into the planets."
+ },
+ "cy_earth": {
+  "hash": "fafc0fe88230",
+  "dur": 6.66,
+  "text": "Earth and the Moon. Earth is struck by a Mars-sized world; the debris becomes the Moon."
+ },
+ "cy_life": {
+  "hash": "6769484da8ec",
+  "dur": 5.97,
+  "text": "The first life. The earliest evidence of living things: tiny single cells."
+ },
+ "cy_oxygen": {
+  "hash": "78c697e0437c",
+  "dur": 11.14,
+  "text": "Oxygen fills the air. Photosynthesising microbes release so much oxygen that the whole atmosphere changes: the Great Oxidation Event."
+ },
+ "cy_cells": {
+  "hash": "5ceaa45321fc",
+  "dur": 7.72,
+  "text": "Complex cells. Cells with a nucleus appear: the kind every animal, plant and fungus is built from."
+ },
+ "cy_animals": {
+  "hash": "43bd7e59a3b5",
+  "dur": 19.86,
+  "text": "The first animals. Simple animals appear in the sea. The oldest we can see as fossils, from about 570 million years ago, are soft creatures on the sea floor, like leaf-shaped Charnia and ribbed Dickinsonia, which glided over the microbial mats, feeding."
+ },
+ "cy_cambrian": {
+  "hash": "5d79aa84ac41",
+  "dur": 22.78,
+  "text": "The Cambrian explosion. Within about 20 million years, most of the main animal groups appear: animals with eyes, shells, spines and jointed legs, and the first big hunters, like Anomalocaris. Among them is Pikaia, a small swimmer with a stiff rod down its back: an early relative of the animals with backbones."
+ },
+ "cy_plants": {
+  "hash": "364ac6e9f0e6",
+  "dur": 9.64,
+  "text": "Plants reach the land. The first plants creep out of the water onto damp ground: small and low, like today’s liverworts and mosses."
+ },
+ "cy_ashore": {
+  "hash": "a01c49fae62a",
+  "dur": 19.75,
+  "text": "Fish crawl onto land. Fish with sturdy, bony fins, like Tiktaalik, push through the shallows and prop themselves up at the water’s edge. Fish like these gave rise to the first four-legged animals: the ancestors of every amphibian, reptile, bird and mammal, including us."
+ },
+ "cy_dinos": {
+  "hash": "07844315c13d",
+  "dur": 15.66,
+  "text": "The dinosaurs. The first dinosaurs appear and go on to rule the land for over 150 million years. Our own ancestors, the first small mammals, appear soon after, living in the dinosaurs’ shadow."
+ },
+ "cy_impact": {
+  "hash": "64e2ddccc420",
+  "dur": 22.42,
+  "text": "The asteroid. An asteroid about 10 kilometres wide strikes what is now Mexico, leaving a crater 180 kilometres wide. Soot and dust darken the sky for years; about three-quarters of all species die out, including every dinosaur except the birds. Mammals inherit the world."
+ },
+ "cy_ancestors": {
+  "hash": "645ea80ad6fc",
+  "dur": 19.88,
+  "text": "Our ancestors walk upright. By now, our ancestors in Africa walk on two legs. At Laetoli, in Tanzania, two or three of them crossed fresh volcanic ash and left footprints that survive today. The first stone tools come about 350,000 years later."
+ },
+ "cy_humans": {
+  "hash": "58d61ffc347f",
+  "dur": 4.82,
+  "text": "Our species. Anatomically modern humans appear in Africa."
+ },
+ "cy_farming": {
+  "hash": "d24291354406",
+  "dur": 13.57,
+  "text": "Farming. People begin growing crops and keeping animals, first in the Middle East and then, separately, in China, the Americas, New Guinea and Africa. Villages grow up beside the fields."
+ },
+ "cy_writing": {
+  "hash": "fdeace508dab",
+  "dur": 22.87,
+  "text": "The first writing. In Mesopotamia, in cities like Uruk, people begin to write, drawing signs and pressing number marks into wet clay. The first writing keeps accounts of grain, sheep and beer. Egypt begins writing at about the same time. Everything anyone has ever written down fits into these last 12 seconds."
+ },
+ "cy_modern": {
+  "hash": "950672ce04f7",
+  "dur": 21.03,
+  "text": "Telescopes to spaceflight. The telescope, in 1609, modern science, electricity, aeroplanes, computers and spaceflight: all in the last second or so of the year. The first photograph of the whole Earth from space was taken about an eighth of a second ago."
+ },
+ "cy_now": {
+  "hash": "50e529f090ec",
+  "dur": 14.49,
+  "text": "Now. Midnight on the 31st of December: now. All of written history fits into the last 12 seconds of this year, and all of it happened on one small planet: a mote in a sunbeam. You are here."
  }
 }

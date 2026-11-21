@@ -89,26 +89,28 @@ test('no autoplay; gesture creates/resumes context, clips requested and sequenti
   await p.say('b');
   assert.equal(played, 4);
 });
-test('missing clip and unsupported AudioContext fall back to male speech, mute requests nothing', async () => {
-  const { p } = setup();
+test('missing clip: no device speech, the player reports offline; no Web Audio: retry; mute requests nothing', async () => {
+  const { p, states } = setup(); // the fake device speech stays installed, to catch any use of it
   p.unlock();
   globalThis.fetch = async () => ({ ok: false });
   await p.say('a');
-  assert.equal(spoken, 1);
+  assert.equal(spoken, 0, 'never the device voice');
   assert.equal(played, 0);
+  assert.equal(states.at(-1), 'offline');
   const before = requests;
   await p.say('b', true);
   assert.equal(requests, before);
-  assert.equal(spoken, 1);
   globalThis.AudioContext = class {
     constructor() {
       throw Error('unsupported');
     }
   };
-  const q = createVoicePlayer({ lines: { a: 'Earth' }, durations: { a: 1 } });
+  const seen = [];
+  const q = createVoicePlayer({ lines: { a: 'Earth' }, durations: { a: 1 }, onState: v => seen.push(v) });
   q.unlock();
   await q.say('a');
-  assert.equal(spoken, 2);
+  assert.equal(spoken, 0);
+  assert.equal(seen.at(-1), 'retry');
 });
 test('cancelling a playing sequence resolves immediately and never starts next clip', async () => {
   const { p } = setup();

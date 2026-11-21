@@ -40,6 +40,8 @@ import * as hudMod from '../hud.js';
 import * as labelsMod from '../labels.js';
 import * as zoomlogMod from '../zoomlog.js';
 import * as tourMod from '../tour.js';
+import * as narratorMod from '../narrator.js';
+import * as narrationMod from '../narration.js';
 const space = {
   log: [],
   dims: [],
@@ -198,6 +200,8 @@ async function setup(width = 390, height = 844, stored = {}) {
     './insights.js': insights,
     './voice/lines.js': lines,
     './voice-player.js': audio,
+    './narrator.js': narratorMod,
+    './narration.js': narrationMod,
     './adventure.js': { initAdventure: () => ({ sync() {} }), moonFrameMul: () => 1 },
     './sources.js': sourcesData,
     './sources-page.js': sourcesPage,
@@ -759,7 +763,7 @@ test('every world has a working card, contextual action, facts and external sour
     );
   }
 });
-test('keyboard access: menu world picker opens a card; voice is opt-in per tap and remembered', async () => {
+test('keyboard access: menu world picker opens a card; voice is opt-in per tap (a ♫ tap switches Voice on) and remembered', async () => {
   const a = await setup();
   assert.equal(a.$('world').querySelectorAll('option').length, 10 + DWARFS.length + MOONS.length);
   a.$('world').value = 'Neptune';
@@ -773,12 +777,15 @@ test('keyboard access: menu world picker opens a card; voice is opt-in per tap a
   assert.equal(a.played[0], 'lab_earth');
   a.$('sound').checked = false;
   a.$('sound').onchange();
+  assert.equal(JSON.parse(a.storage['solar.kids.v1']).muted, true, 'Voice off in the menu is remembered');
   const count = a.played.length;
-  a.$('listen').onclick();
-  assert.equal(a.played.length, count);
-  assert.equal(JSON.parse(a.storage['solar.kids.v1']).muted, true);
   a.lab.go({ view: 'try', experiment: 'phases' });
-  assert.equal(a.played.length, count);
+  assert.equal(a.played.length, count, 'nothing plays on its own');
+  // A ♫ tap is the opt-in everywhere (the stories cover the menu), so it switches Voice back on and reads.
+  a.$('listen').onclick();
+  assert.equal(a.played.length, count + 1);
+  assert.equal(a.$('sound').checked, true);
+  assert.equal(JSON.parse(a.storage['solar.kids.v1']).muted, false);
   assert.ok(a.stops > 0);
 });
 test('landscape: sheet docks right, scene keeps the left region', async () => {

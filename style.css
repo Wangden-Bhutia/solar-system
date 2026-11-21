@@ -641,3 +641,10 @@ body.solar-clock .hud{max-width:calc(100vw - 200px)} /* room for the date chip b
 .explore .ex-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0}
 .explore .ex-list .ex-tiles .experiment-card.ex-tile{margin:0;min-height:52px;display:flex;align-items:center}
 .explore .ex-next-all{display:block;margin-top:6px;font-size:12.5px;font-weight:600;color:#f3c887}
+/* One narrator: ♫ in the tour, the journey inward and the cosmic year reads each step aloud; lit while on. */
+.cyear .cy-spacer{display:flex;justify-content:flex-end}
+.cyear .cy-voice{width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(10,14,26,.42);color:#e8e6da;font-size:17px;cursor:pointer;display:grid;place-items:center;padding:0}
+.cyear .cy-voice.on,.tour-voice.on{background:#f3c887;color:#10131c;border-color:#f3c887}
+.cyear .cy-vnote{margin:6px 0 0;min-height:0;font-size:12px;color:#9fb0c9;text-align:center}
+.cyear .cy-vnote:empty{display:none}
+.tour-vnote{margin:4px 0 0;font-size:12px;color:#9fb0c9}.tour-vnote:empty{display:none}
