@@ -1407,6 +1407,19 @@ test('Explore: one hub for everything guided; the top bar is Tour, Explore and t
     a.document.querySelector('#cyear .cy-x').onclick();
     assert.equal(a.app.hooks.covered, false, 'and runs again when it closes');
     a.$('journeys').onclick();
+    const ex = a.$('explore');
+    assert.deepEqual(
+      [...ex.querySelectorAll('#ex-labs button')].map(b => b.dataset.lab),
+      ['seasons', 'phases', 'eclipses', 'tides', 'scale', 'compare'],
+      'every lab is one tap from Explore'
+    );
+    const next = ex.querySelector('#ex-next');
+    assert.equal(next.hidden, false, 'Explore opens on the next thing in the sky');
+    assert.match(next.textContent, /Next in the sky · (tonight|tomorrow|in \d+ days)/);
+    next.onclick();
+    assert.equal(a.document.getElementById('comingup').hidden, false, 'and it opens Coming up');
+    a.document.querySelector('#comingup .ex-x').onclick();
+    a.$('journeys').onclick();
     list.querySelector('[data-act="comingup"]').onclick();
     const cu = a.document.getElementById('comingup');
     assert.equal(cu.hidden, false, 'Coming up opens from Explore');

@@ -2,11 +2,13 @@
 // and, where the arrangement in space explains it, the Solar System on that date. Opened from Explore.
 import { upcoming, nextToJoin, isNew, joinsAt } from './sky-events.js';
 
+// A lab that explains the event: eclipses → the eclipse lab (why most new and full Moons miss).
+const LAB_OF = { Eclipse: 'eclipses' };
 const fmtDay = ms =>
   new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-export function createComingUp({ onLook, onSpace, onOpen, onClose, now = () => Date.now() } = {}) {
+export function createComingUp({ onLook, onSpace, onLab, onOpen, onClose, now = () => Date.now() } = {}) {
   let root = null,
     list = null;
   function build() {
@@ -32,6 +34,7 @@ export function createComingUp({ onLook, onSpace, onOpen, onClose, now = () => D
       if (!ev) return;
       close(true);
       if (b.dataset.do === 'look') onLook?.(ev);
+      else if (b.dataset.do === 'lab') onLab?.(LAB_OF[ev.kind]);
       else onSpace?.(ev);
     };
   }
@@ -40,7 +43,7 @@ export function createComingUp({ onLook, onSpace, onOpen, onClose, now = () => D
       evs = upcoming(t),
       nx = nextToJoin(t);
     const card = e =>
-      `<article class="cu-ev"><p class="cu-when"><span>${esc(fmtDay(e.look?.at ?? e.at))}${isNew(e, t) ? ' <b class="cu-new">New</b>' : ''}</span><em>${esc(e.kind)}</em></p><h3>${esc(e.title)}</h3><p class="cu-txt">${esc(e.text)}</p><p class="cu-look">${esc(e.when)}</p><div class="cu-acts">${e.look ? `<button type="button" data-ev="${e.id}" data-do="look">Where to look</button>` : ''}${e.space ? `<button type="button" data-ev="${e.id}" data-do="space">See it in space ↗</button>` : ''}<a class="cu-remind" href="ics/${e.id}.ics" aria-label="Remind me: add ${esc(e.title)} to your calendar">🔔 Remind me</a></div></article>`;
+      `<article class="cu-ev"><p class="cu-when"><span>${esc(fmtDay(e.look?.at ?? e.at))}${isNew(e, t) ? ' <b class="cu-new">New</b>' : ''}</span><em>${esc(e.kind)}</em></p><h3>${esc(e.title)}</h3><p class="cu-txt">${esc(e.text)}</p><p class="cu-look">${esc(e.when)}</p><div class="cu-acts">${e.look ? `<button type="button" data-ev="${e.id}" data-do="look">Where to look</button>` : ''}${e.space ? `<button type="button" data-ev="${e.id}" data-do="space">See it in space ↗</button>` : ''}${LAB_OF[e.kind] ? `<button type="button" class="cu-lab" data-ev="${e.id}" data-do="lab">${/solar/.test(e.id) ? 'Why most new Moons miss' : 'Why most full Moons miss'} →</button>` : ''}<a class="cu-remind" href="ics/${e.id}.ics" aria-label="Remind me: add ${esc(e.title)} to your calendar">🔔 Remind me</a></div></article>`;
     list.innerHTML =
       (evs.length ? evs.map(card).join('') : '<p class="cu-txt">Nothing in the next six months is listed yet.</p>') +
       (nx

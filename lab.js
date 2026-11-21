@@ -110,6 +110,7 @@ import { createFinale } from './finale.js';
 import { mountOffline } from './offline-ui.js';
 import { createMySky } from './my-sky.js';
 import { createComingUp } from './coming-up.js';
+import { upcoming as skyUpcoming } from './sky-events.js';
 import { createCosmicYear } from './cosmic-year.js';
 import { createInward } from './inward.js';
 import { RUNGS as INWARD_STEPS } from './inward-data.js';
@@ -1885,6 +1886,37 @@ const finale = createFinale({
 // ---- Explore: one panel for everything guided except the tour (it has its own chip in the top bar), opened at any scale. It is its own panel, not the
 // planet card (that card belongs to the Solar System, and the zoom puts the view back at other scales). Journeys glide
 // home first; the tour and the adventure find Earth themselves; the cosmic year and My sky open over wherever you are.
+const EXPLORE_LABS = [
+  ['seasons', 'Seasons'],
+  ['phases', 'Moon phases'],
+  ['eclipses', 'Eclipses'],
+  ['tides', 'Tides'],
+  ['scale', 'Scale and light'],
+  ['compare', 'Compare worlds']
+];
+// Open a lab in the Solar System (from Explore's chips or a Coming up card): glide home first if we are out at another scale.
+function openLab(id) {
+  const open = () =>
+    id === 'compare'
+      ? go({ view: 'compare', experiment: null, compareA: 'Earth', compareB: 'Moon', sheet: 'half' })
+      : go({ view: 'try', experiment: id, sheet: 'half' });
+  if (levelOf(state.value.view) !== 'solar') goLevel('solar', open);
+  else open();
+}
+// Explore's first line: the next thing to see in the sky (Coming up's first event), with how many days away it is.
+const istDay = ms => Math.floor((ms + 5.5 * 3600000) / 86400000);
+function paintNext() {
+  const b = exploreEl?.querySelector('#ex-next');
+  if (!b) return;
+  const e = skyUpcoming()[0];
+  b.hidden = !e;
+  if (!e) return;
+  const at = e.look?.at ?? e.at,
+    d = istDay(at) - istDay(Date.now()),
+    away = d <= 0 ? 'tonight' : d === 1 ? 'tomorrow' : `in ${d} days`;
+  b.innerHTML = `<span class="ex-next-k">Next in the sky · ${away}</span><strong>${e.title}</strong><span class="ex-next-w">${e.when}</span>`;
+  b.setAttribute('aria-label', `Next in the sky, ${away}: ${e.title}, ${e.when}. Open Coming up`);
+}
 let exploreEl = null,
   explorePausedTour = false;
 function buildExplore() {
@@ -1896,7 +1928,7 @@ function buildExplore() {
   exploreEl.setAttribute('aria-label', 'Explore');
   exploreEl.tabIndex = -1;
   exploreEl.innerHTML =
-    '<div class="ex-head"><div><p class="ex-kicker">Explore</p><h2 class="ex-title">Where to go</h2><p class="ex-fact">Guided trips, down into an atom, the sky over you tonight, and the whole story of time.</p></div><button type="button" class="ex-x" aria-label="Close Explore"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="journey-list" class="ex-list"></div>';
+    '<div class="ex-head"><div><p class="ex-kicker">Explore</p><h2 class="ex-title">Where to go</h2><p class="ex-fact">Guided trips, down into an atom, the sky over you tonight, and the whole story of time.</p></div><button type="button" class="ex-x" aria-label="Close Explore"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><button type="button" id="ex-next" class="ex-next" hidden></button><p class="xsec">Labs</p><div id="ex-labs" class="ex-labs" role="list"></div><div id="journey-list" class="ex-list"></div>';
   document.body.appendChild(exploreEl);
   const card = (act, title, blurb, cls = '') =>
     `<button type="button" class="experiment-card${cls}" data-act="${act}"${act.startsWith('journey:') ? ` data-journey="${act.slice(8)}"` : ''}><strong>${title}</strong><span>${blurb}</span>${act.startsWith('journey:') ? '<em class="ex-done" hidden>✓ Done</em>' : ''}</button>`;
@@ -1911,6 +1943,20 @@ function buildExplore() {
     card('comingup', 'Coming up', 'Eclipses, meteor showers and planets lining up in the next six months.') +
     '<p class="xsec">For young explorers</p>' +
     card('adventure', 'The Earth and Moon adventure', 'A short spoken story: find Earth, then fly to the Moon.');
+  // Labs: one row of chips, so the hands-on experiments are found without opening a planet's card first.
+  const labsEl = exploreEl.querySelector('#ex-labs');
+  labsEl.innerHTML = EXPLORE_LABS.map(
+    ([id, label]) => `<div role="listitem"><button type="button" class="ex-lab" data-lab="${id}">${label}</button></div>`
+  ).join('');
+  for (const b of labsEl.querySelectorAll('button'))
+    b.onclick = () => {
+      closeExplore(true);
+      openLab(b.dataset.lab);
+    };
+  exploreEl.querySelector('#ex-next').onclick = () => {
+    closeExplore(true);
+    openComingUp();
+  };
   const startJourney = id => {
     const start = () => go({ view: 'journey', journey: id, step: 0, experiment: null });
     if (levelOf(state.value.view) !== 'solar') goLevel('solar', start);
@@ -1953,6 +1999,7 @@ function buildExplore() {
 }
 function openExplore() {
   if (!exploreEl) buildExplore();
+  paintNext();
   tourUi?.remember?.(); /* found their own way in: the first-visit tour hint has done its job */
   $('settings').open = false;
   dismissHint();
@@ -3189,7 +3236,8 @@ const comingUp = createComingUp({
     const lk = ev.look;
     openMySky({ at: lk.at, look: lk.radiant ? { radiant: lk.radiant, say: lk.say } : { body: lk.body, say: `${ev.title}: ${ev.when}.` } });
   },
-  onSpace: ev => showInSpace(ev.at, ev.space)
+  onSpace: ev => showInSpace(ev.at, ev.space),
+  onLab: id => openLab(id)
 });
 function openComingUp() {
   $('settings').open = false;
