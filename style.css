@@ -620,3 +620,17 @@ body.touring .hud .hud-time,body.story .hud .hud-time{display:none}
 #gtime .gchip.paused #gchip-text::after{content:' · paused';color:#f3c887}
 body.explore-on #gtime,body.mysky-on #gtime{visibility:hidden}
 body.solar-clock .hud{max-width:calc(100vw - 200px)} /* room for the date chip beside the readout */
+/* Explore: the next sky event first, then one row of lab chips, then compact cards. */
+.explore .ex-next{display:block;width:100%;box-sizing:border-box;margin:10px 0 2px;padding:11px 14px;border-radius:14px;border:1px solid rgba(243,200,135,.4);background:linear-gradient(135deg,rgba(243,200,135,.16),rgba(27,44,69,.55));color:inherit;font:inherit;text-align:left;cursor:pointer}
+.explore .ex-next[hidden]{display:none}
+.explore .ex-next span,.explore .ex-next strong{display:block}
+.explore .ex-next-k{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#f3c887}
+.explore .ex-next strong{margin-top:3px;font-size:16px}
+.explore .ex-next-w{margin-top:2px;font-size:13px;color:rgba(240,236,228,.75)}
+.explore .ex-labs{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.explore .ex-labs::-webkit-scrollbar{display:none}
+.explore .ex-lab{flex:none;min-height:38px;padding:0 14px;border-radius:19px;border:1px solid rgba(255,255,255,.16);background:rgba(27,44,69,.55);color:#e8e6da;font:600 13px system-ui,sans-serif;white-space:nowrap;cursor:pointer}
+.explore .ex-list .experiment-card{padding:10px 13px;margin:6px 0}
+.explore .ex-list .experiment-card span{font-size:12.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.comingup .cu-acts .cu-lab{border-color:rgba(194,223,243,.35);color:#c2dff3}
+@media (min-width:600px){.explore .ex-labs{flex-wrap:wrap;overflow:visible}} /* room to show every lab: no hidden scroll on wide screens */
