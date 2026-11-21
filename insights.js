@@ -16,7 +16,8 @@ export const INSIGHTS = {
     features: [
       ['overview', 'Our home'],
       ['day', 'Day & night'],
-      ['moon', 'Visit the Moon']
+      ['moon', 'Visit the Moon'],
+      ['mysky', 'Tonight’s sky']
     ],
     deeper:
       'Earth’s axis is tilted about 23.4° from the perpendicular to its orbital plane. As Earth goes around the Sun, the axis keeps nearly the same direction in space. A hemisphere tilted toward the Sun gets higher midday sunlight and longer days. Summer in the north coincides with winter in the south: distance from the Sun cannot explain that opposition.',

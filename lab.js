@@ -1911,13 +1911,19 @@ function paintNext() {
   const b = exploreEl?.querySelector('#ex-next');
   if (!b) return;
   const e = skyUpcoming()[0];
-  b.hidden = !e;
-  if (!e) return;
+  b.hidden = false;
+  if (!e) {
+    // nothing listed in the next six months: the strip stays, as the way into Coming up
+    b.innerHTML =
+      '<span class="ex-next-k">Coming up</span><strong>Sky events from India</strong><span class="ex-next-all">See the list ›</span>';
+    b.setAttribute('aria-label', 'Coming up: sky events from India. Open the list');
+    return;
+  }
   const at = e.look?.at ?? e.at,
     d = istDay(at) - istDay(Date.now()),
     away = d <= 0 ? 'tonight' : d === 1 ? 'tomorrow' : `in ${d} days`;
-  b.innerHTML = `<span class="ex-next-k">Next in the sky · ${away}</span><strong>${e.title}</strong><span class="ex-next-w">${e.when}</span>`;
-  b.setAttribute('aria-label', `Next in the sky, ${away}: ${e.title}, ${e.when}. Open Coming up`);
+  b.innerHTML = `<span class="ex-next-k">Next in the sky · ${away}</span><strong>${e.title}</strong><span class="ex-next-w">${e.when}</span><span class="ex-next-all">See all coming up ›</span>`;
+  b.setAttribute('aria-label', `Next in the sky, ${away}: ${e.title}, ${e.when}. See all coming up`);
 }
 let exploreEl = null,
   explorePausedTour = false;
@@ -1930,19 +1936,21 @@ function buildExplore() {
   exploreEl.setAttribute('aria-label', 'Explore');
   exploreEl.tabIndex = -1;
   exploreEl.innerHTML =
-    '<div class="ex-head"><div><p class="ex-kicker">Explore</p><h2 class="ex-title">Where to go</h2><p class="ex-fact">Guided trips, down into an atom, the sky over you tonight, and the whole story of time.</p></div><button type="button" class="ex-x" aria-label="Close Explore"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><button type="button" id="ex-next" class="ex-next" hidden></button><p class="xsec">Labs</p><div id="ex-labs" class="ex-labs" role="list"></div><div id="journey-list" class="ex-list"></div>';
+    '<div class="ex-head"><div><p class="ex-kicker">Explore</p><h2 class="ex-title">Where to go</h2></div><button type="button" class="ex-x" aria-label="Close Explore"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><button type="button" id="ex-next" class="ex-next" hidden></button><p class="xsec">Labs</p><div id="ex-labs" class="ex-labs" role="list"></div><div id="journey-list" class="ex-list"></div>';
   document.body.appendChild(exploreEl);
-  const card = (act, title, blurb, cls = '') =>
-    `<button type="button" class="experiment-card${cls}" data-act="${act}"${act.startsWith('journey:') ? ` data-journey="${act.slice(8)}"` : ''}><strong>${title}</strong><span>${blurb}</span>${act.startsWith('journey:') ? '<em class="ex-done" hidden>✓ Done</em>' : ''}</button>`;
+  // meta (a journey's stop count) sits on the title line, so a one-line description never hides it; tiles have no description.
+  const card = (act, title, blurb, cls = '', meta = '') =>
+    `<button type="button" class="experiment-card${cls}" data-act="${act}"${act.startsWith('journey:') ? ` data-journey="${act.slice(8)}"` : ''}><strong>${title}${meta ? `<small class="ex-meta">${meta}</small>` : ''}</strong>${blurb ? `<span>${blurb}</span>` : ''}${act.startsWith('journey:') ? '<em class="ex-done" hidden>✓ Done</em>' : ''}</button>`;
   const list = exploreEl.querySelector('#journey-list');
   list.innerHTML =
     '<p class="xsec">Journeys</p>' +
-    card('inward', 'Journey inward', `From Earth down into an atom in a leaf, a power of ten at a time. · ${INWARD_STEPS.length} stops`) +
-    JOURNEYS.map(x => card('journey:' + x.id, x.title, `${x.blurb} · ${x.steps.length} stops`)).join('') +
+    card('inward', 'Journey inward', 'From Earth down into an atom in a leaf.', '', `${INWARD_STEPS.length} stops`) +
+    JOURNEYS.map(x => card('journey:' + x.id, x.title, x.blurb, '', `${x.steps.length} stops`)).join('') +
     '<p class="xsec">Time and the sky</p>' +
-    card('cyear', 'The cosmic year', '13.8 billion years squeezed into one calendar year.') +
-    card('mysky', 'My sky', 'What is up over you tonight, and where to look.') +
-    card('comingup', 'Coming up', 'Eclipses, meteor showers and planets lining up in the next six months.') +
+    '<div class="ex-tiles">' +
+    card('cyear', 'The cosmic year', '', ' ex-tile') +
+    card('mysky', 'My sky tonight', '', ' ex-tile') +
+    '</div>' +
     '<p class="xsec">For young explorers</p>' +
     card('adventure', 'The Earth and Moon adventure', 'A short spoken story: find Earth, then fly to the Moon.');
   // Labs: one row of chips, so the hands-on experiments are found without opening a planet's card first.
@@ -2349,6 +2357,7 @@ function paintExplore() {
   for (const b of $('features').querySelectorAll('button'))
     b.onclick = () => {
       if (b.dataset.feature === 'moon') return go({ world: 'Moon', feature: 'overview' });
+      if (b.dataset.feature === 'mysky') return openMySky();
       if (b.dataset.feature === 'phases') return go({ view: 'try', experiment: 'phases' });
       if (b.dataset.feature === 'parent') return go({ world: body.data.parent, feature: 'moons' });
       go({ feature: b.dataset.feature, sheet: state.value.sheet });

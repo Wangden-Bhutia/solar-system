@@ -869,7 +869,7 @@ test('journeys: list → steps that move the camera; a question gates Next; labs
   assert.equal(a.sheet, 'closed', 'not inside the planet card');
   assert.equal(
     a.$('journey-list').querySelectorAll('button').length,
-    11,
+    10,
     'six Solar System journeys, the cosmic year, the journey inward, My sky and the adventure (the tour has its own chip)'
   );
   a.$('journey-list').querySelector('[data-journey="scale"]').onclick();
@@ -1389,7 +1389,6 @@ test('Explore: one hub for everything guided; the top bar is Tour, Explore and t
       'journey:small',
       'cyear',
       'mysky',
-      'comingup',
       'adventure'
     ],
     'the journey inward leads the Journeys; the tour keeps its own chip'
@@ -1419,8 +1418,10 @@ test('Explore: one hub for everything guided; the top bar is Tour, Explore and t
     next.onclick();
     assert.equal(a.document.getElementById('comingup').hidden, false, 'and it opens Coming up');
     a.document.querySelector('#comingup .ex-x').onclick();
+    assert.equal(list.querySelector('[data-act="comingup"]'), null, 'no separate Coming up card: the Next strip is the way in');
+    assert.match(next.textContent, /See all coming up/);
     a.$('journeys').onclick();
-    list.querySelector('[data-act="comingup"]').onclick();
+    ex.querySelector('#ex-next').onclick();
     const cu = a.document.getElementById('comingup');
     assert.equal(cu.hidden, false, 'Coming up opens from Explore');
     assert.equal(a.$('explore').hidden, true, 'in place of Explore');
